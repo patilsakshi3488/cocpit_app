@@ -286,6 +286,11 @@ class ProfileService {
     return response.statusCode == 201;
   }
 
+  Future<bool> updateSkill(String skillId) async {
+    final response = await ApiClient.put("/profile/skills/$skillId");
+    return response.statusCode == 200;
+  }
+
   Future<bool> deleteSkill(String skillId) async {
     final response = await ApiClient.delete("/profile/skills/$skillId");
     return response.statusCode == 200;

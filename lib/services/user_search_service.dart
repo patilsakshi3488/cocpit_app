@@ -8,8 +8,13 @@ class UserSearchService {
     required String query,
     required String token,
   }) async {
+    // // Manually construct the full URL since we are using http.get directly, not ApiClient
+    // final uri = Uri.parse(
+    //   "${ApiConfig.baseUrl}${ApiConfig.searchUsers}?q=${Uri.encodeQueryComponent(query)}",
+    // );
+    // Manually construct the full URL since we are using http.get directly, not ApiClient
     final uri = Uri.parse(
-      "${ApiConfig.searchUsers}?q=${Uri.encodeQueryComponent(query)}",
+      "${ApiConfig.baseUrl}${ApiConfig.searchUsers}?q=${Uri.encodeQueryComponent(query)}",
     );
 
     final response = await http.get(

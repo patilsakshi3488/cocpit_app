@@ -82,6 +82,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       description: e.description ?? "",
     )).toList();
 
+    // Map List<String> skills to List<Skill>
+    final List<Skill> mappedSkills = user!.skills.map((s) => Skill(
+      id: s, // Using name as ID for read-only display
+      name: s,
+    )).toList();
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SingleChildScrollView(
@@ -146,8 +152,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ),
             _buildDivider(theme),
             ProfileSkillsSection(
-              skills: user!.skills,
+              // skills: user!.skills,
+              skills: mappedSkills,
               onAddSkill: () {},
+
               isReadOnly: true,
             ),
             const SizedBox(height: 80),

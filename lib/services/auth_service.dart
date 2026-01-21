@@ -1,10 +1,10 @@
 import 'dart:convert';
 
+import 'package:cocpit_app/config/api_config.dart';
 import 'package:cocpit_app/services/api_client.dart';
 import 'package:cocpit_app/services/secure_storage.dart';
 
 class AuthService {
-  static const String baseUrl = "http://192.168.1.2:5000/api";
 
   /// ================= REGISTER =================
   /// Website behavior:
@@ -18,7 +18,7 @@ class AuthService {
     required String accountType,
   }) async {
     final response = await ApiClient.post(
-      "/auth/register",
+      ApiConfig.register,
       body: {
         "fullName": fullName,
         "email": email.toLowerCase().trim(),
@@ -40,7 +40,7 @@ class AuthService {
     required String password,
   }) async {
     final response = await ApiClient.post(
-      "/auth/login",
+      ApiConfig.login,
       body: {
         "email": email.toLowerCase().trim(),
         "password": password,
@@ -69,7 +69,7 @@ class AuthService {
   /// - After login
   /// - Profile refresh
   Future<Map<String, dynamic>?> getMe() async {
-    final response = await ApiClient.get("/auth/me");
+    final response = await ApiClient.get(ApiConfig.me);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -90,7 +90,7 @@ class AuthService {
     if (refreshToken == null) return null;
 
     final response = await ApiClient.post(
-      "/auth/refresh",
+      ApiConfig.refresh,
       body: {
         "refreshToken": refreshToken,
       },
@@ -119,7 +119,7 @@ class AuthService {
   /// - Clear secure storage
   Future<void> logout() async {
     try {
-      await ApiClient.post("/auth/logout");
+      await ApiClient.post(ApiConfig.logout);
     } catch (_) {
       // Even if backend fails, we still logout locally
     }

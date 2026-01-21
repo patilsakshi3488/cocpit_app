@@ -22,6 +22,7 @@ import 'profile_suggested_section.dart';
 import 'profile_modals.dart';
 import 'photo_action_helper.dart';
 
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -52,8 +53,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Experience> experiences = [];
   List<Education> educations = [];
-  List<String> skills = [];
+  // List<String> skills = [];
 
+  //changes by juless
+
+  List<Skill> skills = [];
   bool isOverviewSelected = true;
 
   @override
@@ -83,10 +87,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .map((e) => Education.fromJson(e))
           .toList();
 
-      final List<String> fetchedSkills = (data['skills'] as List? ?? [])
-          .map((s) => s is Map ? s['name'].toString() : s.toString())
-          .toList();
+      // final List<String> fetchedSkills = (data['skills'] as List? ?? [])
+      //     .map((s) => s is Map ? s['name'].toString() : s.toString())
+      //     .toList();
 
+      //changes by juless
+      final List<Skill> fetchedSkills = (data['skills'] as List? ?? [])
+          .map((s) => Skill.fromJson(s))
+          .toList();
       setState(() {
         profile = data;
 

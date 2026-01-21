@@ -1,23 +1,22 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiConfig {
   // ======================
   // ENVIRONMENT SETTINGS
   // ======================
 
-  static const String protocol = "http";
-  static const String host = "192.168.1.13"; // ✅ REQUIRED for emulator
-  static const String port = "5000";
-
-  static const String baseUrl = "$protocol://$host:$port/api";
+  static String get baseUrl => dotenv.env['API_BASE_URL'] ?? "http://192.168.1.13:5000/api";
 
   // ======================
-  // AUTH ENDPOINTS
+  // AUTH ENDPOINTS (PATHS)
   // ======================
+  // These are relative paths to be used with ApiClient
 
-  static const String login = "$baseUrl/auth/login";
-  static const String register = "$baseUrl/auth/register";
-  static const String refresh = "$baseUrl/auth/refresh";
-  static const String logout = "$baseUrl/auth/logout";
-  static const String me = "$baseUrl/auth/me";
-  static const String searchUsers = "$baseUrl/users/search";
-  static const String getPublicProfile = "$baseUrl/users";
+  static String get login => "/auth/login";
+  static String get register => "/auth/register";
+  static String get refresh => "/auth/refresh";
+  static String get logout => "/auth/logout";
+  static String get me => "/auth/me";
+  static String get searchUsers => "/users/search";
+  static String get getPublicProfile => "/users";
 }

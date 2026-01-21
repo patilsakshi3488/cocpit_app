@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:cocpit_app/config/api_config.dart';
 
 import 'auth_service.dart';
 import 'secure_storage.dart';
 
 class ApiClient {
-  static const String baseUrl = "http://192.168.1.13:5000/api";
 
   // ===================== GET =====================
   static Future<http.Response> get(String path) async {
     return _authorizedRequest(
-          (headers) => http.get(Uri.parse("$baseUrl$path"), headers: headers),
+          (headers) => http.get(Uri.parse("${ApiConfig.baseUrl}$path"), headers: headers),
     );
   }
 
@@ -22,7 +22,7 @@ class ApiClient {
       }) async {
     return _authorizedRequest(
           (headers) => http.post(
-        Uri.parse("$baseUrl$path"),
+        Uri.parse("${ApiConfig.baseUrl}$path"),
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ),
@@ -36,7 +36,7 @@ class ApiClient {
       }) async {
     return _authorizedRequest(
           (headers) => http.put(
-        Uri.parse("$baseUrl$path"),
+        Uri.parse("${ApiConfig.baseUrl}$path"),
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ),
@@ -46,7 +46,7 @@ class ApiClient {
   // ===================== DELETE =====================
   static Future<http.Response> delete(String path) async {
     return _authorizedRequest(
-          (headers) => http.delete(Uri.parse("$baseUrl$path"), headers: headers),
+          (headers) => http.delete(Uri.parse("${ApiConfig.baseUrl}$path"), headers: headers),
     );
   }
 
@@ -59,7 +59,7 @@ class ApiClient {
       }) async {
     Future<http.Response> send(String token) async {
       final request =
-      http.MultipartRequest("POST", Uri.parse("$baseUrl$path"));
+      http.MultipartRequest("POST", Uri.parse("${ApiConfig.baseUrl}$path"));
 
       request.headers["Authorization"] = "Bearer $token";
 

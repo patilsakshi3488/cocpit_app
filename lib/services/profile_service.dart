@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cocpit_app/services/api_client.dart';
+import 'package:flutter/cupertino.dart';
 
 class ProfileService {
 
@@ -304,12 +305,27 @@ class ProfileService {
   /// =========================
   Future<int> getConnectionCount(String userId) async {
     try {
-      final response = await ApiClient.get("/users/$userId/connections/count");
+      final response =
+      await ApiClient.get("/users/$userId/connections/count");
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['connection_count'] ?? 0;
+
+        final rawCount = data['connection_count'];
+
+        final count = rawCount is int
+            ? rawCount
+            : int.tryParse(rawCount.toString()) ?? 0;
+
+        debugPrint("Parsed connection count = $count");
+
+        return count;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("getConnectionCount error: $e");
+    }
+
     return 0;
   }
+
 }

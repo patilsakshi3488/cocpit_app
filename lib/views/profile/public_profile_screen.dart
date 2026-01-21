@@ -13,8 +13,12 @@ import 'profile_models.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
+  // final int connectionCount;
 
-  const PublicProfileScreen({super.key, required this.userId});
+
+  const PublicProfileScreen({super.key,
+    required this.userId
+  });
 
   @override
   State<PublicProfileScreen> createState() => _PublicProfileScreenState();
@@ -23,6 +27,7 @@ class PublicProfileScreen extends StatefulWidget {
 class _PublicProfileScreenState extends State<PublicProfileScreen> {
   PublicUser? user;
   bool isLoading = true;
+  int connectionCount = 0;
 
   @override
   void initState() {
@@ -135,7 +140,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               },
             ),
             _buildDivider(theme),
-            const ProfileStats(),
+            ProfileStats(connectionCount: connectionCount),
             _buildDivider(theme),
             ProfileAboutSection(about: user!.about ?? "No about information provided."),
             _buildDivider(theme),

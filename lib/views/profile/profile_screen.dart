@@ -80,12 +80,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final user = data['user'] ?? {};
 
-      // Fetch connection count if user ID is available
       int count = 0;
-      if (user['user_id'] != null) {
-        count = await profileService.getConnectionCount(user['user_id'].toString());
-      } else if (user['id'] != null) {
-        count = await profileService.getConnectionCount(user['id'].toString());
+
+      if (user['id'] != null) {
+        count = await profileService.getConnectionCount(
+          user['id'].toString(),
+        );
+        debugPrint(
+          "Connection count: $count, userId: ${user['id']}, user: $user",
+        );
+
       }
 
       // ✅ MOVING PARSING OUTSIDE SETSTATE (FIX FOR MAIN THREAD OVERLOAD)
@@ -104,15 +108,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Determine latest education
       String? educationStr;
-      if (user['latest_education'] != null && user['latest_education'] is Map) {
-         // If backend provides it directly
-         final edu = user['latest_education'];
-         educationStr = "${edu['school_name'] ?? ''} ${edu['degree'] != null ? '• ${edu['degree']}' : ''}";
-      } else if (fetchedEducations.isNotEmpty) {
-        // Fallback to first in list (assuming ordered)
+
+      if (fetchedEducations.isNotEmpty) {
         final edu = fetchedEducations.first;
-        educationStr = "${edu.school} ${edu.degree.isNotEmpty ? '• ${edu.degree}' : ''}";
+
+        educationStr =
+        "${edu.school}";
       }
+
 
 
       setState(() {
@@ -366,7 +369,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 latestEducation: latestEducation,
               ),
               _divider(theme),
-              const RepaintBoundary(child: ProfileStats()),
+              RepaintBoundary(child: ProfileStats(    connectionCount: connectionCount,)),
               _divider(theme),
               ProfileLivingResume(
                 isOverviewSelected: isOverviewSelected,

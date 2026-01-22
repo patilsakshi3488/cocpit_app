@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
+import '../../services/api_client.dart';
 import '../../models/search_user.dart';
 import '../../services/user_search_service.dart';
 import '../../services/secure_storage.dart';
-import '../profile/profile_screen.dart';
-import '../profile/public_profile_screen.dart';
 
-import 'chat_screen.dart';
-import 'notification_screen.dart';
-import '../bottom_navigation.dart';
+import '../profile/public_profile_screen.dart';
 import 'create_career_moment_screen.dart';
 import 'career_moment_viewer.dart';
 import '../../widgets/app_top_bar.dart';
+import '../../widgets/poll_widget.dart';
+import '../bottom_navigation.dart';
+import '../../main.dart'; // To access routeObserver
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,89 +24,213 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool showTop = false;
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver, RouteAware {
+  // =========================
+  // 🔥 FEED STATE
+  // =========================
+  List<Map<String, dynamic>> feedPosts = [];
+  bool isFeedLoading = false;
+  bool hasMoreFeeds = true;
+
+  String? cursorCreatedAt;
+  String? cursorPostId;
+
+  final ScrollController _scrollController = ScrollController();
+
+  // =========================
+  // 🔍 SEARCH STATE
+  // =========================
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
 
-  // 🔽 SEARCH STATE
   List<SearchUser> _searchResults = [];
   bool _isSearching = false;
   bool _hasError = false;
   String _lastQuery = "";
   Timer? _debounce;
 
+  // =========================
+  // 📌 STORIES DATA
+  // =========================
+  final List<Map<String, dynamic>> careerMoments = [
+    {
+      'name': 'You',
+      'isMine': true,
+      'stories': [
+        {
+          'image': 'lib/images/profile.png',
+          'text': 'Just sharing my latest update with my close friends!',
+          'time': '1m ago',
+        },
+      ],
+      'profile': 'lib/images/profile.png',
+      'image': 'lib/images/profile.png',
+    },
+    {
+      'name': 'Mike Torres',
+      'isMine': false,
+      'image': 'lib/images/story1.png',
+      'profile': 'lib/images/profile2.jpg',
+      'stories': [
+        {
+          'image': 'lib/images/story1.png',
+          'text': 'Sneak peek of our latest feature!',
+          'time': '6h ago',
+        },
+      ],
+    },
+    {
+      'name': 'James Wilson',
+      'isMine': false,
+      'image': 'lib/images/story4.png',
+      'profile': 'lib/images/profile3.jpg',
+      'stories': [
+        {
+          'image': 'lib/images/story4.png',
+          'text': 'Insights from our data analysis project.',
+          'time': '8h ago',
+        },
+      ],
+    },
+  ];
+
+  // =========================
+  // 🔁 INIT
+  // =========================
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
     _searchFocusNode.addListener(_onSearchFocusChange);
-  }
 
-  void _onSearchFocusChange() {
-    if (_searchFocusNode.hasFocus) {
-      if (_searchController.text.isNotEmpty) {
-        _showSearchOverlay();
+    fetchAllFeeds();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 300) {
+        fetchAllFeeds();
       }
-    } else {
-      // Delay removal to allow tap events on overlay to register
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && !_searchFocusNode.hasFocus) {
-          _closeOverlay();
-        }
-      });
-    }
-  }
-
-  void _closeOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-  }
-
-  /// Reset all search-related state to defaults
-  void resetSearchState() {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _closeOverlay();
-    setState(() {
-      _searchController.clear();
-      _searchResults = [];
-      _isSearching = false;
-      _hasError = false;
-      _lastQuery = "";
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    // User returned to HomeScreen from another page
+    debugPrint("🔄 Returning to HomeScreen, refreshing feed...");
+    cursorCreatedAt = null;
+    cursorPostId = null;
+    hasMoreFeeds = true;
+    feedPosts.clear();
+    fetchAllFeeds();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      cursorCreatedAt = null;
+      cursorPostId = null;
+      hasMoreFeeds = true;
+      feedPosts.clear();
+      fetchAllFeeds();
+    }
+  }
+
+  // =========================
+  // 🔥 FETCH FEEDS (API)
+  // =========================
+  Future<void> fetchAllFeeds() async {
+    if (isFeedLoading || !hasMoreFeeds) return;
+
+    if (mounted) setState(() => isFeedLoading = true);
+
+    try {
+      String url = "/All/feeds";
+      final params = <String>[];
+
+      if (cursorCreatedAt != null) {
+        params.add("cursorCreatedAt=${Uri.encodeComponent(cursorCreatedAt!)}");
+      }
+      if (cursorPostId != null) {
+        params.add("cursorPostId=${Uri.encodeComponent(cursorPostId!)}");
+      }
+
+      if (params.isNotEmpty) {
+        url += "?${params.join("&")}";
+      }
+
+      final response = await ApiClient.get(url);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+
+        final List<Map<String, dynamic>> newPosts =
+            (decoded["posts"] as List? ?? [])
+                .whereType<Map<String, dynamic>>()
+                .toList();
+
+        if (mounted) {
+          setState(() {
+            feedPosts.addAll(newPosts);
+          });
+        }
+
+        final nextCursor = decoded["nextCursor"];
+        if (nextCursor == null) {
+          hasMoreFeeds = false;
+        } else {
+          cursorCreatedAt = nextCursor["cursorCreatedAt"];
+          cursorPostId = nextCursor["cursorPostId"];
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ Feed API error: $e");
+    }
+
+    if (mounted) setState(() => isFeedLoading = false);
+  }
+
+  // =========================
+  // 🔍 SEARCH LOGIC
+  // =========================
+  void _onSearchFocusChange() {
+    if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
+      _showSearchOverlay();
+    } else {
+      Future.delayed(const Duration(milliseconds: 200), _closeOverlay);
+    }
   }
 
   void _onSearchChanged(String query) {
     _lastQuery = query;
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce?.cancel();
 
     if (query.trim().isEmpty) {
+      _closeOverlay();
       setState(() {
         _searchResults = [];
         _isSearching = false;
         _hasError = false;
       });
-      _closeOverlay();
       return;
     }
 
     _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (query.trim().isEmpty) return;
-
-      if (mounted) {
-        setState(() {
-          _isSearching = true;
-          _hasError = false;
-        });
-        _showSearchOverlay();
-      }
-
       try {
+        setState(() => _isSearching = true);
         final token = await AppSecureStorage.getAccessToken();
         if (token == null) return;
 
@@ -119,51 +246,57 @@ class _HomeScreenState extends State<HomeScreen> {
           });
           _showSearchOverlay();
         }
-      } catch (e) {
-        debugPrint("❌ Search API Error: $e");
-        if (mounted) {
-          setState(() {
-            _isSearching = false;
-            _hasError = true;
-          });
-          _showSearchOverlay();
-        }
+      } catch (_) {
+        setState(() {
+          _hasError = true;
+          _isSearching = false;
+        });
+        _showSearchOverlay();
       }
     });
   }
 
   void _showSearchOverlay() {
-    // MANDATORY: Remove existing before inserting new
     _closeOverlay();
-    
     _overlayEntry = _createSearchOverlayEntry();
-    if (_overlayEntry != null) {
-      Overlay.of(context).insert(_overlayEntry!);
-    }
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _closeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   OverlayEntry _createSearchOverlayEntry() {
     final theme = Theme.of(context);
-    final query = _searchController.text.trim();
 
     return OverlayEntry(
-      builder: (context) => Positioned(
+      builder: (_) => Positioned(
         width: MediaQuery.of(context).size.width - 32,
         child: CompositedTransformFollower(
           link: _layerLink,
           offset: const Offset(0, 50),
-          showWhenUnlinked: false,
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(16),
-            color: theme.colorScheme.surface,
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 400),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: theme.dividerColor),
-              ),
-              child: _buildOverlayContent(theme, query),
+            child: ListView(
+              shrinkWrap: true,
+              children: _searchResults
+                  .map(
+                    (u) => ListTile(
+                      title: Text(u.fullName),
+                      onTap: () {
+                        _closeOverlay();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PublicProfileScreen(userId: u.id),
+                          ),
+                        );
+                      },
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ),
@@ -171,197 +304,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildOverlayContent(ThemeData theme, String query) {
-    if (_isSearching) {
-      return const Padding(
-        padding: EdgeInsets.all(32.0),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_hasError) {
-      return _messageItem(
-        theme, 
-        "Something went wrong. Try again", 
-        Icons.error_outline,
-        onAction: () => _onSearchChanged(query),
-        actionLabel: "Retry",
-      );
-    }
-
-    if (query.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    if (_searchResults.isEmpty) {
-      return _messageItem(theme, "User not found for '$query'", Icons.search_off);
-    }
-
-    return _buildResultsList(theme);
-  }
-
-  Widget _buildResultsList(ThemeData theme) {
-    return ListView(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      children: _searchResults.take(10).map((user) => _userTile(theme, user)).toList(),
-    );
-  }
-
-  Widget _userTile(ThemeData theme, SearchUser user) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: (user.avatarUrl != null && user.avatarUrl!.isNotEmpty)
-            ? NetworkImage(user.avatarUrl!)
-            : const AssetImage('lib/images/profile.png') as ImageProvider,
-      ),
-      title: Text(user.fullName, style: theme.textTheme.titleSmall),
-      subtitle: (user.headline ?? user.accountType) != null 
-          ? Text(user.headline ?? user.accountType!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall) 
-          : null,
-      onTap: () async {
-        // 1️⃣ VALIDATION: Block if ID is invalid
-        if (user.id.isEmpty) {
-          debugPrint("❌ UUID Safety: Invalid User ID blocked.");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Profile unavailable"))
-          );
-          return;
-        }
-
-        // 2️⃣ OVERLAY + NAVIGATION SEQUENCE
-        _closeOverlay();
-        FocusScope.of(context).unfocus();
-        
-        // Ensure UI thread clears before navigation
-        await Future.microtask(() {});
-
-        if (mounted) {
-          // 3️⃣ STATE RESET ON RETURN
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: user.id)),
-          ).then((_) {
-            if (mounted) resetSearchState();
-          });
-        }
-      },
-    );
-  }
-
-  Widget _messageItem(ThemeData theme, String text, IconData icon, {VoidCallback? onAction, String? actionLabel}) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: theme.textTheme.bodySmall?.color, size: 32),
-          const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
-          if (onAction != null && actionLabel != null) ...[
-            const SizedBox(height: 12),
-            TextButton(onPressed: onAction, child: Text(actionLabel)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // --- Static UI Data ---
-  final List<Map<String, dynamic>> careerMoments = [
-    {
-      'name': 'You',
-      'isMine': true,
-      'stories': [
-        {'image': 'lib/images/profile.png', 'text': 'Just sharing my latest update with my close friends!', 'time': '1m ago'},
-      ],
-      'profile': 'lib/images/profile.png',
-      'image': 'lib/images/profile.png',
-    },
-    {
-      'name': 'Mike Torres',
-      'isMine': false,
-      'image': 'lib/images/story1.png',
-      'profile': 'lib/images/profile2.jpg',
-      'stories': [
-        {'image': 'lib/images/story1.png', 'text': 'Sneak peek of our latest feature!', 'time': '6h ago'},
-      ],
-    },
-    {
-      'name': 'James Wilson',
-      'isMine': false,
-      'image': 'lib/images/story4.png',
-      'profile': 'lib/images/profile3.jpg',
-      'stories': [
-        {'image': 'lib/images/story4.png', 'text': 'Insights from our data analysis project.', 'time': '8h ago'},
-      ],
-    },
-  ];
-
-  final List<Map<String, dynamic>> _posts = [
-    {
-      'id': '1',
-      'name': 'Sarah Chen',
-      'title': 'UX Designer at Design Studio',
-      'time': '2h ago',
-      'text': "🎨 Just launched our new design system!",
-      'image': 'lib/images/post1.jpg',
-      'profile': 'lib/images/profile3.jpg',
-      'likes': 234,
-      'isLiked': false,
-      'isPrivate': false,
-      'comments_count': 47,
-      'shares': 12,
-    },
-    {
-      'id': '2',
-      'name': 'Sally Liang',
-      'title': 'Senior Financial Analyst',
-      'time': '1d ago',
-      'text': "Deep dive into data analysis trends for 2024.",
-      'image': null,
-      'profile': 'lib/images/profile4.jpg',
-      'likes': 1200,
-      'isLiked': false,
-      'isPrivate': false,
-      'comments_count': 15,
-      'shares': 8,
-    },
-    {
-      'id': 'suggested',
-      'type': 'suggested',
-    },
-  ];
-
-  final List<Map<String, dynamic>> suggestedUsers = [
-    {
-      'name': 'Sarah Williams',
-      'role': 'UX Designer',
-      'followers': '2.3k',
-      'profile': 'lib/images/profile3.jpg',
-      'isVerified': true,
-    },
-    {
-      'name': 'Michael Jordan',
-      'role': 'Software Engineer',
-      'followers': '1.8k',
-      'profile': 'lib/images/profile2.jpg',
-      'isVerified': false,
-    },
-  ];
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _overlayEntry?.remove();
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
+  // =========================
+  // 🖥 UI
+  // =========================
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppTopBar(
@@ -371,37 +320,261 @@ class _HomeScreenState extends State<HomeScreen> {
         onChanged: _onSearchChanged,
         layerLink: _layerLink,
       ),
-      body: ListView(
-        children: [
-          _storiesHeader(theme),
-          _careerMomentsBar(theme),
-          const SizedBox(height: 20),
-          _topRecentToggle(theme),
-          Divider(color: theme.dividerColor, height: 1),
-          ..._posts.map((post) {
-            if (post['type'] == 'suggested') {
-              return _suggestedForYouSection(theme);
-            }
-            return _postView(post, theme);
-          }),
-        ],
+      body: ListView.builder(
+        controller: _scrollController,
+        itemCount: feedPosts.length + 6,
+        itemBuilder: (context, index) {
+          if (index == 0) return _storiesHeader(theme);
+          if (index == 1) return _careerMomentsBar(theme);
+          if (index == 2) return const SizedBox(height: 20);
+          if (index == 3) return Divider(color: theme.dividerColor);
+          if (index == 4) return const SizedBox(height: 10);
+
+          final feedIndex = index - 5;
+          if (feedIndex >= feedPosts.length) {
+            return isFeedLoading
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox();
+          }
+
+          return _postViewFromApi(feedPosts[feedIndex], theme);
+        },
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 0),
     );
   }
 
-  Widget _storiesHeader(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  int asInt(dynamic value, {int defaultValue = 0}) {
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? defaultValue;
+    return defaultValue;
+  }
+
+  // Map<String, dynamic> normalizePoll(Map<String, dynamic> poll) {
+  //   final options = (poll["options"] as List? ?? [])
+  //       .map((o) => {
+  //             "option_id": asInt(o["option_id"]),
+  //             "option_text": o["option_text"] ?? "",
+  //             "vote_count": asInt(o["vote_count"]),
+  //           })
+  //       .toList();
+  //
+  //   return {
+  //     "poll_id": asInt(poll["poll_id"]),
+  //     "options": options,
+  //     "total_votes": asInt(poll["total_votes"]),
+  //     "user_vote": poll["user_vote"] == null ? null : asInt(poll["user_vote"]),
+  //     "is_active": poll["is_active"] == true,
+  //   };
+  // }
+
+  Map<String, dynamic> normalizePoll(Map<String, dynamic> poll) {
+    final options = (poll["options"] as List? ?? [])
+        .map(
+          (o) => {
+            "option_id": o["option_id"]?.toString() ?? "",
+            "option_text": o["option_text"] ?? "",
+            "vote_count": asInt(o["vote_count"]),
+          },
+        )
+        .toList();
+
+    return {
+      "poll_id": poll["poll_id"]?.toString() ?? "",
+      "options": options,
+      "user_vote": poll["user_vote"]?.toString(),
+      "is_active": poll["is_active"] == true,
+      "duration": poll["duration"] ?? "0",
+    };
+  }
+
+  // =========================
+  // 🧱 POST VIEW (LinkedIn Style - No Card)
+  // =========================
+  Widget _postViewFromApi(Map<String, dynamic> post, ThemeData theme) {
+    final List media = post["media"] as List? ?? [];
+    final pollData = post["poll"];
+    final poll = (pollData is Map && pollData["options"] != null)
+        ? normalizePoll(Map<String, dynamic>.from(pollData))
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      color: theme.cardColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Stories", style: theme.textTheme.titleLarge),
-          Text("View All", style: TextStyle(color: theme.primaryColor, fontSize: 14)),
+          _postHeader(post, theme),
+          if (post["content"] != null && post["content"].toString().isNotEmpty)
+            _postText(post, theme),
+          if (media.isNotEmpty) _postMedia(media),
+          if (poll != null)
+            PollWidget(
+              postId: post["post_id"]?.toString() ?? "",
+              poll: poll,
+              onPollUpdated: (updatedPoll) {
+                if (mounted) {
+                  setState(() {
+                    post["poll"] = updatedPoll;
+                  });
+                }
+              },
+            ),
+          _postStats(post, theme),
+          const Divider(height: 1),
+          _postActions(post, theme),
         ],
       ),
     );
   }
+
+  Widget _postHeader(Map<String, dynamic> post, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundImage: post["author_avatar"] != null
+                ? NetworkImage(post["author_avatar"])
+                : null,
+            child: post["author_avatar"] == null
+                ? Text(post["author_name"]?[0] ?? "?")
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  post["author_name"] ?? "",
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  post["category_name"] ?? "",
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.more_vert, color: theme.iconTheme.color),
+        ],
+      ),
+    );
+  }
+
+  Widget _postText(Map<String, dynamic> post, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Text(post["content"], style: theme.textTheme.bodyMedium),
+    );
+  }
+
+  Widget _postMedia(List media) {
+    final first = media.first;
+
+    if (first["media_type"] == "video") {
+      return Container(
+        height: 300,
+        margin: const EdgeInsets.only(top: 8),
+        color: Colors.black,
+        child: VideoPost(url: first["url"]),
+      );
+    }
+
+    // IMAGE
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      child: Image.network(
+        first["url"],
+        fit: BoxFit.cover,
+        width: double.infinity,
+      ),
+    );
+  }
+
+  Widget _postStats(Map<String, dynamic> post, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            "${post["like_count"] ?? 0} likes",
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _postActions(Map<String, dynamic> post, ThemeData theme) {
+    final isLiked = post["is_liked"] ?? false;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        GestureDetector(
+          onTap: () async {
+            final response = await ApiClient.post(
+              "/post/${post["post_id"]}/like",
+            );
+            if (response.statusCode == 200) {
+              final res = jsonDecode(response.body);
+              setState(() {
+                post["is_liked"] = res["liked"];
+                post["like_count"] = res["likeCount"];
+              });
+            }
+          },
+          child: _action(
+            isLiked ? Icons.favorite : Icons.favorite_border,
+            "Like",
+            color: isLiked ? Colors.red : null,
+          ),
+        ),
+        _action(Icons.chat_bubble_outline, "Comment"),
+        _action(Icons.share_outlined, "Share"),
+      ],
+    );
+  }
+
+  Widget _action(IconData icon, String label, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  // =========================
+  // 📌 STORIES
+  // =========================
+  Widget _storiesHeader(ThemeData theme) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text("Stories", style: theme.textTheme.titleLarge),
+        Text(
+          "View All",
+          style: TextStyle(color: theme.primaryColor, fontSize: 14),
+        ),
+      ],
+    ),
+  );
 
   Widget _careerMomentsBar(ThemeData theme) {
     double itemWidth = MediaQuery.of(context).size.width > 600 ? 150 : 120;
@@ -417,9 +590,22 @@ class _HomeScreenState extends State<HomeScreen> {
           return GestureDetector(
             onTap: () {
               if (m['isMine']) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateCareerMomentScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CreateCareerMomentScreen(),
+                  ),
+                );
               } else {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => CareerMomentViewer(users: careerMoments, initialUserIndex: index)));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CareerMomentViewer(
+                      users: careerMoments,
+                      initialUserIndex: index,
+                    ),
+                  ),
+                );
               }
             },
             child: Container(
@@ -427,7 +613,12 @@ class _HomeScreenState extends State<HomeScreen> {
               margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                image: !m['isMine'] ? DecorationImage(image: AssetImage(m['image']), fit: BoxFit.cover) : null,
+                image: !m['isMine']
+                    ? DecorationImage(
+                        image: AssetImage(m['image']),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
                 color: m['isMine'] ? theme.primaryColor : theme.cardColor,
               ),
               child: Stack(
@@ -439,22 +630,54 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: theme.colorScheme.onPrimary.withValues(alpha: 0.2), shape: BoxShape.circle),
-                            child: Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 30),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.onPrimary.withValues(
+                                alpha: 0.2,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              color: theme.colorScheme.onPrimary,
+                              size: 30,
+                            ),
                           ),
                           const SizedBox(height: 12),
-                          Text("Your Update", style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            "Your Update",
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   if (!m['isMine'])
                     Positioned(
-                      bottom: 8, left: 0, right: 0,
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
                       child: Column(
                         children: [
-                          CircleAvatar(radius: 18, backgroundColor: theme.primaryColor, child: CircleAvatar(radius: 16, backgroundImage: AssetImage(m['profile']))),
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: theme.primaryColor,
+                            child: CircleAvatar(
+                              radius: 16,
+                              backgroundImage: AssetImage(m['profile']),
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text(m['name'], style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Text(
+                            m['name'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -467,143 +690,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _topRecentToggle(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _togglePill("Top", showTop, theme, () => setState(() => showTop = true)),
-          const SizedBox(width: 12),
-          _togglePill("Recent", !showTop, theme, () => setState(() => showTop = false)),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.dispose();
+    _debounce?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+}
+
+class VideoPost extends StatefulWidget {
+  final String url;
+  const VideoPost({super.key, required this.url});
+
+  @override
+  State<VideoPost> createState() => _VideoPostState();
+}
+
+class _VideoPostState extends State<VideoPost> {
+  late VideoPlayerController _videoPlayerController;
+  ChewieController? _chewieController;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePlayer();
   }
 
-  Widget _togglePill(String text, bool selected, ThemeData theme, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(color: selected ? theme.primaryColor : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-        child: Text(text, style: TextStyle(color: selected ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.bold)),
-      ),
+  Future<void> _initializePlayer() async {
+    _videoPlayerController = VideoPlayerController.networkUrl(
+      Uri.parse(widget.url),
     );
-  }
+    await _videoPlayerController.initialize();
 
-  Widget _suggestedForYouSection(ThemeData theme) {
-    double cardWidth = MediaQuery.of(context).size.width > 600 ? 250 : 180;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text("Suggested for you", style: theme.textTheme.titleLarge),
-        ),
-        SizedBox(
-          height: 240,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: suggestedUsers.length,
-            itemBuilder: (context, index) {
-              final user = suggestedUsers[index];
-              return Container(
-                width: cardWidth,
-                margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.dividerColor),
-                ),
-                child: Column(
-                  children: [
-                    CircleAvatar(radius: 40, backgroundImage: AssetImage(user['profile'])),
-                    const SizedBox(height: 12),
-                    Text(user['name'], style: theme.textTheme.titleSmall, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(user['role'], style: theme.textTheme.bodySmall, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const Spacer(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.primaryColor,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text("Follow", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+    _chewieController = ChewieController(
+      videoPlayerController: _videoPlayerController,
+      autoPlay: false,
+      looping: false,
+      aspectRatio: _videoPlayerController.value.aspectRatio,
+      errorBuilder: (context, errorMessage) {
+        return Center(
+          child: Text(
+            errorMessage,
+            style: const TextStyle(color: Colors.white),
           ),
-        ),
-      ],
+        );
+      },
     );
+    if (mounted) setState(() {});
   }
 
-  Widget _postView(Map<String, dynamic> post, ThemeData theme) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(radius: 24, backgroundImage: AssetImage(post['profile'])),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(post['name'], style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                        Text(post['title'], style: theme.textTheme.bodySmall),
-                        Text(post['time'], style: theme.textTheme.bodySmall?.copyWith(fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(post['text'], style: theme.textTheme.bodyMedium),
-              if (post['image'] != null) ...[
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(post['image'], fit: BoxFit.cover, width: double.infinity, height: 200),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _postAction(Icons.favorite_border, post['likes'].toString(), theme),
-                  const SizedBox(width: 20),
-                  _postAction(Icons.chat_bubble_outline, post['comments_count'].toString(), theme),
-                  const Spacer(),
-                  Icon(Icons.bookmark_border, color: theme.iconTheme.color?.withValues(alpha: 0.6)),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Divider(color: theme.dividerColor, height: 1),
-      ],
-    );
+  @override
+  void dispose() {
+    _videoPlayerController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
   }
 
-  Widget _postAction(IconData icon, String count, ThemeData theme) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: theme.iconTheme.color?.withValues(alpha: 0.6)),
-        const SizedBox(width: 6),
-        Text(count, style: theme.textTheme.bodySmall),
-      ],
-    );
+  @override
+  Widget build(BuildContext context) {
+    return _chewieController != null &&
+            _chewieController!.videoPlayerController.value.isInitialized
+        ? Chewie(controller: _chewieController!)
+        : const Center(child: CircularProgressIndicator());
   }
 }

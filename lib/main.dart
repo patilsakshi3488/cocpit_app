@@ -14,6 +14,9 @@ import 'views/profile/profile_screen.dart';
 import 'views/feed/notification_screen.dart';
 import 'views/login/signin_screen.dart';
 
+// 🔥 GLOBAL ROUTE OBSERVER
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
@@ -36,10 +39,8 @@ class MyApp extends StatelessWidget {
             darkTheme: themeService.currentTheme == AppTheme.navy
                 ? themeService.navyTheme
                 : themeService.darkTheme,
-
-            // 🔥 IMPORTANT CHANGE
+            navigatorObservers: [routeObserver], // 🔥 ATTACH OBSERVER
             home: const AuthGate(),
-
             routes: {
               '/feed': (_) => const HomeScreen(),
               '/jobs': (_) => const JobsScreen(),
@@ -55,9 +56,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// =======================================================
-/// 🔐 AUTH GATE – REAL AUTO LOGIN (MATCHES WEBSITE)
-/// =======================================================
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -75,7 +73,6 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkAuthentication() async {
-    // 1️⃣ Check access token
     final accessToken = await AppSecureStorage.getAccessToken();
 
     if (accessToken == null || accessToken.isEmpty) {
@@ -83,7 +80,6 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    // 2️⃣ Validate session using /auth/me
     final me = await _authService.getMe();
 
     if (me != null) {
@@ -91,7 +87,6 @@ class _AuthGateState extends State<AuthGate> {
       return;
     }
 
-    // 3️⃣ Try refresh token
     final refreshed = await _authService.refreshAccessToken();
 
     if (refreshed != null) {

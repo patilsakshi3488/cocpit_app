@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 class ProfileStats extends StatelessWidget {
-  const ProfileStats({super.key});
+  final int connectionCount;
+
+  const ProfileStats({
+    super.key,
+     required this.connectionCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,11 +18,27 @@ class ProfileStats extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _statItem(context, "500+", "Connections"),
+          _statItem(
+            context,
+            connectionCount.toString()+"+"??"500+",
+            "connections",
+          ),
           Container(height: 40, width: 1, color: theme.dividerColor),
-          _statItem(context, "1,234", "Profile Views"),
+          _statItem(
+            context,
+            // connectionCount.toString()+"+"??"500+",
+            "1234+",
+            "Profile Views",
+          ),
           Container(height: 40, width: 1, color: theme.dividerColor),
-          _statItem(context, "87", "Posts"),
+          _statItem(
+            context,
+            // connectionCount.toString()+"+"??"500+",
+            "87+",
+            "Posts",
+          ),
+
+
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cocpit_app/services/api_client.dart';
+import 'package:flutter/cupertino.dart';
 
 class ProfileService {
 
@@ -130,6 +131,7 @@ class ProfileService {
     }
   }
 
+
   /// =========================
   /// 🖼️ UPLOAD / REPLACE AVATAR
   /// =========================
@@ -148,8 +150,8 @@ class ProfileService {
   /// =========================
   Future<bool> uploadCover(File image) async {
     final response = await ApiClient.multipart(
-      "/profile/cover",
-      fileField: "cover",
+      "/profile/avatar",
+      fileField: "avatar",
       file: image,
     );
 
@@ -298,4 +300,33 @@ class ProfileService {
     final response = await ApiClient.delete("/profile/skills/$skillId");
     return response.statusCode == 200;
   }
+
+  /// =========================
+  /// 🔗 CONNECTIONS
+  /// =========================
+  Future<int> getConnectionCount(String userId) async {
+    try {
+      final response =
+      await ApiClient.get("/users/$userId/connections/count");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final rawCount = data['connection_count'];
+
+        final count = rawCount is int
+            ? rawCount
+            : int.tryParse(rawCount.toString()) ?? 0;
+
+        debugPrint("Parsed connection count = $count");
+
+        return count;
+      }
+    } catch (e) {
+      debugPrint("getConnectionCount error: $e");
+    }
+
+    return 0;
+  }
+
 }

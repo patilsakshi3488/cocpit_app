@@ -21,7 +21,8 @@ import 'profile_posts_section.dart';
 import 'profile_suggested_section.dart';
 import 'profile_modals.dart';
 import 'photo_action_helper.dart';
-
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -53,12 +54,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Experience> experiences = [];
   List<Education> educations = [];
-  // List<String> skills = [];
-
-  //changes by juless
-
   List<Skill> skills = [];
+
   bool isOverviewSelected = true;
+  int connectionCount = 0;
+  String? latestEducation;
 
   @override
   void initState() {
@@ -78,6 +78,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final user = data['user'] ?? {};
 
+      int count = 0;
+
+      if (user['id'] != null) {
+        count = await profileService.getConnectionCount(
+          user['id'].toString(),
+        );
+        debugPrint(
+          "Connection count: $count, userId: ${user['id']}, user: $user",
+        );
+
+      }
+
       // ✅ MOVING PARSING OUTSIDE SETSTATE (FIX FOR MAIN THREAD OVERLOAD)
       final List<Experience> fetchedExperiences = (data['experiences'] as List? ?? [])
           .map((e) => Experience.fromJson(e))
@@ -87,14 +99,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .map((e) => Education.fromJson(e))
           .toList();
 
-      // final List<String> fetchedSkills = (data['skills'] as List? ?? [])
-      //     .map((s) => s is Map ? s['name'].toString() : s.toString())
-      //     .toList();
-
-      //changes by juless
       final List<Skill> fetchedSkills = (data['skills'] as List? ?? [])
           .map((s) => Skill.fromJson(s))
           .toList();
+
+      // Determine latest education
+      String? educationStr;
+
+      if (fetchedEducations.isNotEmpty) {
+        final edu = fetchedEducations.first;
+
+        educationStr =
+        "${edu.school}";
+      }
+
+
       setState(() {
         profile = data;
 
@@ -109,6 +128,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         educations = fetchedEducations;
         skills = fetchedSkills;
 
+        connectionCount = count;
+        latestEducation = educationStr;
+
         if (identity != null) {
           openTo = identity['open_to'] ?? openTo;
           availability = identity['availability'] ?? availability;
@@ -120,6 +142,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       debugPrint("❌ Profile load error: $e");
       if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _handleAvatarUpdate() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    if (!mounted) return;
+
+    // Show loading indicator or toast?
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Uploading avatar...")),
+    );
+
+    final success = await profileService.uploadAvatar(File(image.path));
+
+    if (success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Avatar updated successfully")),
+        );
+        await _loadProfile();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update avatar")),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleCoverUpdate() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Uploading cover photo...")),
+    );
+
+    final success = await profileService.uploadCover(File(image.path));
+
+    if (success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cover photo updated successfully")),
+        );
+        await _loadProfile();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update cover photo")),
+        );
+      }
     }
   }
 
@@ -284,8 +367,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   profileImage: profileImage,
                   coverImage: coverImage,
                   onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                  onCameraPressed: () {},
-                  onCoverCameraPressed: () {},
+                  onCameraPressed: () {
+                     PhotoActionHelper.showPhotoActions(
+                      context: context,
+                      title: "Profile Photo",
+                      imagePath: profileImage,
+                      heroTag: 'profile_hero',
+                      onUpdate: _handleAvatarUpdate,
+                      onDelete: () {}, // Implement delete if API supports it
+                    );
+                  },
+                  onCoverCameraPressed: () {
+                    PhotoActionHelper.showPhotoActions(
+                      context: context,
+                      title: "Cover Photo",
+                      imagePath: coverImage,
+                      heroTag: 'cover_hero',
+                      onUpdate: _handleCoverUpdate,
+                      onDelete: () {}, // Implement delete if API supports it
+                    );
+                  },
                   backgroundColor: theme.scaffoldBackgroundColor,
                 ),
               ),
@@ -299,9 +400,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 preference: preference,
                 onEditProfile: _navigateToEditProfile,
                 onEditIdentity: _showEditIdentityModal,
+                connectionCount: connectionCount,
+                latestEducation: latestEducation,
               ),
               _divider(theme),
-              const RepaintBoundary(child: ProfileStats()),
+              RepaintBoundary(child: ProfileStats(    connectionCount: connectionCount,)),
               _divider(theme),
               ProfileLivingResume(
                 isOverviewSelected: isOverviewSelected,

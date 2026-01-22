@@ -40,18 +40,28 @@ class EventCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  child: Image.asset(
+                  child: event.image.startsWith('http')
+                      ? Image.network(
+                    event.image.trim(),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'lib/images/event1.jpg',
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                      : Image.asset(
                     event.image,
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 200,
-                      color: theme.dividerColor,
-                      child: Icon(Icons.image, color: colorScheme.onSurface.withValues(alpha: 0.2), size: 50),
-                    ),
                   ),
                 ),
+
+                // Category Badge
                 Positioned(
                   top: 16,
                   left: 16,
@@ -72,6 +82,8 @@ class EventCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                // Price Badge
                 Positioned(
                   top: 16,
                   right: 16,
@@ -91,6 +103,7 @@ class EventCard extends StatelessWidget {
                     ),
                   ),
                 ),
+
                 if (isRegistered)
                   Positioned(
                     bottom: 12,
@@ -113,6 +126,7 @@ class EventCard extends StatelessWidget {
                   ),
               ],
             ),
+            const SizedBox(height: 16), // Spacing after the image
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -174,7 +188,8 @@ class EventCard extends StatelessWidget {
                       Icon(Icons.location_on_outlined, size: 18, color: theme.primaryColor),
                       const SizedBox(width: 8),
                       Text(
-                        event.location,
+                        event.location ?? 'Online',
+                        // "location",
                         style: theme.textTheme.bodyMedium,
                       ),
                     ],
@@ -201,7 +216,7 @@ class EventCard extends StatelessWidget {
                         child: Stack(
                           children: List.generate(
                             3,
-                            (index) => Positioned(
+                                (index) => Positioned(
                               left: index * 18.0,
                               child: CircleAvatar(
                                 radius: 14,

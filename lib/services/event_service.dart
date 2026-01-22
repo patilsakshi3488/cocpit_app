@@ -48,6 +48,7 @@ class EventService {
     required String title,
     required String description,
     required String eventType,
+    required String category,
     String? virtualLink,
     String? location,
     required DateTime startTime,

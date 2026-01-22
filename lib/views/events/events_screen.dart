@@ -368,7 +368,8 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
     ImageProvider imgProv;
     if (event.image.startsWith('http')) {
        imgProv = NetworkImage(event.image);
-    } else {
+    }
+    else {
        imgProv = AssetImage(event.image);
     }
 

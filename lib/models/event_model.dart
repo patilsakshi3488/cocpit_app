@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 
 class EventModel {
@@ -51,12 +52,14 @@ class EventModel {
   }) : _category = category, _isFree = isFree;
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
+
     return EventModel(
       id: json['event_id'].toString(),
       title: json['title'],
       description: json['description'],
       eventType: json['event_type'],
       location: json['location'],
+      category: json['category'],
       virtualLink: json['virtual_link'],
       startTimeDt: DateTime.parse(json['start_time']),
       endTimeDt: DateTime.parse(json['end_time']),
@@ -74,6 +77,7 @@ class EventModel {
   }
 
   Map<String, dynamic> toJson() {
+
     return {
       'event_id': id,
       'title': title,
@@ -98,7 +102,8 @@ class EventModel {
   // Helper Getters for UI compatibility
   String get image => bannerUrl != null && bannerUrl!.isNotEmpty
       ? bannerUrl!
-      : 'lib/images/event_placeholder.jpg';
+      : 'lib/images/event1.jpg';
+
 
   String get category => _category;
 

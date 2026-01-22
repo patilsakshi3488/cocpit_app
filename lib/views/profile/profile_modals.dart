@@ -776,6 +776,7 @@ class _SkillsModalState extends State<SkillsModal> {
   }
 
   void _addPendingSkillIfAny() {
+
     final text = _skillController.text.trim();
     if (text.isNotEmpty) {
       _addLocalSkill();

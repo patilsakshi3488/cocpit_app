@@ -16,6 +16,7 @@ import 'create_career_moment_screen.dart';
 import 'career_moment_viewer.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/poll_widget.dart';
+import '../post/create_post_screen.dart';
 import '../bottom_navigation.dart';
 import '../../main.dart'; // To access routeObserver
 
@@ -328,6 +329,23 @@ class _HomeScreenState extends State<HomeScreen>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final shouldRefresh = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+          );
+          if (shouldRefresh == true) {
+            cursorCreatedAt = null;
+            cursorPostId = null;
+            hasMoreFeeds = true;
+            feedPosts.clear();
+            fetchAllFeeds();
+          }
+        },
+        backgroundColor: theme.primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       appBar: AppTopBar(
         searchType: SearchType.feed,
         controller: _searchController,

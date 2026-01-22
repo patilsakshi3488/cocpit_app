@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
+import '../config/api_config.dart';
+import 'dart:io';
+
 class FeedApi {
+  // ... (previous methods)
+
   // =========================
-  // 🏠 FETCH FEED
-  // =========================
+
   static Future<Map<String, dynamic>> fetchFeed({
     String? cursorCreatedAt,
     String? cursorPostId,
@@ -166,6 +170,45 @@ class FeedApi {
       return jsonDecode(response.body);
     } else {
       return null;
+    }
+  }
+
+  // =========================
+  // ➕ CREATE POST
+  // =========================
+  static Future<void> createPost({
+    required String content,
+    List<File>? mediaFiles, // Changed to List
+    String? mediaType, // 'image' or 'video'
+    Map<String, dynamic>? pollData,
+  }) async {
+    final Map<String, String> fields = {"content": content};
+
+    if (pollData != null) {
+      fields["poll"] = jsonEncode(pollData);
+    }
+
+    if (mediaFiles != null && mediaFiles.isNotEmpty) {
+      final response = await ApiClient.multipart(
+        ApiConfig.posts, // Use correct endpoint
+        fileField: "media",
+        files: mediaFiles,
+        fields: fields,
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception("Failed to create post: ${response.statusCode}");
+      }
+    } else {
+      // Just text/poll
+      final response = await ApiClient.post(
+        ApiConfig.posts, // Use correct endpoint
+        body: fields,
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception("Failed to create post: ${response.statusCode}");
+      }
     }
   }
 }

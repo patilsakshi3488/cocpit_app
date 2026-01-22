@@ -5,7 +5,8 @@ class ApiConfig {
   // ENVIRONMENT SETTINGS
   // ======================
 
-  static String get baseUrl => dotenv.env['API_BASE_URL'] ?? "http://192.168.1.6:5000/api";
+  static String get baseUrl =>
+      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.6:5000/api";
 
   // ======================
   // AUTH ENDPOINTS (PATHS)
@@ -19,4 +20,14 @@ class ApiConfig {
   static String get me => "/auth/me";
   static String get searchUsers => "/users/search";
   static String get getPublicProfile => "/users";
+
+  // ======================
+  // EVENT ENDPOINTS
+  // ======================
+  static String get events => "/events";
+
+  // ======================
+  // POST ENDPOINTS
+  // ======================
+  static String get posts => "/posts";
 }

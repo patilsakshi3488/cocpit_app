@@ -39,6 +39,9 @@ dependencies:
   # 🌐 Explicit web dependency
   web: ^1.0.0
 
+  mime: ^1.0.5
+  http_parser: ^4.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

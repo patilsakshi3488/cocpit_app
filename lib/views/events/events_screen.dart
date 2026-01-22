@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
+import '../../services/event_service.dart';
 import 'event_card.dart';
 import 'event_details_screen.dart';
 import 'create_event_screen.dart';
@@ -18,75 +19,60 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   final TextEditingController _searchCtrl = TextEditingController();
 
   // State
-  List<EventModel> allEvents = [
-    EventModel(
-      title: 'Product Management Summit 2025',
-      description: 'The ultimate gathering for product leaders and managers.',
-      location: 'New York, NY',
-      image: 'lib/images/event1.jpg',
-      category: 'Summit',
-      eventType: 'In-person',
-      startDate: '25 OCT',
-      startTime: '10:00',
-      endDate: '25 OCT',
-      endTime: '18:00',
-      isFree: false,
-      totalRegistrations: 1250,
-    ),
-    EventModel(
-      title: 'Tech Mixer & Networking',
-      description: 'A networking mixer for designers and developers.',
-      location: 'San Francisco, CA',
-      image: 'lib/images/event2.jpg',
-      category: 'Network',
-      eventType: 'In-person',
-      startDate: '12 NOV',
-      startTime: '18:00',
-      endDate: '12 NOV',
-      endTime: '21:00',
-      isFree: false,
-      totalRegistrations: 450,
-    ),
-    EventModel(
-      title: 'Web Design Workshop',
-      description: 'Hands-on session on building modern user interfaces.',
-      location: 'Online',
-      image: 'lib/images/post1.jpg',
-      category: 'Workshop',
-      eventType: 'Online',
-      startDate: '05 DEC',
-      startTime: '14:00',
-      endDate: '05 DEC',
-      endTime: '17:00',
-      isFree: true,
-      totalRegistrations: 800,
-    ),
-  ];
-
-  List<String> registeredEventTitles = [];
-  List<String> savedEventTitles = [];
+  // We use futures for each tab to manage loading states independently
+  Future<List<EventModel>>? _discoverEvents;
+  Future<List<EventModel>>? _registeredEvents;
+  Future<List<EventModel>>? _savedEvents;
+  Future<List<EventModel>>? _myEvents;
 
   // Filters
   bool fOnline = false;
   bool fInPerson = false;
-  bool fFree = false;
-  bool fPaid = false;
-  Map<String, bool> fCategories = {
-    'Tech': false,
-    'Business': false,
-    'Networking': false,
-    'Workshop': false,
-    'Summit': false,
-    'Conference': false,
-    'Masterclass': false,
-  };
+  // bool fFree = false; // Backend doesn't support yet
+  // bool fPaid = false; // Backend doesn't support yet
+  // Map<String, bool> fCategories = ... // Backend doesn't support yet
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
-      setState(() {}); // Refresh content when tab changes
+      setState(() {});
+      // Optionally refresh data on tab change if needed, but keeping future instance preserves data.
+      // If we want to refresh on tab switch:
+      // if (!_tabController.indexIsChanging) _refreshCurrentTab();
+    });
+    _loadAllData();
+  }
+
+  void _loadAllData() {
+    setState(() {
+      _discoverEvents = EventService.getEvents();
+      _registeredEvents = EventService.getMyRegisteredEvents();
+      _savedEvents = EventService.getMySavedEvents();
+      _myEvents = EventService.getMyCreatedEvents();
+    });
+  }
+
+  Future<void> _refreshCurrentTab() async {
+    setState(() {
+      switch (_tabController.index) {
+        case 0:
+          _discoverEvents = EventService.getEvents(
+            type: fOnline ? 'Online' : (fInPerson ? 'InPerson' : null),
+            // Pass other filters if backend supported them
+          );
+          break;
+        case 1:
+          _registeredEvents = EventService.getMyRegisteredEvents();
+          break;
+        case 2:
+          _savedEvents = EventService.getMySavedEvents();
+          break;
+        case 3:
+          _myEvents = EventService.getMyCreatedEvents();
+          break;
+      }
     });
   }
 
@@ -97,64 +83,32 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
-  List<EventModel> get _filteredEvents {
-    return allEvents.where((e) {
-      final query = _searchCtrl.text.toLowerCase();
-      final matchesSearch = e.title.toLowerCase().contains(query) || e.description.toLowerCase().contains(query);
-      final matchesType = (!fOnline && !fInPerson) || (fOnline && e.eventType == 'Online') || (fInPerson && e.eventType == 'In-person');
-      final matchesPrice = (!fFree && !fPaid) || (fFree && e.isFree) || (fPaid && !e.isFree);
-      final activeCats = fCategories.entries.where((c) => c.value).map((c) => c.key).toList();
-      final matchesCategory = activeCats.isEmpty || activeCats.contains(e.category);
-      return matchesSearch && matchesType && matchesPrice && matchesCategory;
-    }).toList();
-  }
-
   void _onEventTap(EventModel event) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => EventDetailsScreen(
           event: event,
-          isRegistered: registeredEventTitles.contains(event.title),
-          isSaved: savedEventTitles.contains(event.title),
+          // We pass initial state, but screen will verify with API
+          isRegistered: event.isRegistered,
+          isSaved: event.isSaved,
           onSaveToggle: (saved) {
-            _toggleSave(event.title);
+             // Optimistic update in list?
+             // Since we use FutureBuilder, we might need to manually update the list inside the future,
+             // or just refresh the tab when coming back.
           },
-          onRegister: () {
-            setState(() {
-              if (!registeredEventTitles.contains(event.title)) {
-                registeredEventTitles.add(event.title);
-                event.totalRegistrations++;
-              }
-            });
-          },
-          onCancelRegistration: () {
-            setState(() {
-              registeredEventTitles.remove(event.title);
-              event.totalRegistrations--;
-            });
-          },
+          onRegister: () {},
+          onCancelRegistration: () {},
         ),
       ),
     );
-  }
-
-  void _toggleSave(String title) {
-    setState(() {
-      if (savedEventTitles.contains(title)) {
-        savedEventTitles.remove(title);
-      } else {
-        savedEventTitles.add(title);
-      }
-    });
+    // Refresh to reflect changes (registration count, status)
+    _refreshCurrentTab();
   }
 
   void _openFilterSheet() {
     bool tOnline = fOnline;
     bool tInPerson = fInPerson;
-    bool tFree = fFree;
-    bool tPaid = fPaid;
-    Map<String, bool> tCats = Map.from(fCategories);
 
     final theme = Theme.of(context);
 
@@ -164,9 +118,9 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSS) => DraggableScrollableSheet(
-          initialChildSize: 0.8,
-          maxChildSize: 0.9,
-          minChildSize: 0.5,
+          initialChildSize: 0.4, // Reduced size since fewer filters
+          maxChildSize: 0.6,
+          minChildSize: 0.3,
           builder: (_, controller) => Container(
             decoration: BoxDecoration(color: theme.scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -184,14 +138,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                       _fSection(theme, 'Event Type'),
                       _fItem(theme, 'Online', tOnline, (v) => setSS(() => tOnline = v)),
                       _fItem(theme, 'In-person', tInPerson, (v) => setSS(() => tInPerson = v)),
-                      const SizedBox(height: 20),
-                      _fSection(theme, 'Price'),
-                      _fItem(theme, 'Free', tFree, (v) => setSS(() => tFree = v)),
-                      _fItem(theme, 'Paid', tPaid, (v) => setSS(() => tPaid = v)),
-                      const SizedBox(height: 20),
-                      _fSection(theme, 'Category'),
-                      ...tCats.keys.map((cat) => _fItem(theme, cat, tCats[cat]!, (v) => setSS(() => tCats[cat] = v))),
-                      const SizedBox(height: 30),
+                      // Backend doesn't support Price/Category filters yet
                     ],
                   ),
                 ),
@@ -203,8 +150,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                         child: OutlinedButton(
                           onPressed: () {
                             setSS(() {
-                              tOnline = false; tInPerson = false; tFree = false; tPaid = false;
-                              tCats.updateAll((k, v) => false);
+                              tOnline = false; tInPerson = false;
                             });
                           },
                           style: OutlinedButton.styleFrom(side: BorderSide(color: theme.dividerColor), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -215,8 +161,12 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            setState(() { fOnline = tOnline; fInPerson = tInPerson; fFree = tFree; fPaid = tPaid; fCategories = tCats; });
+                            setState(() { fOnline = tOnline; fInPerson = tInPerson; });
                             Navigator.pop(context);
+                            // Apply filters
+                             _discoverEvents = EventService.getEvents(
+                                type: fOnline ? 'Online' : (fInPerson ? 'InPerson' : null),
+                             );
                           },
                           style: ElevatedButton.styleFrom(backgroundColor: theme.primaryColor, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                           child: Text('Apply Filters', style: TextStyle(color: theme.colorScheme.onPrimary, fontWeight: FontWeight.bold)),
@@ -257,18 +207,18 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       appBar: AppTopBar(
         searchType: SearchType.events,
         controller: _searchCtrl,
-        onChanged: (v) => setState(() {}),
+        onChanged: (v) => setState(() {}), // Local search filtering on top of fetched results? Or API search?
+        // Backend doesn't have search query param, only filters.
+        // We will filter client-side for now on the fetched list.
         onFilterTap: _openFilterSheet,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(theme),
-            _buildTabs(theme),
-            _buildActiveTabContent(theme),
-          ],
-        ),
+      body: Column( // Changed to Column to allow TabBar to be fixed or sticky if needed, but keeping original structure
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(theme),
+          _buildTabs(theme),
+          Expanded(child: _buildActiveTabContent(theme)),
+        ],
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 3),
     );
@@ -307,10 +257,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         onPressed: () async {
           final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateEventScreen()));
           if (res != null) {
-            setState(() {
-              allEvents.add((res as EventModel).copyWith(createdByMe: true));
-              _tabController.index = 3;
-            });
+            _loadAllData(); // Refresh all as we might have created an event
           }
         },
         icon: Icon(Icons.add, color: theme.colorScheme.onPrimary, size: 14),
@@ -347,58 +294,85 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
   }
 
   Widget _buildActiveTabContent(ThemeData theme) {
-    List<EventModel> eventsToShow = [];
-    bool showSuggested = _tabController.index == 0;
-
+    Future<List<EventModel>>? targetFuture;
     switch (_tabController.index) {
-      case 0:
-        eventsToShow = _filteredEvents;
-        break;
-      case 1:
-        eventsToShow = allEvents.where((e) => registeredEventTitles.contains(e.title)).toList();
-        break;
-      case 2:
-        eventsToShow = allEvents.where((e) => savedEventTitles.contains(e.title)).toList();
-        break;
-      case 3:
-        eventsToShow = allEvents.where((e) => e.createdByMe).toList();
-        break;
+      case 0: targetFuture = _discoverEvents; break;
+      case 1: targetFuture = _registeredEvents; break;
+      case 2: targetFuture = _savedEvents; break;
+      case 3: targetFuture = _myEvents; break;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showSuggested) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
-            child: Text(
-              'Suggested for you',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
+    return FutureBuilder<List<EventModel>>(
+      future: targetFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+           return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+
+        List<EventModel> events = snapshot.data ?? [];
+
+        // Client side filtering for search text
+        if (_searchCtrl.text.isNotEmpty) {
+           final query = _searchCtrl.text.toLowerCase();
+           events = events.where((e) =>
+              e.title.toLowerCase().contains(query) ||
+              e.description.toLowerCase().contains(query)
+           ).toList();
+        }
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+               if (_tabController.index == 0 && events.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
+                  child: Text(
+                    'Suggested for you',
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                _buildSuggestedSection(theme, events),
+              ],
+              const SizedBox(height: 24),
+              _evList(theme, events, isMy: _tabController.index == 3),
+            ],
           ),
-          _buildSuggestedSection(theme),
-        ],
-        const SizedBox(height: 24),
-        _evList(theme, eventsToShow, isMy: _tabController.index == 3),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildSuggestedSection(ThemeData theme) {
+  Widget _buildSuggestedSection(ThemeData theme, List<EventModel> allEvents) {
+    // Show top 5 events as suggested for now
+    final suggested = allEvents.take(5).toList();
+
     return SizedBox(
       height: 240,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: allEvents.length,
-        itemBuilder: (context, index) => _suggestedCard(theme, allEvents[index]),
+        itemCount: suggested.length,
+        itemBuilder: (context, index) => _suggestedCard(theme, suggested[index]),
       ),
     );
   }
 
   Widget _suggestedCard(ThemeData theme, EventModel event) {
     final colorScheme = theme.colorScheme;
+
+    ImageProvider imgProv;
+    if (event.image.startsWith('http')) {
+       imgProv = NetworkImage(event.image);
+    }
+    else {
+       imgProv = AssetImage(event.image);
+    }
+
     return GestureDetector(
       onTap: () => _onEventTap(event),
       child: Container(
@@ -407,8 +381,11 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           image: DecorationImage(
-            image: AssetImage(event.image),
+            image: imgProv,
             fit: BoxFit.cover,
+            onError: (e, s) {
+               // Fallback if image fails?
+            }
           ),
         ),
         child: Container(
@@ -441,22 +418,9 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                   ),
                 ),
               ),
-              if (!event.isFree)
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '\$50',
-                      style: TextStyle(color: colorScheme.onPrimary, fontSize: 12, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ),
+              // Backend doesn't support price yet, defaulting to free
+              // if (!event.isFree) ...
+
               Positioned(
                 bottom: 20,
                 left: 20,
@@ -477,7 +441,7 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            event.location,
+                            event.location ?? 'Online',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(color: Colors.white60, fontSize: 13),
@@ -511,10 +475,19 @@ class _EventsScreenState extends State<EventsScreen> with SingleTickerProviderSt
       itemCount: events.length,
       itemBuilder: (context, i) => EventCard(
         event: events[i],
-        isMyEvent: i % 2 == 0 && isMy, // Mock logic for my event
-        isRegistered: registeredEventTitles.contains(events[i].title),
-        isSaved: savedEventTitles.contains(events[i].title),
-        onSaveToggle: () => _toggleSave(events[i].title),
+        isMyEvent: events[i].createdByMe,
+        isRegistered: events[i].isRegistered,
+        isSaved: events[i].isSaved,
+        onSaveToggle: () async {
+             // We handle save toggle here by calling API and refreshing?
+             // Or better, let EventCard handle UI and we just call API
+             if (events[i].isSaved) {
+                await EventService.unsaveEvent(events[i].id);
+             } else {
+                await EventService.saveEvent(events[i].id);
+             }
+             _refreshCurrentTab();
+        },
         onTap: () => _onEventTap(events[i]),
       ),
     );

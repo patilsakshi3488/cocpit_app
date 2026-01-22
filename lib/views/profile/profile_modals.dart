@@ -775,6 +775,14 @@ class _SkillsModalState extends State<SkillsModal> {
     super.dispose();
   }
 
+  void _addPendingSkillIfAny() {
+
+    final text = _skillController.text.trim();
+    if (text.isNotEmpty) {
+      _addLocalSkill();
+    }
+  }
+
   void _addLocalSkill() {
     final text = _skillController.text.trim();
     if (text.isEmpty) return;
@@ -793,6 +801,7 @@ class _SkillsModalState extends State<SkillsModal> {
   }
 
   Future<void> _saveChanges() async {
+    _addPendingSkillIfAny();
     setState(() => _isSaving = true);
 
     try {

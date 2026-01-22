@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../models/event_model.dart';
+import '../../services/event_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -16,6 +16,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
   final locationCtrl = TextEditingController();
+  final virtualLinkCtrl = TextEditingController(); // Added for Online events
 
   String selectedCategory = 'Tech';
   String selectedEventType = 'Online';
@@ -26,8 +27,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   TimeOfDay? endTime;
 
   bool isFreeEvent = true;
+  bool isCreating = false;
 
-  File? bannerImage; // 🔥 USER SELECTED IMAGE
+  File? bannerImage;
 
   final categories = [
     'Tech',
@@ -43,6 +45,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     titleCtrl.dispose();
     descCtrl.dispose();
     locationCtrl.dispose();
+    virtualLinkCtrl.dispose();
     super.dispose();
   }
 
@@ -73,7 +76,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 _card(theme, [
                   _field(theme, 'Event Title', titleCtrl),
                   _field(theme, 'Description', descCtrl, maxLines: 3),
-                  _field(theme, 'Location', locationCtrl),
+                  if (selectedEventType == 'In-person')
+                     _field(theme, 'Location', locationCtrl)
+                  else
+                     _field(theme, 'Virtual Link', virtualLinkCtrl),
                 ]),
 
                 _section(theme, 'Category'),
@@ -106,8 +112,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       _chip(
                         theme,
                         'In-person',
-                        selectedEventType == 'In-person',
-                            () => setState(() => selectedEventType = 'In-person'),
+                        selectedEventType == 'InPerson', // Match backend enum if needed, usually 'InPerson' or 'Online'
+                            () => setState(() => selectedEventType = 'InPerson'),
                       ),
                     ],
                   ),
@@ -173,12 +179,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    onPressed: _createEvent,
-                    child: const Text(
-                      'Create Event',
-                      style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                    onPressed: isCreating ? null : _createEvent,
+                    child: isCreating
+                       ? const CircularProgressIndicator(color: Colors.white)
+                       : const Text(
+                          'Create Event',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                   ),
                 ),
               ],
@@ -281,7 +288,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
-        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+        validator: (v) {
+          // Virtual link is required for online, location for in-person
+          if (label == 'Virtual Link' && selectedEventType == 'Online' && (v == null || v.isEmpty)) return 'Required for Online events';
+          if (label == 'Location' && selectedEventType == 'InPerson' && (v == null || v.isEmpty)) return 'Required for In-person events';
+          if (label != 'Location' && label != 'Virtual Link' && (v == null || v.isEmpty)) return 'Required';
+          return null;
+        },
         style: theme.textTheme.bodyLarge,
         decoration: InputDecoration(
           labelText: label,
@@ -391,7 +404,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   // ================= CREATE EVENT =================
 
-  void _createEvent() {
+  Future<void> _createEvent() async {
     if (!_formKey.currentState!.validate()) return;
     if (startDate == null ||
         startTime == null ||
@@ -403,21 +416,60 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       return;
     }
 
-    final event = EventModel(
-      title: titleCtrl.text.trim(),
-      description: descCtrl.text.trim(),
-      location: locationCtrl.text.trim(),
-      category: selectedCategory,
-      eventType: selectedEventType,
-      startDate:
-      '${startDate!.day}/${startDate!.month}/${startDate!.year}',
-      startTime: startTime!.format(context),
-      endDate: '${endDate!.day}/${endDate!.month}/${endDate!.year}',
-      endTime: endTime!.format(context),
-      image: bannerImage?.path ?? 'lib/images/event_placeholder.jpg',
-      isFree: isFreeEvent,
+    setState(() => isCreating = true);
+
+    final start = DateTime(
+      startDate!.year, startDate!.month, startDate!.day,
+      startTime!.hour, startTime!.minute,
+    );
+    final end = DateTime(
+      endDate!.year, endDate!.month, endDate!.day,
+      endTime!.hour, endTime!.minute,
     );
 
-    Navigator.pop(context, event);
+    // Validations
+    if (end.isBefore(start)) {
+       setState(() => isCreating = false);
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End time must be after start time')),
+      );
+      return;
+    }
+
+    try {
+      final eventId = await EventService.createEvent(
+        title: titleCtrl.text.trim(),
+        description: descCtrl.text.trim(),
+        eventType: selectedEventType,
+        location: selectedEventType == 'InPerson' ? locationCtrl.text.trim() : null,
+        virtualLink: selectedEventType == 'Online' ? virtualLinkCtrl.text.trim() : null,
+        startTime: start,
+        endTime: end,
+        maxAttendees: 100, // Default for now, could add UI field
+        registrationDeadline: start.subtract(const Duration(hours: 1)), // Default deadline
+        waitlist: true,
+        banner: bannerImage,
+      );
+
+      if (eventId != null) {
+        if (mounted) {
+           Navigator.pop(context, true); // Return true to signal refresh
+        }
+      } else {
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Failed to create event')),
+           );
+         }
+      }
+    } catch (e) {
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Error: $e')),
+         );
+      }
+    } finally {
+      if (mounted) setState(() => isCreating = false);
+    }
   }
 }

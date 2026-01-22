@@ -23,8 +23,10 @@ class MyEventAnalyticsScreen extends StatelessWidget {
         child: Column(
           children: [
             _tile(theme, 'Total Registrations', event.totalRegistrations),
-            _tile(theme, 'Attended', event.attendedCount),
-            _tile(theme, 'Status', event.status),
+            _tile(theme, 'Max Attendees', event.maxAttendees ?? 'Unlimited'),
+            // Removed Attended/Status as backend doesn't support them yet
+            // _tile(theme, 'Attended', event.attendedCount),
+            // _tile(theme, 'Status', event.status),
           ],
         ),
       ),

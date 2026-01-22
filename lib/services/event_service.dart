@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/event_model.dart';
 import 'api_client.dart';
-import 'cloudinary_service.dart';
 
 class EventService {
   /// Get all events with optional filters
@@ -23,7 +22,7 @@ class EventService {
       query = "?${params.join("&")}";
     }
 
-    final response = await ApiClient.get("/events$query");
+    final response = await ApiClient.get("${ApiConfig.events}$query");
 
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
@@ -35,7 +34,7 @@ class EventService {
 
   /// Get event details by ID
   static Future<EventModel> getEventById(String id) async {
-    final response = await ApiClient.get("/events/$id");
+    final response = await ApiClient.get("${ApiConfig.events}/$id");
 
     if (response.statusCode == 200) {
       return EventModel.fromJson(jsonDecode(response.body));
@@ -58,11 +57,6 @@ class EventService {
     required bool waitlist,
     File? banner,
   }) async {
-    // Since the API expects multipart for banner
-    // We can use ApiClient.multipart if it supported generic fields map,
-    // but looking at ApiClient.multipart signature, it takes Map<String, String>? fields.
-    // So we need to convert our parameters to string map.
-
     final Map<String, String> fields = {
       "title": title,
       "description": description,
@@ -77,10 +71,20 @@ class EventService {
     if (location != null) fields["location"] = location;
     if (maxAttendees != null) fields["maxAttendees"] = maxAttendees.toString();
 
-    // If banner is provided, use multipart
+    // The backend uses uploadEventBanner.single('banner') middleware.
+    // This typically requires a multipart request.
+    // Even if we don't have a file, we might need to send multipart without file or handle it.
+    // However, ApiClient.multipart requires a file.
+    // If no banner is provided, we can try to send a dummy file or modify backend/client.
+    // For now, let's assume we use ApiClient.post if no file, and hope backend accepts JSON or form-urlencoded if 'banner' is missing.
+    // But `upload.single('banner')` usually throws if not multipart.
+
+    // We will assume banner is provided for now as the UI in CreateEventScreen allows picking one.
+    // If no banner is picked, we might need to handle it.
+
     if (banner != null) {
       final response = await ApiClient.multipart(
-        "/events",
+        ApiConfig.events,
         fileField: "banner",
         file: banner,
         fields: fields,
@@ -91,37 +95,20 @@ class EventService {
         return data['eventId'].toString();
       }
     } else {
-      // API seems to use uploadEventBanner.single('banner') middleware which might require multipart even if no file?
-      // Or we can try standard POST if no banner (though the route def implies 'banner' field is expected/handled).
-      // Let's assume we can use regular POST if no banner, but wait, the route is:
-      // router.post("/", requireAuth, uploadEventBanner.single('banner'), eventController.createEvent);
-      // It likely expects multipart.
-      // ApiClient.post sends JSON.
-      // We might need to handle this.
-      // But typically, if we don't send a file, we might still need multipart request format if the backend expects it.
-      // However, usually we can upload file separately or the backend handles JSON if no file middleware blocked it.
-      // Given the middleware `uploadEventBanner.single('banner')`, it likely handles multipart.
-      // If we don't have a banner, we can't use ApiClient.multipart easily as it requires a file.
-      // We might need to use ApiClient.post if no file is needed, BUT the middleware might fail if content-type is not multipart.
-      // Let's look at `ApiClient.multipart` implementation again. It requires `required File file`.
-
-      // If banner is optional in backend logic ( `const bannerUrl = req.file ? req.file.path : null;` ),
-      // then we should be able to send it.
-      // But `ApiClient` doesn't support multipart without file.
-      // For now, let's assume banner is required or we only support creating with banner for "Create Event" feature if the UI enforces it.
-      // If UI allows no banner, we might need to modify ApiClient or create a custom request here.
-
-      // Let's assume for now we try JSON post if no banner, and see if backend accepts it.
-      // If backend middleware forces multipart, this will fail.
-
+      // Try JSON post. Backend might complain if it expects multipart.
       final response = await ApiClient.post(
-        "/events",
+        ApiConfig.events,
         body: {
-          ...fields,
-          // 'waitlist' needs to be boolean in JSON? Backend extracts from req.body.
-          // req.body values are strings in multipart, but typed in JSON.
-          "waitlist": waitlist,
+          "title": title,
+          "description": description,
+          "eventType": eventType,
+          "virtualLink": virtualLink,
+          "location": location,
+          "startTime": startTime.toIso8601String(),
+          "endTime": endTime.toIso8601String(),
           "maxAttendees": maxAttendees,
+          "registrationDeadline": registrationDeadline.toIso8601String(),
+          "waitlist": waitlist,
         },
       );
        if (response.statusCode == 201) {
@@ -141,7 +128,7 @@ class EventService {
     String? jobTitle,
   }) async {
     final response = await ApiClient.post(
-      "/events/$eventId/register",
+      "${ApiConfig.events}/$eventId/register",
       body: {
         "name": name,
         "email": email,
@@ -156,13 +143,13 @@ class EventService {
 
   /// Unregister from an event
   static Future<bool> unregisterFromEvent(String eventId) async {
-    final response = await ApiClient.delete("/events/$eventId/register");
+    final response = await ApiClient.delete("${ApiConfig.events}/$eventId/register");
     return response.statusCode == 200;
   }
 
   /// Check registration status
   static Future<bool> checkRegistrationStatus(String eventId) async {
-    final response = await ApiClient.get("/events/$eventId/registration-status");
+    final response = await ApiClient.get("${ApiConfig.events}/$eventId/registration-status");
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data['isRegistered'] ?? false;
@@ -172,42 +159,42 @@ class EventService {
 
   /// Get my registered events
   static Future<List<EventModel>> getMyRegisteredEvents() async {
-    final response = await ApiClient.get("/events/me/events/registered");
+    final response = await ApiClient.get("${ApiConfig.events}/me/events/registered");
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
-      return data.map((e) => EventModel.fromJson(e)).toList();
+      return data.map((e) => EventModel.fromJson(e)..isRegistered = true).toList();
     }
     return [];
   }
 
   /// Get my created events
   static Future<List<EventModel>> getMyCreatedEvents() async {
-    final response = await ApiClient.get("/events/me/events/created");
+    final response = await ApiClient.get("${ApiConfig.events}/me/events/created");
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
-      return data.map((e) => EventModel.fromJson(e)).toList();
+      return data.map((e) => EventModel.fromJson(e)..createdByMe = true).toList();
     }
     return [];
   }
 
   /// Save/Bookmark event
   static Future<bool> saveEvent(String eventId) async {
-    final response = await ApiClient.post("/events/$eventId/save");
+    final response = await ApiClient.post("${ApiConfig.events}/$eventId/save");
     return response.statusCode == 201;
   }
 
   /// Unsave/Remove bookmark
   static Future<bool> unsaveEvent(String eventId) async {
-    final response = await ApiClient.delete("/events/$eventId/save");
+    final response = await ApiClient.delete("${ApiConfig.events}/$eventId/save");
     return response.statusCode == 200;
   }
 
   /// Get my saved events
   static Future<List<EventModel>> getMySavedEvents() async {
-    final response = await ApiClient.get("/events/me/events/saved");
+    final response = await ApiClient.get("${ApiConfig.events}/me/events/saved");
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
-      return data.map((e) => EventModel.fromJson(e)).toList();
+      return data.map((e) => EventModel.fromJson(e)..isSaved = true).toList();
     }
     return [];
   }

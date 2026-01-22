@@ -19,4 +19,9 @@ class ApiConfig {
   static String get me => "/auth/me";
   static String get searchUsers => "/users/search";
   static String get getPublicProfile => "/users";
+
+  // ======================
+  // EVENT ENDPOINTS
+  // ======================
+  static String get events => "/events";
 }

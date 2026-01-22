@@ -12,6 +12,8 @@ class ProfileInfoIdentity extends StatelessWidget {
   final bool isReadOnly;
   final VoidCallback? onMessage;
   final VoidCallback? onFollow;
+  final  int connectionCount;
+  final String? latestEducation;
 
   const ProfileInfoIdentity({
     super.key,
@@ -26,6 +28,8 @@ class ProfileInfoIdentity extends StatelessWidget {
     this.isReadOnly = false,
     this.onMessage,
     this.onFollow,
+    this.connectionCount = 0,
+    this.latestEducation,
   });
 
   @override
@@ -46,6 +50,7 @@ class ProfileInfoIdentity extends StatelessWidget {
                   name,
                   style: theme.textTheme.displaySmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                    fontSize: 20
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -57,7 +62,7 @@ class ProfileInfoIdentity extends StatelessWidget {
               const Spacer(),
               if (!isReadOnly)
                 IconButton(
-                  icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withValues(alpha: 0.5), size: 28),
+                  icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withOpacity(0.5), size: 28),
                   onPressed: onEditProfile,
                 ),
             ],
@@ -70,6 +75,24 @@ class ProfileInfoIdentity extends StatelessWidget {
               height: 1.3,
             ),
           ),
+
+          if (latestEducation != null && latestEducation!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.school_outlined, size: 16, color: theme.textTheme.bodySmall?.color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    latestEducation!,
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           const SizedBox(height: 12),
           Wrap(
             children: [
@@ -88,7 +111,7 @@ class ProfileInfoIdentity extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            "500+ connections",
+            "$connectionCount connections",
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
           ),
           const SizedBox(height: 24),
@@ -125,13 +148,12 @@ class ProfileInfoIdentity extends StatelessWidget {
           ],
           GestureDetector(
             onTap: isReadOnly ? null : onEditIdentity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Wrap(
+              spacing: 8.0,
+              runSpacing: 8.0,
               children: [
                 _identityRow(context, "OPEN TO:", openTo, colorScheme.surfaceContainer, theme.primaryColor),
-                const SizedBox(height: 8),
-                _identityRow(context, "AVAILABILITY:", availability, Colors.green.withValues(alpha: 0.1), Colors.green),
-                const SizedBox(height: 8),
+                _identityRow(context, "AVAILABILITY:", availability, Colors.green.withOpacity(0.1), Colors.green),
                 _identityRow(context, "PREFERENCE:", preference, colorScheme.surfaceContainer, theme.primaryColor),
               ],
             ),

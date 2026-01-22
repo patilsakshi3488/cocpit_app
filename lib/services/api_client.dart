@@ -5,6 +5,9 @@ import 'package:cocpit_app/config/api_config.dart';
 
 import 'auth_service.dart';
 import 'secure_storage.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
+
 
 class ApiClient {
 
@@ -66,7 +69,13 @@ class ApiClient {
       if (fields != null) request.fields.addAll(fields);
 
       request.files.add(
-        await http.MultipartFile.fromPath(fileField, file.path),
+        await http.MultipartFile.fromPath(
+          fileField,
+          file.path,
+          contentType: MediaType.parse(
+            lookupMimeType(file.path) ?? 'image/jpeg',
+          ),
+        ),
       );
 
       final streamed = await request.send();

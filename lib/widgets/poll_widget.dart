@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../services/api_client.dart';
+import '../services/feed_service.dart';
 
 // ==========================================
 // MODELS: Ensuring type-safety and logic
@@ -28,24 +28,6 @@ class PollOption {
     );
   }
 }
-
-// class PollOption {
-//   final int id;
-//   final String text;
-//   final int voteCount;
-//
-//   PollOption({required this.id, required this.text, required this.voteCount});
-//
-//   factory PollOption.fromJson(Map<String, dynamic> json) {
-//     return PollOption(
-//       id: _asInt(json['option_id']),
-//       text: json['option_text'] ?? "",
-//       voteCount: _asInt(json['vote_count']),
-//     );
-//   }
-//
-//   static int _asInt(dynamic v) => v is int ? v : int.tryParse(v.toString()) ?? 0;
-// }
 
 class PollModel {
   final String id;
@@ -90,52 +72,8 @@ class PollModel {
   }
 }
 
-// class PollModel {
-//   final int id;
-//   final List<PollOption> options;
-//   final int totalVotes;
-//   final int? userVote;
-//   final bool isActive;
-//   final String duration;
-//
-//   PollModel({
-//     required this.id,
-//     required this.options,
-//     required this.totalVotes,
-//     this.userVote,
-//     required this.isActive,
-//     required this.duration,
-//   });
-//
-//   factory PollModel.fromJson(Map<String, dynamic> json) {
-//     final options = (json['options'] as List)
-//         .map((o) => PollOption.fromJson(o))
-//         .toList();
-//
-//     // 🔥 DERIVE total votes if backend does not send it
-//     final derivedTotalVotes = options.fold<int>(
-//       0,
-//           (sum, opt) => sum + opt.voteCount,
-//     );
-//
-//     return PollModel(
-//       id: int.tryParse(json['poll_id'].toString()) ?? 0,
-//       options: options,
-//       totalVotes: json['total_votes'] != null
-//           ? int.tryParse(json['total_votes'].toString()) ?? derivedTotalVotes
-//           : derivedTotalVotes,
-//       userVote: json['user_vote'] == null
-//           ? null
-//           : int.tryParse(json['user_vote'].toString()),
-//       isActive: json['is_active'] == true,
-//       duration: json['duration']?.toString() ?? "0",
-//     );
-//   }
-//
-// }
-
 // ==========================================
-// WIDGET: React-Parity Implementation
+// WIDGET: Modern Theme-Aware Implementation
 // ==========================================
 class PollWidget extends StatefulWidget {
   final String postId;
@@ -219,26 +157,22 @@ class _PollWidgetState extends State<PollWidget> {
     try {
       if (previousVote == selectedId) {
         print("DEBUG: calling DELETE API");
-        await ApiClient.delete("/post/${widget.postId}/poll/vote");
+        await FeedApi.removePollVote(widget.postId);
       } else {
         print("DEBUG: calling POST API");
-        await ApiClient.post(
-          "/post/${widget.postId}/poll/vote",
-          body: {"option_id": selectedId},
-        );
+        await FeedApi.votePoll(widget.postId, selectedId);
       }
 
       print("DEBUG: fetching fresh POll");
-      final res = await ApiClient.get("/post/${widget.postId}");
-      print("DEBUG: fetch status ${res.statusCode}");
-      if (mounted && res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        if (decoded["poll"] != null) {
-          print("DEBUG: New Poll Data: ${decoded["poll"]}");
+      final postData = await FeedApi.fetchSinglePost(widget.postId);
+
+      if (mounted && postData != null) {
+        if (postData["poll"] != null) {
+          print("DEBUG: New Poll Data: ${postData["poll"]}");
           setState(() {
-            _data = PollModel.fromJson(decoded["poll"]);
+            _data = PollModel.fromJson(postData["poll"]);
           });
-          widget.onPollUpdated?.call(decoded["poll"]);
+          widget.onPollUpdated?.call(postData["poll"]);
         }
       }
     } catch (e) {
@@ -249,97 +183,63 @@ class _PollWidgetState extends State<PollWidget> {
     }
   }
 
-  // /// Core Logic: Optimistic UI with Mathematical Consistency
-  // Future<void> _onVotePressed(int selectedId) async {
-  //   if (_isLoading || !_data.isActive) return;
-  //
-  //   final previousData = _data;
-  //   final int? previousVote = _data.userVote;
-  //
-  //   // --- OPTIMISTIC UPDATE CALCULATION ---
-  //   setState(() {
-  //     _isLoading = true;
-  //
-  //     int totalVoteChange = 0;
-  //     if (previousVote == null) {
-  //       totalVoteChange = 1; // First time voting
-  //     } else if (previousVote == selectedId) {
-  //       totalVoteChange = -1; // Deselecting current vote
-  //     }
-  //     // Note: If switching from Option A to Option B, totalVoteChange is 0.
-  //
-  //     final List<PollOption> optimsticOptions = _data.options.map((opt) {
-  //       int newCount = opt.voteCount;
-  //
-  //       // Logic for the clicked option
-  //       if (opt.id == selectedId) {
-  //         newCount += (previousVote == selectedId) ? -1 : 1;
-  //       }
-  //       // Logic for the previously selected option (if switching)
-  //       else if (opt.id == previousVote) {
-  //         newCount -= 1;
-  //       }
-  //
-  //       return PollOption(id: opt.id, text: opt.text, voteCount: newCount);
-  //     }).toList();
-  //
-  //     _data = PollModel(
-  //       id: _data.id,
-  //       options: optimsticOptions,
-  //       totalVotes: _data.totalVotes + totalVoteChange,
-  //       userVote: previousVote == selectedId ? null : selectedId,
-  //       isActive: _data.isActive,
-  //       duration: _data.duration,
-  //     );
-  //   });
-  //
-  //   // --- API CALL ---
-  //   try {
-  //     if (previousVote == selectedId) {
-  //       await ApiClient.delete("/post/${widget.postId}/poll/vote");
-  //     } else {
-  //       await ApiClient.post("/post/${widget.postId}/poll/vote", body: {"option_id": selectedId});
-  //     }
-  //
-  //     // Final Sync (Source of Truth)
-  //     final res = await ApiClient.get("/post/${widget.postId}");
-  //     if (res.statusCode == 200 && mounted) {
-  //       final decoded = jsonDecode(res.body);
-  //       if (decoded["poll"] != null) {
-  //         setState(() => _data = PollModel.fromJson(decoded["poll"]));
-  //       }
-  //     }
-  //   } catch (e) {
-  //     // Rollback on network failure
-  //     if (mounted) setState(() => _data = previousData);
-  //   } finally {
-  //     if (mounted) setState(() => _isLoading = false);
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
+    // Current Theme Data
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Determine background color: subtly distinct from the main surface
+    // If we are on a "surface", we might want a slightly different shade.
+    // Using surfaceContainer if available or cardColor.
+    final backgroundColor = theme.cardColor;
+
     return Container(
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.2),
+          color: theme.dividerColor.withOpacity(0.1),
+          width: 1,
         ),
+        boxShadow: [
+          if (filterShadow(theme))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ..._data.options.map((opt) => _buildOptionRow(opt)),
-          const SizedBox(height: 12),
-          _buildFooter(),
+          // Build Options with spacing
+          ..._data.options.map(
+            (opt) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildOptionRow(context, opt),
+            ),
+          ),
+
+          // Footer
+          if (_data.options.isNotEmpty) _buildFooter(context),
         ],
       ),
     );
   }
 
-  Widget _buildOptionRow(PollOption opt) {
+  bool filterShadow(ThemeData theme) {
+    // Only show shadow if brightness is light, keeps interface clean in dark mode
+    return theme.brightness == Brightness.light;
+  }
+
+  Widget _buildOptionRow(BuildContext context, PollOption opt) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final bool isSelected = _data.userVote == opt.id;
     final bool showResults = _data.userVote != null || !_data.isActive;
 
@@ -348,360 +248,171 @@ class _PollWidgetState extends State<PollWidget> {
         ? (opt.voteCount / _data.totalVotes)
         : 0.0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: InkWell(
-        onTap: () => _onVotePressed(opt.id),
-        borderRadius: BorderRadius.circular(8),
-        child: Stack(
-          children: [
-            // Track background
-            Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Theme.of(context).dividerColor.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-              ),
+    final percentString = "${(percent * 100).toStringAsFixed(0)}%";
+
+    // Colors
+    // If voted, valid results are shown.
+    // If selected, use primary color for highlight.
+    // Progress Bar color: Light primary or subtle surface variant
+    final progressColor = isSelected
+        ? colorScheme.primary.withOpacity(0.15)
+        : colorScheme.surfaceContainerHighest.withOpacity(
+            0.5,
+          ); // Fallback for visibility
+
+    // Border Color: Primary if selected, otherwise subtle outline
+    final borderColor = isSelected ? colorScheme.primary : theme.dividerColor;
+
+    return InkWell(
+      onTap: () => _onVotePressed(opt.id),
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: [
+          // 1. Container Frame (Background & Border)
+          Container(
+            height: 48,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              // Default background is transparent so progress bar shows up clearly
+              // or match the "unfilled" portion
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
             ),
-            // Progress Fill
+          ),
+
+          // 2. Progress Bar (Animated)
+          if (showResults)
             LayoutBuilder(
               builder: (context, constraints) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 400),
+                return TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: percent),
+                  duration: const Duration(milliseconds: 600),
                   curve: Curves.easeOutCubic,
-                  height: 48,
-                  width: showResults ? constraints.maxWidth * percent : 0,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor.withOpacity(0.2)
-                        : Theme.of(context).primaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  builder: (context, value, child) {
+                    return Container(
+                      height: 48,
+                      width: constraints.maxWidth * value,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colorScheme.primary.withOpacity(
+                                0.2,
+                              ) // Highlighted fill
+                            : theme.dividerColor.withOpacity(
+                                0.3,
+                              ), // Neutral fill
+                        borderRadius: BorderRadius.horizontal(
+                          left: const Radius.circular(
+                            10,
+                          ), // slightly less than container to fit inside border
+                          right: value >= 0.98
+                              ? const Radius.circular(10)
+                              : Radius.zero,
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
-            // Labels
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+
+          // 3. Option Text & Percentage (Overlay)
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Option Text
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (isSelected && showResults)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Icon(
+                              Icons.check_circle_rounded,
+                              size: 18,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        Flexible(
+                          child: Text(
+                            opt.text,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: theme.textTheme.bodyMedium?.color,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Percentage Text
+                  if (showResults)
                     Text(
-                      opt.text,
-                      style: TextStyle(
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                      percentString,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
                         color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : null,
+                            ? colorScheme.primary
+                            : theme.textTheme.bodySmall?.color,
                       ),
                     ),
-                    if (showResults)
-                      Text(
-                        "${(percent * 100).toStringAsFixed(0)}%",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final bool isEnded = !_data.isActive;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          _data.isActive ? "${_data.duration}d left" : "Poll ended",
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: _data.isActive ? Colors.grey : Colors.redAccent,
-          ),
-        ),
+        // Total Votes
         Row(
           children: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
             Text(
               "${_data.totalVotes} votes",
-              style: Theme.of(context).textTheme.bodySmall,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.textTheme.bodySmall?.color,
+              ),
             ),
+            if (_isLoading) ...[
+              const SizedBox(width: 8),
+              const SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
           ],
+        ),
+
+        // Time Remaining
+        Text(
+          isEnded ? "Poll ended" : "${_data.duration}d left",
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: isEnded
+                ? colorScheme.error
+                : theme.textTheme.bodySmall?.color,
+            fontWeight: isEnded ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
       ],
     );
   }
 }
-
-// import 'dart:convert';
-// import 'package:flutter/material.dart';
-// import '../services/api_client.dart';
-//
-// class PollWidget extends StatefulWidget {
-//   final int postId;
-//   final Map<String, dynamic> poll;
-//
-//   const PollWidget({
-//     super.key,
-//     required this.postId,
-//     required this.poll,
-//   });
-//
-//   @override
-//   State<PollWidget> createState() => _PollWidgetState();
-// }
-//
-// class _PollWidgetState extends State<PollWidget> {
-//   late Map<String, dynamic> poll;
-//   bool isLoading = false;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     poll = Map<String, dynamic>.from(widget.poll);
-//   }
-//
-//   int asInt(dynamic v) {
-//     if (v == null) return 0;
-//     if (v is int) return v;
-//     if (v is double) return v.toInt();
-//     return int.tryParse(v.toString()) ?? 0;
-//   }
-//
-//   Future<void> _onVote(int optionId) async {
-//     if (poll["is_active"] != true) return;
-//
-//     final postId = widget.postId;
-//     final previousPoll = Map<String, dynamic>.from(poll);
-//     final int? previousVote = poll["user_vote"] == null ? null : asInt(poll["user_vote"]);
-//
-//     // -------------------------------
-//     // 1️⃣ Optimistic UI update
-//     // -------------------------------
-//     final updatedOptions = (poll["options"] as List).map((o) {
-//       final opt = Map<String, dynamic>.from(o);
-//
-//       if (asInt(opt["option_id"]) == optionId) {
-//         opt["vote_count"] += (previousVote == optionId) ? -1 : 1;
-//       } else if (asInt(opt["option_id"]) == previousVote) {
-//         opt["vote_count"] -= 1;
-//       }
-//
-//       return opt;
-//     }).toList();
-//
-//     final optimisticPoll = {
-//       ...poll,
-//       "options": updatedOptions,
-//       "user_vote": previousVote == optionId ? null : optionId,
-//       "total_votes": updatedOptions.fold<int>(
-//         0,
-//         (sum, o) => sum + asInt(o["vote_count"]),
-//       ),
-//     };
-//
-//     setState(() {
-//       poll = optimisticPoll;
-//       isLoading = true;
-//     });
-//
-//     // -------------------------------
-//     // 2️⃣ Backend persistence
-//     // -------------------------------
-//     try {
-//       if (previousVote == optionId) {
-//         await ApiClient.delete("/post/$postId/poll/vote");
-//       } else {
-//         await ApiClient.post(
-//           "/post/$postId/poll/vote",
-//           body: {"option_id": optionId},
-//         );
-//       }
-//
-//       // -------------------------------
-//       // 3️⃣ FINAL source of truth
-//       // -------------------------------
-//       final res = await ApiClient.get("/post/$postId");
-//       if (res.statusCode == 200) {
-//         final decoded = jsonDecode(res.body);
-//         if (mounted && decoded["poll"] != null) {
-//           setState(() {
-//             poll = Map<String, dynamic>.from(decoded["poll"]);
-//           });
-//         }
-//       }
-//     } catch (e) {
-//       // -------------------------------
-//       // 4️⃣ Revert on failure
-//       // -------------------------------
-//       if (mounted) {
-//         setState(() => poll = previousPoll);
-//       }
-//     } finally {
-//       if (mounted) {
-//         setState(() => isLoading = false);
-//       }
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final options = poll["options"] as List;
-//     final int totalVotes = asInt(poll["total_votes"]);
-//     final int? votedOptionId =
-//         poll["user_vote"] == null ? null : asInt(poll["user_vote"]);
-//     final bool isEnded = poll["is_active"] != true;
-//
-//     return Container(
-//       margin: const EdgeInsets.only(top: 12),
-//       padding: const EdgeInsets.all(12),
-//       decoration: BoxDecoration(
-//         color: Theme.of(context).cardColor,
-//         borderRadius: BorderRadius.circular(12),
-//         border: Border.all(color: Theme.of(context).dividerColor),
-//       ),
-//       child: Column(
-//         children: [
-//           ...options.map((opt) {
-//             final int optionId = asInt(opt["option_id"]);
-//             final int votes = asInt(opt["vote_count"]);
-//             final int percentage =
-//                 totalVotes > 0 ? ((votes / totalVotes) * 100).round() : 0;
-//
-//             final bool isSelected = votedOptionId == optionId;
-//             final bool isDisabled = isLoading || isEnded;
-//
-//             return Padding(
-//               padding: const EdgeInsets.symmetric(vertical: 6),
-//               child: GestureDetector(
-//                 onTap: isDisabled ? null : () => _onVote(optionId),
-//                 child: Stack(
-//                   children: [
-//                     Container(
-//                       height: 48,
-//                       decoration: BoxDecoration(
-//                         borderRadius: BorderRadius.circular(8),
-//                         color: isSelected
-//                             ? Theme.of(context)
-//                                 .primaryColor
-//                                 .withOpacity(0.15)
-//                             : Theme.of(context)
-//                                 .dividerColor
-//                                 .withOpacity(0.1),
-//                         border: Border.all(
-//                           color: isSelected
-//                               ? Theme.of(context)
-//                                   .primaryColor
-//                                   .withOpacity(0.4)
-//                               : Theme.of(context).dividerColor,
-//                         ),
-//                       ),
-//                     ),
-//                     LayoutBuilder(
-//                       builder: (_, constraints) => AnimatedContainer(
-//                         duration: const Duration(milliseconds: 500),
-//                         height: 48,
-//                         width: constraints.maxWidth * (percentage / 100),
-//                         decoration: BoxDecoration(
-//                           borderRadius: BorderRadius.circular(8),
-//                           color: Theme.of(context)
-//                               .primaryColor
-//                               .withOpacity(0.2),
-//                         ),
-//                       ),
-//                     ),
-//                     Positioned.fill(
-//                       child: Padding(
-//                         padding: const EdgeInsets.symmetric(horizontal: 12),
-//                         child: Row(
-//                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                           children: [
-//                             Row(
-//                               children: [
-//                                 if (isSelected)
-//                                   Container(
-//                                     width: 8,
-//                                     height: 8,
-//                                     margin: const EdgeInsets.only(right: 6),
-//                                     decoration: BoxDecoration(
-//                                       color:
-//                                           Theme.of(context).primaryColor,
-//                                       shape: BoxShape.circle,
-//                                     ),
-//                                   ),
-//                                 Text(
-//                                   opt["option_text"] ?? "",
-//                                   style: TextStyle(
-//                                     fontWeight: FontWeight.w500,
-//                                     color: isSelected
-//                                         ? Theme.of(context).primaryColor
-//                                         : null,
-//                                   ),
-//                                 ),
-//                               ],
-//                             ),
-//                             if (votedOptionId != null || isEnded)
-//                               Text(
-//                                 "$percentage% ($votes)",
-//                                 style: Theme.of(context)
-//                                     .textTheme
-//                                     .bodySmall,
-//                               ),
-//                           ],
-//                         ),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             );
-//           }),
-//
-//           const Divider(height: 20),
-//
-//           Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Text(
-//                 isEnded
-//                     ? "Poll Ended"
-//                     : "${poll["duration"] ?? 0} days left",
-//                 style: TextStyle(
-//                   color: isEnded ? Colors.red : Colors.grey,
-//                   fontWeight: FontWeight.w500,
-//                 ),
-//               ),
-//               Row(
-//                 children: [
-//                   if (isLoading)
-//                     const SizedBox(
-//                       width: 14,
-//                       height: 14,
-//                       child: CircularProgressIndicator(strokeWidth: 2),
-//                     ),
-//                   const SizedBox(width: 6),
-//                   Text("$totalVotes votes"),
-//                 ],
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

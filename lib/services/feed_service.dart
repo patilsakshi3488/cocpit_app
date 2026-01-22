@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 class FeedApi {
@@ -33,6 +34,36 @@ class FeedApi {
   }
 
   // =========================
+  // 👤 FETCH MY POSTS
+  // =========================
+  static Future<Map<String, dynamic>> fetchMyPosts({
+    String? cursorCreatedAt,
+    String? cursorPostId,
+  }) async {
+    String url = "/users/me/posts?limit=10";
+    final params = <String>[];
+
+    if (cursorCreatedAt != null) {
+      params.add("cursorCreatedAt=${Uri.encodeComponent(cursorCreatedAt)}");
+    }
+    if (cursorPostId != null) {
+      params.add("cursorPostId=${Uri.encodeComponent(cursorPostId)}");
+    }
+
+    if (params.isNotEmpty) {
+      url += "&${params.join("&")}";
+    }
+
+    final response = await ApiClient.get(url);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to fetch my posts: ${response.statusCode}");
+    }
+  }
+
+  // =========================
   // ❤️ LIKES
   // =========================
   static Future<Map<String, dynamic>> toggleLike(String postId) async {
@@ -53,20 +84,30 @@ class FeedApi {
 
     if (response.statusCode == 200) {
       final decoded = jsonDecode(response.body);
-      // Supports both { comments: [] } and direct []
-      final List raw = (decoded is Map && decoded.containsKey("comments"))
-          ? decoded["comments"]
-          : (decoded is List ? decoded : []);
 
-      return raw.cast<Map<String, dynamic>>();
+      if (decoded is Map && decoded["comments"] != null) {
+        return List<Map<String, dynamic>>.from(decoded["comments"]);
+      }
+
+      if (decoded is Map && decoded["data"]?["comments"] != null) {
+        return List<Map<String, dynamic>>.from(decoded["data"]["comments"]);
+      }
+
+      if (decoded is List) {
+        return List<Map<String, dynamic>>.from(decoded);
+      }
+
+      return [];
     } else {
-      throw Exception("Failed to fetch comments: ${response.statusCode}");
+      debugPrint("❌ Fetch comments failed: ${response.body}");
+      throw Exception("Failed to load comments");
     }
   }
 
   static Future<void> addComment(String postId, String content) async {
+    // Corrected Route: /post/:id/comments
     final response = await ApiClient.post(
-      "/post/$postId/comment",
+      "/post/$postId/comments",
       body: {"content": content},
     );
 
@@ -76,8 +117,9 @@ class FeedApi {
   }
 
   static Future<void> updateComment(String commentId, String content) async {
+    // Corrected Route: /post/comments/:comment_id
     final response = await ApiClient.put(
-      "/comment/$commentId",
+      "/post/comments/$commentId",
       body: {"content": content},
     );
 
@@ -87,7 +129,8 @@ class FeedApi {
   }
 
   static Future<void> deleteComment(String commentId) async {
-    final response = await ApiClient.delete("/comment/$commentId");
+    // Corrected Route: /post/comments/:comment_id
+    final response = await ApiClient.delete("/post/comments/$commentId");
 
     if (response.statusCode != 200) {
       throw Exception("Failed to delete comment: ${response.statusCode}");

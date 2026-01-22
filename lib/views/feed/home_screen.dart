@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For Clipboard
 import 'dart:async';
 import 'dart:convert';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
-import '../../services/api_client.dart';
+import '../../services/feed_service.dart';
+import 'comments_sheet.dart';
 import '../../models/search_user.dart';
 import '../../services/user_search_service.dart';
 import '../../services/secure_storage.dart';
@@ -158,43 +160,28 @@ class _HomeScreenState extends State<HomeScreen>
     if (mounted) setState(() => isFeedLoading = true);
 
     try {
-      String url = "/All/feeds";
-      final params = <String>[];
+      final response = await FeedApi.fetchFeed(
+        cursorCreatedAt: cursorCreatedAt,
+        cursorPostId: cursorPostId,
+      );
 
-      if (cursorCreatedAt != null) {
-        params.add("cursorCreatedAt=${Uri.encodeComponent(cursorCreatedAt!)}");
+      final List<Map<String, dynamic>> newPosts =
+          (response["posts"] as List? ?? [])
+              .whereType<Map<String, dynamic>>()
+              .toList();
+
+      if (mounted) {
+        setState(() {
+          feedPosts.addAll(newPosts);
+        });
       }
-      if (cursorPostId != null) {
-        params.add("cursorPostId=${Uri.encodeComponent(cursorPostId!)}");
-      }
 
-      if (params.isNotEmpty) {
-        url += "?${params.join("&")}";
-      }
-
-      final response = await ApiClient.get(url);
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-
-        final List<Map<String, dynamic>> newPosts =
-            (decoded["posts"] as List? ?? [])
-                .whereType<Map<String, dynamic>>()
-                .toList();
-
-        if (mounted) {
-          setState(() {
-            feedPosts.addAll(newPosts);
-          });
-        }
-
-        final nextCursor = decoded["nextCursor"];
-        if (nextCursor == null) {
-          hasMoreFeeds = false;
-        } else {
-          cursorCreatedAt = nextCursor["cursorCreatedAt"];
-          cursorPostId = nextCursor["cursorPostId"];
-        }
+      final nextCursor = response["nextCursor"];
+      if (nextCursor == null) {
+        hasMoreFeeds = false;
+      } else {
+        cursorCreatedAt = nextCursor["cursorCreatedAt"];
+        cursorPostId = nextCursor["cursorPostId"];
       }
     } catch (e) {
       debugPrint("❌ Feed API error: $e");
@@ -202,6 +189,34 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (mounted) setState(() => isFeedLoading = false);
   }
+
+  // =========================
+  // 🔄 REFRESH SINGLE POST
+  // =========================
+  Future<void> _refreshPost(Map<String, dynamic> post) async {
+    final postId = post["post_id"]?.toString();
+    if (postId == null) return;
+
+    try {
+      final updatedPost = await FeedApi.fetchSinglePost(postId);
+      if (updatedPost != null && mounted) {
+        setState(() {
+          // Update the specific post object in the list
+          final index = feedPosts.indexOf(post);
+          if (index != -1) {
+            feedPosts[index] = updatedPost;
+          } else {
+            // Fallback: update the map reference passed in if it's not found in list (unlikely)
+            post.addAll(updatedPost);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Failed to refresh post: $e");
+    }
+  }
+
+  // ... (Search Logic unchanged) ...
 
   // =========================
   // 🔍 SEARCH LOGIC
@@ -320,28 +335,37 @@ class _HomeScreenState extends State<HomeScreen>
         onChanged: _onSearchChanged,
         layerLink: _layerLink,
       ),
-      body: ListView.builder(
-        controller: _scrollController,
-        itemCount: feedPosts.length + 6,
-        itemBuilder: (context, index) {
-          if (index == 0) return _storiesHeader(theme);
-          if (index == 1) return _careerMomentsBar(theme);
-          if (index == 2) return const SizedBox(height: 20);
-          if (index == 3) return Divider(color: theme.dividerColor);
-          if (index == 4) return const SizedBox(height: 10);
-
-          final feedIndex = index - 5;
-          if (feedIndex >= feedPosts.length) {
-            return isFeedLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : const SizedBox();
-          }
-
-          return _postViewFromApi(feedPosts[feedIndex], theme);
+      body: RefreshIndicator(
+        onRefresh: () async {
+          cursorCreatedAt = null;
+          cursorPostId = null;
+          hasMoreFeeds = true;
+          feedPosts.clear();
+          await fetchAllFeeds();
         },
+        child: ListView.builder(
+          controller: _scrollController,
+          itemCount: feedPosts.length + 6,
+          itemBuilder: (context, index) {
+            if (index == 0) return _storiesHeader(theme);
+            if (index == 1) return _careerMomentsBar(theme);
+            if (index == 2) return const SizedBox(height: 20);
+            if (index == 3) return Divider(color: theme.dividerColor);
+            if (index == 4) return const SizedBox(height: 10);
+
+            final feedIndex = index - 5;
+            if (feedIndex >= feedPosts.length) {
+              return isFeedLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : const SizedBox();
+            }
+
+            return _postViewFromApi(feedPosts[feedIndex], theme);
+          },
+        ),
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 0),
     );
@@ -354,24 +378,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (value is String) return int.tryParse(value) ?? defaultValue;
     return defaultValue;
   }
-
-  // Map<String, dynamic> normalizePoll(Map<String, dynamic> poll) {
-  //   final options = (poll["options"] as List? ?? [])
-  //       .map((o) => {
-  //             "option_id": asInt(o["option_id"]),
-  //             "option_text": o["option_text"] ?? "",
-  //             "vote_count": asInt(o["vote_count"]),
-  //           })
-  //       .toList();
-  //
-  //   return {
-  //     "poll_id": asInt(poll["poll_id"]),
-  //     "options": options,
-  //     "total_votes": asInt(poll["total_votes"]),
-  //     "user_vote": poll["user_vote"] == null ? null : asInt(poll["user_vote"]),
-  //     "is_active": poll["is_active"] == true,
-  //   };
-  // }
 
   Map<String, dynamic> normalizePoll(Map<String, dynamic> poll) {
     final options = (poll["options"] as List? ?? [])
@@ -506,8 +512,12 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
+          Icon(Icons.thumb_up, size: 14, color: theme.primaryColor),
+          const SizedBox(width: 4),
+          Text("${post["like_count"] ?? 0}", style: theme.textTheme.bodySmall),
+          const SizedBox(width: 12),
           Text(
-            "${post["like_count"] ?? 0} likes",
+            "${post["comment_count"] ?? 0} comments", // Needs backend to send comment_count
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -516,44 +526,120 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _postActions(Map<String, dynamic> post, ThemeData theme) {
-    final isLiked = post["is_liked"] ?? false;
+    final isLiked = post["is_liked"] == true;
+    final postId = post["post_id"].toString();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        GestureDetector(
+        // LIKE
+        InkWell(
           onTap: () async {
-            final response = await ApiClient.post(
-              "/post/${post["post_id"]}/like",
-            );
-            if (response.statusCode == 200) {
-              final res = jsonDecode(response.body);
+            // Optimistic Update
+            final previousLiked = isLiked;
+            final previousCount = post["like_count"] ?? 0;
+
+            if (mounted) {
               setState(() {
-                post["is_liked"] = res["liked"];
-                post["like_count"] = res["likeCount"];
+                post["is_liked"] = !isLiked;
+                post["like_count"] = isLiked
+                    ? (previousCount - 1)
+                    : (previousCount + 1);
               });
+            }
+
+            try {
+              // 1. Send Request
+              await FeedApi.toggleLike(postId);
+
+              // 2. Fetch fresh data from DB to ensure accurate count
+              await _refreshPost(post);
+            } catch (e) {
+              debugPrint("❌ Like failed: $e");
+              // Revert on failure
+              if (mounted) {
+                setState(() {
+                  post["is_liked"] = previousLiked;
+                  post["like_count"] = previousCount;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to like post")),
+                );
+              }
             }
           },
           child: _action(
-            isLiked ? Icons.favorite : Icons.favorite_border,
+            isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
             "Like",
-            color: isLiked ? Colors.red : null,
+            color: isLiked ? theme.primaryColor : null,
+            theme: theme,
           ),
         ),
-        _action(Icons.chat_bubble_outline, "Comment"),
-        _action(Icons.share_outlined, "Share"),
+
+        // COMMENT
+        InkWell(
+          onTap: () async {
+            await showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => CommentsSheet(
+                postId: postId,
+                onCommentAdded: () {
+                  // Optimistic Increment
+                  if (mounted) {
+                    setState(() {
+                      post["comment_count"] = (post["comment_count"] ?? 0) + 1;
+                    });
+                  }
+                  // Fetch fresh data from DB to get correct comment count
+                  _refreshPost(post);
+                },
+              ),
+            );
+          },
+          child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
+        ),
+
+        // SHARE
+        InkWell(
+          onTap: () {
+            Clipboard.setData(
+              ClipboardData(text: "https://example.com/post/$postId"),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Link copied to clipboard")),
+            );
+          },
+          child: _action(Icons.share_outlined, "Share", theme: theme),
+        ),
       ],
     );
   }
 
-  Widget _action(IconData icon, String label, {Color? color}) {
+  Widget _action(
+    IconData icon,
+    String label, {
+    Color? color,
+    required ThemeData theme,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 6),
-          Text(label),
+          Icon(
+            icon,
+            size: 20,
+            color: color ?? theme.iconTheme.color?.withOpacity(0.7),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: color ?? theme.textTheme.bodyMedium?.color,
+            ),
+          ),
         ],
       ),
     );

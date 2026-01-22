@@ -78,16 +78,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final user = data['user'] ?? {};
 
+      // Fetch connection count if user ID is available
       int count = 0;
-
-      if (user['id'] != null) {
-        count = await profileService.getConnectionCount(
-          user['id'].toString(),
-        );
-        debugPrint(
-          "Connection count: $count, userId: ${user['id']}, user: $user",
-        );
-
+      if (user['user_id'] != null) {
+        count = await profileService.getConnectionCount(user['user_id'].toString());
+      } else if (user['id'] != null) {
+        count = await profileService.getConnectionCount(user['id'].toString());
       }
 
       // ✅ MOVING PARSING OUTSIDE SETSTATE (FIX FOR MAIN THREAD OVERLOAD)
@@ -105,14 +101,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Determine latest education
       String? educationStr;
-
-      if (fetchedEducations.isNotEmpty) {
+      if (user['latest_education'] != null && user['latest_education'] is Map) {
+         // If backend provides it directly
+         final edu = user['latest_education'];
+         educationStr = "${edu['school_name'] ?? ''} ${edu['degree'] != null ? '• ${edu['degree']}' : ''}";
+      } else if (fetchedEducations.isNotEmpty) {
+        // Fallback to first in list (assuming ordered)
         final edu = fetchedEducations.first;
-
-        educationStr =
-        "${edu.school}";
+        educationStr = "${edu.school} ${edu.degree.isNotEmpty ? '• ${edu.degree}' : ''}";
       }
-
 
       setState(() {
         profile = data;
@@ -404,7 +401,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 latestEducation: latestEducation,
               ),
               _divider(theme),
-              RepaintBoundary(child: ProfileStats(    connectionCount: connectionCount,)),
+              const RepaintBoundary(child: ProfileStats()),
               _divider(theme),
               ProfileLivingResume(
                 isOverviewSelected: isOverviewSelected,

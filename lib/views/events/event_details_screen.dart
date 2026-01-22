@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
+import '../../services/event_service.dart';
 import 'event_register_sheet.dart';
 import 'my_event_analytics_screen.dart';
 
@@ -26,25 +27,106 @@ class EventDetailsScreen extends StatefulWidget {
 }
 
 class _EventDetailsScreenState extends State<EventDetailsScreen> {
+  late EventModel _event;
   late bool _isSaved;
+  late bool _isRegistered;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _event = widget.event;
     _isSaved = widget.isSaved;
+    _isRegistered = widget.isRegistered;
+    _initData();
   }
 
-  void _toggleSave() {
+  Future<void> _initData() async {
+    // Parallel fetch: details (for attendee count) and registration status
+    try {
+      final results = await Future.wait([
+         EventService.getEventById(widget.event.id),
+         EventService.checkRegistrationStatus(widget.event.id)
+      ]);
+
+      final details = results[0] as EventModel;
+      final isReg = results[1] as bool;
+
+      if (mounted) {
+        setState(() {
+          _event = details.copyWith(
+            // Preserve local helper properties if needed, but getEventById should return fresh data.
+            // But getEventById response might NOT have isRegistered/isSaved populated if we don't handle it in service properly,
+            // (Service calls endpoint which returns e.*, but my SQL analysis says e.*, organizer_name, registered_count).
+            // So we need to merge states.
+            isRegistered: isReg,
+            isSaved: widget.isSaved, // Keep passed state or assume false if not fetched
+            createdByMe: widget.event.createdByMe,
+          );
+          _isRegistered = isReg;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading event details: $e");
+      if (mounted) {
+         // Fallback to widget.event if fetch fails, but still mark loading done
+         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _toggleSave() async {
+    // Optimistic update
     setState(() {
       _isSaved = !_isSaved;
     });
-    widget.onSaveToggle(_isSaved);
+
+    try {
+      if (_isSaved) {
+        await EventService.saveEvent(_event.id);
+      } else {
+        await EventService.unsaveEvent(_event.id);
+      }
+      widget.onSaveToggle(_isSaved);
+    } catch (e) {
+      // Revert if error
+      if (mounted) {
+        setState(() {
+          _isSaved = !_isSaved;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update save status")));
+      }
+    }
+  }
+
+  Future<void> _unregister() async {
+     try {
+       final success = await EventService.unregisterFromEvent(_event.id);
+       if (success) {
+         setState(() {
+           _isRegistered = false;
+           _event.totalRegistrations = (_event.totalRegistrations - 1).clamp(0, 999999);
+         });
+         widget.onCancelRegistration();
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Unregistered successfully")));
+       }
+     } catch(e) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to unregister")));
+     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    ImageProvider imgProv;
+    if (_event.image.startsWith('http')) {
+       imgProv = NetworkImage(_event.image);
+    } else {
+       imgProv = AssetImage(_event.image);
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -59,7 +141,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 leading: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: CircleAvatar(
-                    backgroundColor: Colors.black.withAlpha(150),
+                    backgroundColor: Colors.black.withOpacity(0.6), // Fixed compatibility
                     child: const BackButton(color: Colors.white),
                   ),
                 ),
@@ -72,7 +154,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                         duration: const Duration(milliseconds: 300),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: _isSaved ? theme.primaryColor.withAlpha(40) : Colors.black.withAlpha(150),
+                          color: _isSaved ? theme.primaryColor.withOpacity(0.2) : Colors.black.withOpacity(0.6),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: _isSaved ? theme.primaryColor : Colors.white24),
                         ),
@@ -101,13 +183,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.asset(widget.event.image, fit: BoxFit.cover),
+                      Image(image: imgProv, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(color: Colors.grey)),
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black.withAlpha(200)],
+                            colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                           ),
                         ),
                       ),
@@ -119,14 +201,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.event.title,
+                              _event.title,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (widget.isRegistered)
+                            if (_isRegistered)
                               Container(
                                 margin: const EdgeInsets.only(top: 12),
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -158,13 +240,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        widget.event.description,
+                        _event.description,
                         style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
                       ),
                       const SizedBox(height: 32),
-                      _infoRow(theme, Icons.calendar_today, 'Date and Time', '${widget.event.startDate} · ${widget.event.startTime}'),
-                      _infoRow(theme, Icons.location_on_outlined, 'Location', widget.event.location),
-                      _infoRow(theme, Icons.people_outline, 'Attendees', '${widget.event.totalRegistrations} going'),
+                      _infoRow(theme, Icons.calendar_today, 'Date and Time', '${_event.startDate} · ${_event.startTime}'),
+                      _infoRow(theme, Icons.location_on_outlined, 'Location', _event.location ?? 'Online'),
+                      _infoRow(theme, Icons.people_outline, 'Attendees', '${_event.totalRegistrations} going'),
                       const SizedBox(height: 32),
                       Container(
                         padding: const EdgeInsets.all(20),
@@ -181,9 +263,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 20),
-                            _organizerItem(theme, Icons.person_outline, 'The Company Inc.'),
-                            _organizerItem(theme, Icons.email_outlined, 'contact@thecompany.com'),
-                            _organizerItem(theme, Icons.phone_outlined, '+1 234 567 890'),
+                            _organizerItem(theme, Icons.person_outline, _event.organizerName ?? 'Organizer'),
+                            // _organizerItem(theme, Icons.email_outlined, 'contact@thecompany.com'),
+                            // _organizerItem(theme, Icons.phone_outlined, '+1 234 567 890'),
                           ],
                         ),
                       ),
@@ -206,7 +288,11 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   }
 
   Widget _actionButtons(BuildContext context, ThemeData theme) {
-    if (widget.event.createdByMe) {
+    if (_isLoading) {
+      return const SizedBox(height: 60, child: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_event.createdByMe) {
       return SizedBox(
         width: double.infinity,
         height: 60,
@@ -214,7 +300,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => MyEventAnalyticsScreen(event: widget.event)),
+              MaterialPageRoute(builder: (_) => MyEventAnalyticsScreen(event: _event)),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -229,7 +315,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       );
     }
 
-    if (widget.isRegistered) {
+    if (_isRegistered) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -257,7 +343,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             width: double.infinity,
             height: 60,
             child: OutlinedButton(
-              onPressed: widget.onCancelRegistration,
+              onPressed: _unregister,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: theme.dividerColor),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -281,9 +367,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (_) => EventRegisterSheet(event: widget.event),
+            builder: (_) => EventRegisterSheet(event: _event),
           );
           if (res == true) {
+            setState(() {
+               _isRegistered = true;
+               _event.totalRegistrations++;
+            });
             widget.onRegister();
           }
         },

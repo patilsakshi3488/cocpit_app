@@ -12,7 +12,7 @@ class ProfileInfoIdentity extends StatelessWidget {
   final bool isReadOnly;
   final VoidCallback? onMessage;
   final VoidCallback? onFollow;
-  final  int connectionCount;
+  final int connectionCount;
   final String? latestEducation;
 
   const ProfileInfoIdentity({
@@ -50,7 +50,6 @@ class ProfileInfoIdentity extends StatelessWidget {
                   name,
                   style: theme.textTheme.displaySmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    fontSize: 20
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -62,7 +61,7 @@ class ProfileInfoIdentity extends StatelessWidget {
               const Spacer(),
               if (!isReadOnly)
                 IconButton(
-                  icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withOpacity(0.5), size: 28),
+                  icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withValues(alpha: 0.5), size: 28),
                   onPressed: onEditProfile,
                 ),
             ],
@@ -148,12 +147,13 @@ class ProfileInfoIdentity extends StatelessWidget {
           ],
           GestureDetector(
             onTap: isReadOnly ? null : onEditIdentity,
-            child: Wrap(
-              spacing: 8.0,
-              runSpacing: 8.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _identityRow(context, "OPEN TO:", openTo, colorScheme.surfaceContainer, theme.primaryColor),
-                _identityRow(context, "AVAILABILITY:", availability, Colors.green.withOpacity(0.1), Colors.green),
+                const SizedBox(height: 8),
+                _identityRow(context, "AVAILABILITY:", availability, Colors.green.withValues(alpha: 0.1), Colors.green),
+                const SizedBox(height: 8),
                 _identityRow(context, "PREFERENCE:", preference, colorScheme.surfaceContainer, theme.primaryColor),
               ],
             ),

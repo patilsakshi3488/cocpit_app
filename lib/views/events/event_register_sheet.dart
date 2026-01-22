@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
+import '../../services/event_service.dart';
 
 class EventRegisterSheet extends StatefulWidget {
   final EventModel event;
@@ -17,6 +18,8 @@ class _EventRegisterSheetState extends State<EventRegisterSheet> {
   final _companyCtrl = TextEditingController();
   final _jobTitleCtrl = TextEditingController();
 
+  bool _isLoading = false;
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -25,6 +28,46 @@ class _EventRegisterSheetState extends State<EventRegisterSheet> {
     _companyCtrl.dispose();
     _jobTitleCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await EventService.registerForEvent(
+        widget.event.id,
+        name: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        mobileNumber: _mobileCtrl.text.trim(),
+        companyName: _companyCtrl.text.trim(),
+        jobTitle: _jobTitleCtrl.text.trim(),
+      );
+
+      if (success) {
+         if (mounted) {
+            Navigator.pop(context, true);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registration successful!')),
+            );
+         }
+      } else {
+         if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registration failed. Please try again.')),
+            );
+         }
+      }
+    } catch (e) {
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Error: $e')),
+         );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -71,22 +114,20 @@ class _EventRegisterSheetState extends State<EventRegisterSheet> {
               if (widget.event.isFree)
                 _infoBox(theme, 'This is a free event.', null)
               else
-                _infoBox(theme, 'This is a premium event.', 'Price: \$50'),
+                _infoBox(theme, 'This is a premium event.', 'Price: \$50'), // Placeholder price
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      Navigator.pop(context, true);
-                    }
-                  },
+                  onPressed: _isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primaryColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Register', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text('Register', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -158,7 +199,7 @@ class _EventRegisterSheetState extends State<EventRegisterSheet> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _isLoading ? null : _register, // Reuse register for now
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.primaryColor,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

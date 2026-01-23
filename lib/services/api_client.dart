@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:cocpit_app/config/api_config.dart';
+import 'package:mime/mime.dart';
 
 import 'auth_service.dart';
 import 'secure_storage.dart';
@@ -72,16 +73,38 @@ class ApiClient {
     if (fields != null) request.fields.addAll(fields);
 
     // Handle single file
+    // if (file != null) {
+    //   request.files.add(
+    //     await http.MultipartFile.fromPath(fileField, file.path),
+    //   );
+    // }
+    //
+    // // Handle multiple files
+    // if (files != null) {
+    //   for (var f in files) {
+    //     request.files.add(await http.MultipartFile.fromPath(fileField, f.path));
+    //   }
+    // }
+
     if (file != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(fileField, file.path),
+          await http.MultipartFile.fromPath(
+              fileField,
+              file.path,
+              contentType: http.MediaType.parse(
+                lookupMimeType(file.path) ?? 'image/jpeg',
+              ))
       );
     }
-
-    // Handle multiple files
+      // Handle multiple files
     if (files != null) {
       for (var f in files) {
-        request.files.add(await http.MultipartFile.fromPath(fileField, f.path));
+        request.files.add(   await http.MultipartFile.fromPath(
+          fileField,
+          f.path,
+          contentType: http.MediaType.parse(
+            lookupMimeType(f.path) ?? 'image/jpeg',
+          ),));
       }
     }
 

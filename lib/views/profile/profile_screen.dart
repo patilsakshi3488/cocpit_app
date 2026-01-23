@@ -81,23 +81,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Fetch connection count if user ID is available
       int count = 0;
       if (user['user_id'] != null) {
-        count = await profileService.getConnectionCount(
-          user['user_id'].toString(),
-        );
+        count = await profileService.getConnectionCount(user['user_id'].toString());
       } else if (user['id'] != null) {
         count = await profileService.getConnectionCount(user['id'].toString());
       }
 
       // ✅ MOVING PARSING OUTSIDE SETSTATE (FIX FOR MAIN THREAD OVERLOAD)
-      final List<Experience> fetchedExperiences =
-          (data['experiences'] as List? ?? [])
-              .map((e) => Experience.fromJson(e))
-              .toList();
+      final List<Experience> fetchedExperiences = (data['experiences'] as List? ?? [])
+          .map((e) => Experience.fromJson(e))
+          .toList();
 
-      final List<Education> fetchedEducations =
-          (data['educations'] as List? ?? [])
-              .map((e) => Education.fromJson(e))
-              .toList();
+      final List<Education> fetchedEducations = (data['educations'] as List? ?? [])
+          .map((e) => Education.fromJson(e))
+          .toList();
 
       final List<Skill> fetchedSkills = (data['skills'] as List? ?? [])
           .map((s) => Skill.fromJson(s))
@@ -105,16 +101,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Determine latest education
       String? educationStr;
-      if (user['latest_education'] != null && user['latest_education'] is Map) {
-        // If backend provides it directly
-        final edu = user['latest_education'];
-        educationStr =
-            "${edu['school_name'] ?? ''} ${edu['degree'] != null ? '• ${edu['degree']}' : ''}";
+      if (user['latestEducation'] != null && user['latestEducation'] is Map) {
+         // If backend provides it directly
+         final edu = user['latestEducation'];
+         educationStr = "${edu['school_name'] ?? ''} ${edu['degree'] != null ? '• ${edu['degree']}' : ''}";
       } else if (fetchedEducations.isNotEmpty) {
         // Fallback to first in list (assuming ordered)
         final edu = fetchedEducations.first;
-        educationStr =
-            "${edu.school} ${edu.degree.isNotEmpty ? '• ${edu.degree}' : ''}";
+        educationStr = "${edu.school} ${edu.degree.isNotEmpty ? '• ${edu.degree}' : ''}";
       }
 
       setState(() {
@@ -157,9 +151,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
 
     // Show loading indicator or toast?
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Uploading avatar...")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Uploading avatar...")),
+    );
 
     final success = await profileService.uploadAvatar(File(image.path));
 
@@ -187,12 +181,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Uploading cover photo...")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Uploading cover photo...")),
+    );
 
     final success = await profileService.uploadCover(File(image.path));
-
+    debugPrint("✅ uploadCover returned: $success");
     if (success) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -336,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SignInScreen()),
-      (_) => false,
+          (_) => false,
     );
   }
 
@@ -345,14 +339,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
 
     if (isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
       endDrawer: _buildMenuDrawer(theme),
-      bottomNavigationBar: const AppBottomNavigation(currentIndex: 1),
+      bottomNavigationBar: const AppBottomNavigation(currentIndex: 4),
       body: RefreshIndicator(
         onRefresh: _loadProfile,
         child: SingleChildScrollView(
@@ -367,10 +363,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   user: profile!['user'],
                   profileImage: profileImage,
                   coverImage: coverImage,
-                  onMenuPressed: () =>
-                      _scaffoldKey.currentState?.openEndDrawer(),
+                  onMenuPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                   onCameraPressed: () {
-                    PhotoActionHelper.showPhotoActions(
+                     PhotoActionHelper.showPhotoActions(
                       context: context,
                       title: "Profile Photo",
                       imagePath: profileImage,
@@ -406,7 +401,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 latestEducation: latestEducation,
               ),
               _divider(theme),
-              const RepaintBoundary(child: ProfileStats()),
+
+              RepaintBoundary(
+                child: ProfileStats(connectionCount: connectionCount),
+              ),
+
               _divider(theme),
               ProfileLivingResume(
                 isOverviewSelected: isOverviewSelected,
@@ -466,9 +465,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: const Text("Analytics"),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const AnalyticsDashboardScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AnalyticsDashboardScreen()),
             ),
           ),
           ListTile(

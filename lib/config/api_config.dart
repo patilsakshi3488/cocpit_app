@@ -36,4 +36,11 @@ class ApiConfig {
       "/post"; // Singular based on backend: router.post("/post", ...)
   static String get upload =>
       "/upload"; // Based on backend: router.post("/upload", ...)
+
+  // ======================
+  // STORY ENDPOINTS
+  // ======================
+  static String get storiesGrouped => "/stories/grouped";
+  static String get story => "/story"; // For POST /story
+  static String get stories => "/stories"; // For /stories/:id
 }

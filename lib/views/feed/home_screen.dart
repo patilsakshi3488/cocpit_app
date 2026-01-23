@@ -12,9 +12,8 @@ import '../../services/user_search_service.dart';
 import '../../services/secure_storage.dart';
 
 import '../profile/public_profile_screen.dart';
-import 'create_career_moment_screen.dart';
-import 'career_moment_viewer.dart';
 import '../../widgets/app_top_bar.dart';
+import '../story/story_tray.dart';
 import '../../widgets/poll_widget.dart';
 import '../post/create_post_screen.dart';
 import '../bottom_navigation.dart';
@@ -54,51 +53,6 @@ class _HomeScreenState extends State<HomeScreen>
   bool _hasError = false;
   String _lastQuery = "";
   Timer? _debounce;
-
-  // =========================
-  // 📌 STORIES DATA
-  // =========================
-  final List<Map<String, dynamic>> careerMoments = [
-    {
-      'name': 'You',
-      'isMine': true,
-      'stories': [
-        {
-          'image': 'lib/images/profile.png',
-          'text': 'Just sharing my latest update with my close friends!',
-          'time': '1m ago',
-        },
-      ],
-      'profile': 'lib/images/profile.png',
-      'image': 'lib/images/profile.png',
-    },
-    {
-      'name': 'Mike Torres',
-      'isMine': false,
-      'image': 'lib/images/story1.png',
-      'profile': 'lib/images/profile2.jpg',
-      'stories': [
-        {
-          'image': 'lib/images/story1.png',
-          'text': 'Sneak peek of our latest feature!',
-          'time': '6h ago',
-        },
-      ],
-    },
-    {
-      'name': 'James Wilson',
-      'isMine': false,
-      'image': 'lib/images/story4.png',
-      'profile': 'lib/images/profile3.jpg',
-      'stories': [
-        {
-          'image': 'lib/images/story4.png',
-          'text': 'Insights from our data analysis project.',
-          'time': '8h ago',
-        },
-      ],
-    },
-  ];
 
   // =========================
   // 🔁 INIT
@@ -366,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen>
           itemCount: feedPosts.length + 6,
           itemBuilder: (context, index) {
             if (index == 0) return _storiesHeader(theme);
-            if (index == 1) return _careerMomentsBar(theme);
+            if (index == 1) return const StoryTray();
             if (index == 2) return const SizedBox(height: 20);
             if (index == 3) return Divider(color: theme.dividerColor);
             if (index == 4) return const SizedBox(height: 10);
@@ -680,119 +634,6 @@ class _HomeScreenState extends State<HomeScreen>
     ),
   );
 
-  Widget _careerMomentsBar(ThemeData theme) {
-    double itemWidth = MediaQuery.of(context).size.width > 600 ? 150 : 120;
-
-    return SizedBox(
-      height: 180,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: careerMoments.length,
-        itemBuilder: (context, index) {
-          final m = careerMoments[index];
-          return GestureDetector(
-            onTap: () {
-              if (m['isMine']) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CreateCareerMomentScreen(),
-                  ),
-                );
-              } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CareerMomentViewer(
-                      users: careerMoments,
-                      initialUserIndex: index,
-                    ),
-                  ),
-                );
-              }
-            },
-            child: Container(
-              width: itemWidth,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                image: !m['isMine']
-                    ? DecorationImage(
-                        image: AssetImage(m['image']),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-                color: m['isMine'] ? theme.primaryColor : theme.cardColor,
-              ),
-              child: Stack(
-                children: [
-                  if (m['isMine'])
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.onPrimary.withValues(
-                                alpha: 0.2,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.add,
-                              color: theme.colorScheme.onPrimary,
-                              size: 30,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            "Your Update",
-                            style: TextStyle(
-                              color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (!m['isMine'])
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: theme.primaryColor,
-                            child: CircleAvatar(
-                              radius: 16,
-                              backgroundImage: AssetImage(m['profile']),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            m['name'],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   @override
   void dispose() {

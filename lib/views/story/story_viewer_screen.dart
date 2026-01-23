@@ -149,7 +149,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   Future<void> _handleReaction() async {
-    _pause();
     // Optimistic toggle
     final story = _currentStory;
     final wasLiked = story.hasLiked;
@@ -178,7 +177,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
           });
        }
     }
-    _resume();
   }
 
   Future<void> _deleteStory() async {
@@ -425,18 +423,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     } else {
       // Viewer View
       return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-           IconButton(
-             icon: Icon(
-               story.hasLiked ? Icons.favorite : Icons.favorite_border,
-               color: story.hasLiked ? Colors.red : Colors.white,
-               size: 30,
+           Padding(
+             padding: const EdgeInsets.only(right: 16),
+             child: IconButton(
+               icon: Icon(
+                 story.hasLiked ? Icons.favorite : Icons.favorite_border,
+                 color: story.hasLiked ? Colors.red : Colors.white,
+                 size: 30,
+               ),
+               onPressed: _handleReaction,
              ),
-             onPressed: _handleReaction,
            ),
-           // Maybe Reply field? Not in requirements explicitly ("Allow like/unlike").
-           // But WhatsApp has reply. I'll stick to Like.
         ],
       );
     }

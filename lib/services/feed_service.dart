@@ -174,41 +174,94 @@ class FeedApi {
   }
 
   // =========================
+  // ☁️ UPLOAD MEDIA
+  // =========================
+  static Future<List<Map<String, dynamic>>> uploadMedia(
+    List<File> files,
+  ) async {
+    // Backend expects field "files"
+    final response = await ApiClient.multipart(
+      ApiConfig.upload,
+      fileField: "files",
+      files: files,
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      // Backend returns { "urls": [ { "url": "...", "media_type": "..." } ] }
+      if (decoded["urls"] != null) {
+        return List<Map<String, dynamic>>.from(decoded["urls"]);
+      }
+      return [];
+    } else {
+      throw Exception("Failed to upload media: ${response.statusCode}");
+    }
+  }
+
+  // =========================
   // ➕ CREATE POST
   // =========================
   static Future<void> createPost({
     required String content,
-    List<File>? mediaFiles, // Changed to List
-    String? mediaType, // 'image' or 'video'
+    List<String>? mediaUrls,
+    String? postType, // 'image', 'video', 'text', 'poll', 'article'
     Map<String, dynamic>? pollData,
+    String category = 'Professional',
+    String visibility = 'public',
+    String title = '',
   }) async {
-    final Map<String, String> fields = {"content": content};
+    // Construct Payload
+    final Map<String, dynamic> body = {
+      "content": content,
+      "category": category,
+      "visibility": visibility,
+      "title": title,
+    };
 
-    if (pollData != null) {
-      fields["poll"] = jsonEncode(pollData);
+    if (mediaUrls != null && mediaUrls.isNotEmpty) {
+      body["media_urls"] = mediaUrls;
     }
 
-    if (mediaFiles != null && mediaFiles.isNotEmpty) {
-      final response = await ApiClient.multipart(
-        ApiConfig.posts, // Use correct endpoint
-        fileField: "media",
-        files: mediaFiles,
-        fields: fields,
-      );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception("Failed to create post: ${response.statusCode}");
-      }
+    // Determine Post Type
+    if (postType != null) {
+      body["post_type"] = postType;
     } else {
-      // Just text/poll
-      final response = await ApiClient.post(
-        ApiConfig.posts, // Use correct endpoint
-        body: fields,
-      );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception("Failed to create post: ${response.statusCode}");
+      // Fallback logic if null
+      if (pollData != null) {
+        body["post_type"] = "poll";
+      } else if (mediaUrls != null && mediaUrls.isNotEmpty) {
+        // Simplistic check, UI should pass correct type
+        body["post_type"] = "image";
+      } else {
+        body["post_type"] = "text";
       }
+    }
+
+    if (pollData != null) {
+      // Backend expects poll data flattened or specific fields?
+      // Reading frontend: payload.poll_options, payload.poll_duration, payload.content
+      // Let's assume UI passes `pollData` with these keys or we map them here.
+      // Based on frontend:
+      // payload.poll_options = filteredOptions;
+      // payload.poll_duration = pollDuration;
+      // payload.content = pollQuestion;
+
+      if (pollData["options"] != null) {
+        body["poll_options"] = pollData["options"];
+      }
+      if (pollData["duration"] != null) {
+        body["poll_duration"] = pollData["duration"];
+      }
+      // Content is already set
+    }
+
+    // Send JSON
+    final response = await ApiClient.post(ApiConfig.posts, body: body);
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+        "Failed to create post: ${response.statusCode} - ${response.body}",
+      );
     }
   }
 }

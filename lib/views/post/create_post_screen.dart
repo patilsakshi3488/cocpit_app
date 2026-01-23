@@ -96,26 +96,39 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() => _isPosting = true);
 
     try {
+      List<String> mediaUrls = [];
+      String finalPostType = 'text';
+
+      // 1. Upload Media
+      if (_selectedFiles.isNotEmpty) {
+        final uploaded = await FeedApi.uploadMedia(_selectedFiles);
+        mediaUrls = uploaded.map((u) => u["url"] as String).toList();
+        finalPostType = _mediaType == 'video' ? 'video' : 'image';
+      }
+
+      // 2. Prepare Poll Data
       Map<String, dynamic>? pollData;
       if (_showPollCreator) {
+        finalPostType = 'poll';
         pollData = {
-          "question": _pollQuestionController.text.trim(),
           "options": _pollOptionsControllers
               .map((c) => c.text.trim())
               .where((t) => t.isNotEmpty)
               .toList(),
           "duration": _pollDuration,
         };
-        if ((pollData["options"] as List).length < 2) {
-          throw Exception("Poll must have at least 2 options");
-        }
       }
 
+      // 3. Create Post
       await FeedApi.createPost(
-        content: content,
-        mediaFiles: _selectedFiles, // Use List
-        mediaType: _mediaType,
+        content: _showPollCreator
+            ? _pollQuestionController.text.trim()
+            : content,
+        mediaUrls: mediaUrls,
+        postType: finalPostType,
         pollData: pollData,
+        category: 'Professional', // Default as per frontend
+        visibility: 'public',
       );
 
       if (mounted) {

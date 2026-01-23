@@ -308,7 +308,7 @@ class ProfileService {
       final response = await ApiClient.get("/users/$userId/connections/count");
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['connection_count'] ?? 0;
+        return int.tryParse(data['connection_count']?.toString() ?? '0') ?? 0;
       }
     } catch (_) {}
     return 0;

@@ -28,7 +28,7 @@ class ProfileInfoIdentity extends StatelessWidget {
     this.isReadOnly = false,
     this.onMessage,
     this.onFollow,
-    this.connectionCount = 0,
+    required this.connectionCount ,
     this.latestEducation,
   });
 

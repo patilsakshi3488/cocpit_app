@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/public_user.dart';
 import '../../services/public_user_service.dart';
+import '../../services/profile_service.dart';
 import '../feed/chat_screen.dart';
 import 'profile_header.dart';
 import 'profile_info_identity.dart';
@@ -24,6 +25,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   PublicUser? user;
   bool isLoading = true;
   int connectionCount = 0;
+  bool isFollowing = false;
+  final ProfileService _profileService = ProfileService();
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       final data = await PublicUserService.getUserProfile(widget.userId);
       setState(() {
         user = data;
+        isFollowing = data.isFollowing ?? false;
         isLoading = false;
       });
     } catch (e) {
@@ -46,14 +50,34 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
+  Future<void> _toggleFollow() async {
+    final previousState = isFollowing;
+    setState(() => isFollowing = !isFollowing);
+
+    bool success;
+    if (previousState) {
+      // Was following, now unfollow
+      success = await _profileService.unfollowUser(widget.userId);
+    } else {
+      // Was not following, now follow
+      success = await _profileService.followUser(widget.userId);
+    }
+
+    if (!success && mounted) {
+      // Revert
+      setState(() => isFollowing = previousState);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Action failed")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (user == null) {
@@ -64,30 +88,42 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
 
     // Map PublicExperience to Experience model for UI reuse
-    final List<Experience> mappedExperiences = user!.experiences.map((e) => Experience(
-      title: e.title,
-      company: e.company,
-      startDate: "Present", // Placeholder as PublicExperience lacks dates
-      currentlyWorking: e.isCurrent,
-      location: "",
-      description: e.description ?? "",
-    )).toList();
+    final List<Experience> mappedExperiences = user!.experiences
+        .map(
+          (e) => Experience(
+            title: e.title,
+            company: e.company,
+            startDate: "Present", // Placeholder as PublicExperience lacks dates
+            currentlyWorking: e.isCurrent,
+            location: "",
+            description: e.description ?? "",
+          ),
+        )
+        .toList();
 
     // Map PublicEducation to Education model for UI reuse
-    final List<Education> mappedEducations = user!.educations.map((e) => Education(
-      school: e.school,
-      degree: e.degree ?? "",
-      fieldOfStudy: "",
-      startYear: "",
-      currentlyStudying: false,
-      description: e.description ?? "",
-    )).toList();
+    final List<Education> mappedEducations = user!.educations
+        .map(
+          (e) => Education(
+            school: e.school,
+            degree: e.degree ?? "",
+            fieldOfStudy: "",
+            startYear: "",
+            currentlyStudying: false,
+            description: e.description ?? "",
+          ),
+        )
+        .toList();
 
     // Map List<String> skills to List<Skill>
-    final List<Skill> mappedSkills = user!.skills.map((s) => Skill(
-      id: s, // Using name as ID for read-only display
-      name: s,
-    )).toList();
+    final List<Skill> mappedSkills = user!.skills
+        .map(
+          (s) => Skill(
+            id: s, // Using name as ID for read-only display
+            name: s,
+          ),
+        )
+        .toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -96,9 +132,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ProfileHeader(
-              user: {
-                'avatar_url': user!.avatarUrl,
-              },
+              user: {'avatar_url': user!.avatarUrl},
               profileImage: 'lib/images/profile.jpg',
               onMenuPressed: () {},
               onCameraPressed: () {},
@@ -118,6 +152,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               onEditIdentity: () {},
               connectionCount: connectionCount,
               isReadOnly: true,
+              isFollowing: isFollowing,
               onMessage: () {
                 Navigator.push(
                   context,
@@ -130,17 +165,15 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   ),
                 );
               },
-              onFollow: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Follow functionality coming soon")),
-                );
-              },
+              onFollow: _toggleFollow,
             ),
             _buildDivider(theme),
             ProfileStats(connectionCount: connectionCount),
 
             _buildDivider(theme),
-            ProfileAboutSection(about: user!.about ?? "No about information provided."),
+            ProfileAboutSection(
+              about: user!.about ?? "No about information provided.",
+            ),
             _buildDivider(theme),
             ProfileExperienceSection(
               experiences: mappedExperiences,

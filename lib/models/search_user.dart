@@ -14,12 +14,22 @@ class SearchUser {
   });
 
   factory SearchUser.fromJson(Map<String, dynamic> json) {
+    // Handle nested 'user' if present (API consistency)
+    final userData = json['user'] ?? json;
+
     return SearchUser(
-      id: json['id'],
-      fullName: json['full_name'],
-      headline: json['headline'],
-      avatarUrl: json['avatar_url'],
-      accountType: json['account_type'],
+      // Allow flexible ID types and keys
+      id: userData['id']?.toString() ?? userData['user_id']?.toString() ?? '',
+
+      // Allow 'name' or 'full_name'
+      fullName: userData['full_name'] ?? userData['name'] ?? 'Unknown User',
+
+      headline: userData['headline'],
+
+      // Allow 'avatar' or 'avatar_url'
+      avatarUrl: userData['avatar'] ?? userData['avatar_url'],
+
+      accountType: userData['account_type'],
     );
   }
 }

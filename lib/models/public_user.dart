@@ -9,6 +9,7 @@ class PublicUser {
   final List<PublicExperience> experiences;
   final List<PublicEducation> educations;
   final List<String> skills;
+  final bool? isFollowing;
 
   PublicUser({
     required this.id,
@@ -20,24 +21,60 @@ class PublicUser {
     required this.experiences,
     required this.educations,
     required this.skills,
+    this.isFollowing,
   });
 
   factory PublicUser.fromJson(Map<String, dynamic> json) {
-    return PublicUser(
-      id: json['id'],
-      fullName: json['full_name'],
-      headline: json['headline'],
-      avatarUrl: json['avatar_url'],
-      location: json['location'],
-      about: json['about_text'],
-      experiences: (json['experiences'] as List? ?? [])
+    // Handle nested 'user' object if present (common in our API responses)
+    final userData = json['user'] ?? json;
+
+    try {
+      final id =
+          userData['id']?.toString() ?? userData['user_id']?.toString() ?? '';
+
+      // Allow 'name' or 'full_name'
+      final fullName =
+          userData['full_name'] ?? userData['name'] ?? 'Unknown User';
+
+      final headline = userData['headline'];
+      final avatarUrl = userData['avatar'] ?? userData['avatar_url'];
+      final location = userData['location'];
+      final about = userData['about'] ?? userData['about_text'];
+
+      final experiences = (userData['experiences'] as List? ?? [])
           .map((e) => PublicExperience.fromJson(e))
-          .toList(),
-      educations: (json['educations'] as List? ?? [])
+          .toList();
+      final educations = (userData['educations'] as List? ?? [])
           .map((e) => PublicEducation.fromJson(e))
-          .toList(),
-      skills: List<String>.from(json['skills'] ?? []),
-    );
+          .toList();
+      final skills = List<String>.from(userData['skills'] ?? []);
+      final isFollowing = userData['is_following'];
+
+      return PublicUser(
+        id: id,
+        fullName: fullName,
+        headline: headline,
+        avatarUrl: avatarUrl,
+        location: location,
+        about: about,
+        experiences: experiences,
+        educations: educations,
+        skills: skills,
+        isFollowing: isFollowing,
+      );
+    } catch (e, stack) {
+      print("🔥 Error parsing PublicUser: $e");
+      print("🔥 Stack: $stack");
+      print("🔥 Data: $userData");
+      // Return a safe fallback instead of crashing
+      return PublicUser(
+        id: userData['id']?.toString() ?? '',
+        fullName: 'Unknown User (Error)',
+        experiences: [],
+        educations: [],
+        skills: [],
+      );
+    }
   }
 }
 
@@ -69,11 +106,7 @@ class PublicEducation {
   final String? degree;
   final String? description;
 
-  PublicEducation({
-    required this.school,
-    this.degree,
-    this.description,
-  });
+  PublicEducation({required this.school, this.degree, this.description});
 
   factory PublicEducation.fromJson(Map<String, dynamic> json) {
     return PublicEducation(

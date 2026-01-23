@@ -6,6 +6,7 @@ import 'analytics/analytics_dashboard_screen.dart';
 import '../../services/secure_storage.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/feed_service.dart';
 import '../login/signin_screen.dart';
 
 import 'profile_models.dart';
@@ -55,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Experience> experiences = [];
   List<Education> educations = [];
   List<Skill> skills = [];
+  List<Map<String, dynamic>> myPosts = []; // Added for posts
 
   bool isOverviewSelected = true;
   int connectionCount = 0;
@@ -103,6 +105,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .map((s) => Skill.fromJson(s))
           .toList();
 
+      // Fetch user's posts
+      List<Map<String, dynamic>> fetchedPosts = [];
+      try {
+        final postsData = await FeedApi.fetchMyPosts();
+        // Assuming posts are in a standard paginated format or list
+        if (postsData['posts'] != null) {
+          fetchedPosts = List<Map<String, dynamic>>.from(postsData['posts']);
+        } else if (postsData['data'] != null) {
+          fetchedPosts = List<Map<String, dynamic>>.from(postsData['data']);
+        }
+      } catch (e) {
+        debugPrint("⚠️ Failed to load my posts: $e");
+      }
+
       // Determine latest education
       String? educationStr;
       if (user['latestEducation'] != null && user['latestEducation'] is Map) {
@@ -130,6 +146,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         experiences = fetchedExperiences;
         educations = fetchedEducations;
         skills = fetchedSkills;
+        myPosts = fetchedPosts; // Assign posts
 
         connectionCount = count;
         latestEducation = educationStr;
@@ -322,6 +339,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   /// =========================
+  /// POST MANAGEMENT
+  /// =========================
+  Future<void> _handleDeletePost(String postId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Post"),
+        content: const Text("Are you sure you want to delete this post?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await FeedApi.deletePost(postId);
+        setState(() {
+          myPosts.removeWhere((p) => p['id'].toString() == postId);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Post deleted")));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Failed to delete: $e")));
+        }
+      }
+    }
+  }
+
+  Future<void> _handleTogglePrivacy(String postId, bool makePrivate) async {
+    try {
+      await FeedApi.setPostVisibility(postId, makePrivate);
+      await _loadProfile(); // Reload to refresh state
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              makePrivate ? "Post is now private" : "Post is now public",
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error updating privacy: $e");
+    }
+  }
+
+  Future<void> _handleEditPost(String postId) async {
+    // Navigate to CreatePostScreen in edit mode (not implemented yet)
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Edit feature coming soon")));
+  }
+
+  /// =========================
   /// LOGOUT
   /// =========================
   Future<void> _logout() async {
@@ -435,6 +520,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ProfileSkillsSection(
                 skills: skills,
                 onAddSkill: _showSkillsModal,
+              ),
+              _divider(theme),
+              // LATEST POSTS SECTION
+              ProfileLatestPostsSection(
+                posts: myPosts,
+                userName: name,
+                onSeeAllPosts: () {
+                  // Navigate to all posts (optional)
+                },
+                onDeletePost: _handleDeletePost,
+                onEditPost: _handleEditPost,
+                onTogglePrivacy: _handleTogglePrivacy,
               ),
               _divider(theme),
               ProfileSuggestedSection(suggestedUsers: const []),

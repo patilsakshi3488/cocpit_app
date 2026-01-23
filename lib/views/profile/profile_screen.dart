@@ -101,9 +101,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Determine latest education
       String? educationStr;
-      if (user['latest_education'] != null && user['latest_education'] is Map) {
+      if (user['latestEducation'] != null && user['latestEducation'] is Map) {
          // If backend provides it directly
-         final edu = user['latest_education'];
+         final edu = user['latestEducation'];
          educationStr = "${edu['school_name'] ?? ''} ${edu['degree'] != null ? '• ${edu['degree']}' : ''}";
       } else if (fetchedEducations.isNotEmpty) {
         // Fallback to first in list (assuming ordered)
@@ -186,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     final success = await profileService.uploadCover(File(image.path));
-
+    debugPrint("✅ uploadCover returned: $success");
     if (success) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -401,7 +401,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 latestEducation: latestEducation,
               ),
               _divider(theme),
-              const RepaintBoundary(child: ProfileStats()),
+
+              RepaintBoundary(
+                child: ProfileStats(connectionCount: connectionCount),
+              ),
+
               _divider(theme),
               ProfileLivingResume(
                 isOverviewSelected: isOverviewSelected,

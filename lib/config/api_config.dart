@@ -29,5 +29,11 @@ class ApiConfig {
   // ======================
   // POST ENDPOINTS
   // ======================
-  static String get posts => "/posts";
+  // ======================
+  // POST ENDPOINTS
+  // ======================
+  static String get posts =>
+      "/post"; // Singular based on backend: router.post("/post", ...)
+  static String get upload =>
+      "/upload"; // Based on backend: router.post("/upload", ...)
 }

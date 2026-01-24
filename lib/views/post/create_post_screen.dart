@@ -268,7 +268,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Row(
                     children: [
                       const CircleAvatar(
-                        backgroundImage: AssetImage("lib/images/profile.png"),
+                        backgroundImage: AssetImage("lib/images/profile.jpg"),
                         radius: 20,
                       ),
                       const SizedBox(width: 12),
@@ -688,7 +688,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 Row(
                   children: [
                     const CircleAvatar(
-                      backgroundImage: AssetImage("lib/images/profile.png"),
+                      backgroundImage: AssetImage("lib/images/profile.jpg"),
                       radius: 18,
                     ),
                     const SizedBox(width: 12),
@@ -989,7 +989,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Row(
                 children: [
                   const CircleAvatar(
-                    backgroundImage: AssetImage("lib/images/profile.png"),
+                    backgroundImage: AssetImage("lib/images/profile.jpg"),
                   ),
                   const SizedBox(width: 12),
                   Column(

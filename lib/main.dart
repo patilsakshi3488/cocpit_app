@@ -73,25 +73,31 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkAuthentication() async {
-    final accessToken = await AppSecureStorage.getAccessToken();
+    try {
+      final accessToken = await AppSecureStorage.getAccessToken();
 
-    if (accessToken == null || accessToken.isEmpty) {
-      _goToLogin();
-      return;
-    }
+      if (accessToken == null || accessToken.isEmpty) {
+        _goToLogin();
+        return;
+      }
 
-    final me = await _authService.getMe();
+      final me = await _authService.getMe();
 
-    if (me != null) {
-      _goToHome();
-      return;
-    }
+      if (me != null) {
+        _goToHome();
+        return;
+      }
 
-    final refreshed = await _authService.refreshAccessToken();
+      final refreshed = await _authService.refreshAccessToken();
 
-    if (refreshed != null) {
-      _goToHome();
-    } else {
+      if (refreshed != null) {
+        _goToHome();
+      } else {
+        _goToLogin();
+      }
+    } catch (e) {
+      debugPrint("⚠️ Auth Check Failed (Storage/Network): $e");
+      // Fallback to login on error (e.g. storage corruption)
       _goToLogin();
     }
   }
@@ -114,10 +120,6 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

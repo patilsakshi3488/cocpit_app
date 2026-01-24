@@ -14,6 +14,7 @@ class ProfileInfoIdentity extends StatelessWidget {
   final VoidCallback? onFollow;
   final int connectionCount;
   final String? latestEducation;
+  final bool isFollowing;
 
   const ProfileInfoIdentity({
     super.key,
@@ -28,8 +29,9 @@ class ProfileInfoIdentity extends StatelessWidget {
     this.isReadOnly = false,
     this.onMessage,
     this.onFollow,
-    required this.connectionCount ,
+    required this.connectionCount,
     this.latestEducation,
+    this.isFollowing = false,
   });
 
   @override
@@ -57,11 +59,20 @@ class ProfileInfoIdentity extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(Icons.verified, color: theme.primaryColor, size: 24),
               const SizedBox(width: 8),
-              Text("• 2nd", style: theme.textTheme.bodyLarge?.copyWith(color: theme.textTheme.bodySmall?.color)),
+              Text(
+                "• 2nd",
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.textTheme.bodySmall?.color,
+                ),
+              ),
               const Spacer(),
               if (!isReadOnly)
                 IconButton(
-                  icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withValues(alpha: 0.5), size: 28),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    color: theme.iconTheme.color?.withValues(alpha: 0.5),
+                    size: 28,
+                  ),
                   onPressed: onEditProfile,
                 ),
             ],
@@ -79,12 +90,18 @@ class ProfileInfoIdentity extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.school_outlined, size: 16, color: theme.textTheme.bodySmall?.color),
+                Icon(
+                  Icons.school_outlined,
+                  size: 16,
+                  color: theme.textTheme.bodySmall?.color,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     latestEducation!,
-                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -97,13 +114,19 @@ class ProfileInfoIdentity extends StatelessWidget {
             children: [
               Text(
                 "$location  •  ",
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.textTheme.bodySmall?.color,
+                ),
               ),
               GestureDetector(
                 onTap: () {},
                 child: Text(
                   "Contact info",
-                  style: TextStyle(color: theme.primaryColor, fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: theme.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -111,7 +134,9 @@ class ProfileInfoIdentity extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             "$connectionCount connections",
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodySmall?.color),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.textTheme.bodySmall?.color,
+            ),
           ),
           const SizedBox(height: 24),
           if (isReadOnly) ...[
@@ -121,12 +146,24 @@ class ProfileInfoIdentity extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onFollow,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                      backgroundColor: isFollowing
+                          ? theme.cardColor
+                          : theme.primaryColor,
+                      foregroundColor: isFollowing
+                          ? theme.textTheme.bodyLarge?.color
+                          : Colors.white,
+                      side: isFollowing
+                          ? BorderSide(color: theme.dividerColor)
+                          : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                       elevation: 0,
                     ),
-                    child: const Text("Follow", style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      isFollowing ? "Following" : "Follow",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -136,9 +173,14 @@ class ProfileInfoIdentity extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(color: theme.primaryColor),
                       foregroundColor: theme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                     ),
-                    child: const Text("Message", style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      "Message",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -150,11 +192,29 @@ class ProfileInfoIdentity extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _identityRow(context, "OPEN TO:", openTo, colorScheme.surfaceContainer, theme.primaryColor),
+                _identityRow(
+                  context,
+                  "OPEN TO:",
+                  openTo,
+                  colorScheme.surfaceContainer,
+                  theme.primaryColor,
+                ),
                 const SizedBox(height: 8),
-                _identityRow(context, "AVAILABILITY:", availability, Colors.green.withValues(alpha: 0.1), Colors.green),
+                _identityRow(
+                  context,
+                  "AVAILABILITY:",
+                  availability,
+                  Colors.green.withValues(alpha: 0.1),
+                  Colors.green,
+                ),
                 const SizedBox(height: 8),
-                _identityRow(context, "PREFERENCE:", preference, colorScheme.surfaceContainer, theme.primaryColor),
+                _identityRow(
+                  context,
+                  "PREFERENCE:",
+                  preference,
+                  colorScheme.surfaceContainer,
+                  theme.primaryColor,
+                ),
               ],
             ),
           ),
@@ -164,7 +224,13 @@ class ProfileInfoIdentity extends StatelessWidget {
     );
   }
 
-  Widget _identityRow(BuildContext context, String label, String value, Color bgColor, Color textColor) {
+  Widget _identityRow(
+    BuildContext context,
+    String label,
+    String value,
+    Color bgColor,
+    Color textColor,
+  ) {
     final theme = Theme.of(context);
 
     return Container(
@@ -179,11 +245,19 @@ class ProfileInfoIdentity extends StatelessWidget {
           children: [
             TextSpan(
               text: "$label ",
-              style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 11, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: theme.textTheme.bodySmall?.color,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             TextSpan(
               text: value,
-              style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: textColor,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),

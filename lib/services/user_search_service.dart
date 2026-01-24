@@ -1,24 +1,15 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
-import '../models/search_user.dart';
+import 'package:cocpit_app/services/api_client.dart';
+import 'package:cocpit_app/config/api_config.dart';
+import 'package:cocpit_app/models/search_user.dart';
 
 class UserSearchService {
   static Future<List<SearchUser>> searchUsers({
     required String query,
-    required String token,
+    required String token, // Optional now, ApiClient handles it
   }) async {
-    // Manually construct the full URL since we are using http.get directly, not ApiClient
-    final uri = Uri.parse(
-      "${ApiConfig.baseUrl}${ApiConfig.searchUsers}?q=${Uri.encodeQueryComponent(query)}",
-    );
-
-    final response = await http.get(
-      uri,
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
+    final response = await ApiClient.get(
+      "${ApiConfig.searchUsers}?q=${Uri.encodeQueryComponent(query)}",
     );
 
     if (response.statusCode == 200) {
@@ -29,13 +20,3 @@ class UserSearchService {
     }
   }
 }
-
-
-
-
-
-
-
-
-
-

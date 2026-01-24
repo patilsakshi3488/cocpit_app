@@ -31,6 +31,23 @@ class AppSecureStorage {
 
   // 🚪 LOGOUT
   static Future<void> clearAll() async {
-    await _storage.deleteAll();
+    // await _storage.deleteAll(); // ❌ Don't wipe everything
+
+    // ✅ Only wipe Authentication & User Data
+    // This ensures 'search_history' (and future settings) persist across sessions
+    await Future.wait([
+      _storage.delete(key: 'accessToken'),
+      _storage.delete(key: 'refreshToken'),
+      _storage.delete(key: 'user'),
+    ]);
+  }
+
+  // 🔍 SEARCH HISTORY
+  static Future<void> saveSearchHistory(String jsonList) async {
+    await _storage.write(key: 'search_history', value: jsonList);
+  }
+
+  static Future<String?> getSearchHistory() async {
+    return await _storage.read(key: 'search_history');
   }
 }

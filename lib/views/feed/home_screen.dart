@@ -7,18 +7,18 @@ import 'package:chewie/chewie.dart';
 
 import '../../services/feed_service.dart';
 import 'comments_sheet.dart';
-import '../../models/search_user.dart';
-import '../../services/user_search_service.dart';
-import '../../services/secure_storage.dart';
 
 import '../profile/public_profile_screen.dart';
 import 'create_career_moment_screen.dart';
 import 'career_moment_viewer.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/poll_widget.dart';
+import 'search_screen.dart';
 import '../post/create_post_screen.dart';
-import '../bottom_navigation.dart';
+import '../../services/secure_storage.dart';
+import '../profile/profile_screen.dart';
 import '../../main.dart'; // To access routeObserver
+import '../bottom_navigation.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,20 +40,6 @@ class _HomeScreenState extends State<HomeScreen>
   String? cursorPostId;
 
   final ScrollController _scrollController = ScrollController();
-
-  // =========================
-  // 🔍 SEARCH STATE
-  // =========================
-  late TextEditingController _searchController;
-  late FocusNode _searchFocusNode;
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
-
-  List<SearchUser> _searchResults = [];
-  bool _isSearching = false;
-  bool _hasError = false;
-  String _lastQuery = "";
-  Timer? _debounce;
 
   // =========================
   // 📌 STORIES DATA
@@ -107,9 +93,6 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _searchController = TextEditingController();
-    _searchFocusNode = FocusNode();
-    _searchFocusNode.addListener(_onSearchFocusChange);
 
     fetchAllFeeds();
 
@@ -220,107 +203,6 @@ class _HomeScreenState extends State<HomeScreen>
   // ... (Search Logic unchanged) ...
 
   // =========================
-  // 🔍 SEARCH LOGIC
-  // =========================
-  void _onSearchFocusChange() {
-    if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
-      _showSearchOverlay();
-    } else {
-      Future.delayed(const Duration(milliseconds: 200), _closeOverlay);
-    }
-  }
-
-  void _onSearchChanged(String query) {
-    _lastQuery = query;
-    _debounce?.cancel();
-
-    if (query.trim().isEmpty) {
-      _closeOverlay();
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-        _hasError = false;
-      });
-      return;
-    }
-
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      try {
-        setState(() => _isSearching = true);
-        final token = await AppSecureStorage.getAccessToken();
-        if (token == null) return;
-
-        final results = await UserSearchService.searchUsers(
-          query: query,
-          token: token,
-        );
-
-        if (mounted && _lastQuery == query) {
-          setState(() {
-            _searchResults = results;
-            _isSearching = false;
-          });
-          _showSearchOverlay();
-        }
-      } catch (_) {
-        setState(() {
-          _hasError = true;
-          _isSearching = false;
-        });
-        _showSearchOverlay();
-      }
-    });
-  }
-
-  void _showSearchOverlay() {
-    _closeOverlay();
-    _overlayEntry = _createSearchOverlayEntry();
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _closeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  OverlayEntry _createSearchOverlayEntry() {
-    final theme = Theme.of(context);
-
-    return OverlayEntry(
-      builder: (_) => Positioned(
-        width: MediaQuery.of(context).size.width - 32,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          offset: const Offset(0, 50),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(16),
-            child: ListView(
-              shrinkWrap: true,
-              children: _searchResults
-                  .map(
-                    (u) => ListTile(
-                      title: Text(u.fullName),
-                      onTap: () {
-                        _closeOverlay();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PublicProfileScreen(userId: u.id),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // =========================
   // 🖥 UI
   // =========================
   @override
@@ -348,10 +230,12 @@ class _HomeScreenState extends State<HomeScreen>
       ),
       appBar: AppTopBar(
         searchType: SearchType.feed,
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        onChanged: _onSearchChanged,
-        layerLink: _layerLink,
+        onSearchTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SearchScreen()),
+          );
+        },
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -458,39 +342,73 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _postHeader(Map<String, dynamic> post, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundImage: post["author_avatar"] != null
-                ? NetworkImage(post["author_avatar"])
-                : null,
-            child: post["author_avatar"] == null
-                ? Text(post["author_name"]?[0] ?? "?")
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post["author_name"] ?? "",
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  post["category_name"] ?? "",
-                  style: theme.textTheme.bodySmall,
-                ),
-              ],
+    return GestureDetector(
+      onTap: () async {
+        if (post["author_id"] != null) {
+          final currentUserJson = await AppSecureStorage.getUser();
+          if (currentUserJson != null) {
+            final currentUser = jsonDecode(currentUserJson);
+            final currentUserId =
+                currentUser['id']?.toString() ??
+                currentUser['user_id']?.toString();
+            final authorId = post["author_id"].toString();
+
+            debugPrint("🔍 CHECK: User $currentUserId vs Author $authorId");
+
+            if (currentUserId == authorId) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+              return;
+            }
+          }
+
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    PublicProfileScreen(userId: post["author_id"].toString()),
+              ),
+            );
+          }
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundImage: post["author_avatar"] != null
+                  ? NetworkImage(post["author_avatar"])
+                  : null,
+              child: post["author_avatar"] == null
+                  ? Text(post["author_name"]?[0] ?? "?")
+                  : null,
             ),
-          ),
-          Icon(Icons.more_vert, color: theme.iconTheme.color),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post["author_name"] ?? "",
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    post["category_name"] ?? "",
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.more_vert, color: theme.iconTheme.color),
+          ],
+        ),
       ),
     );
   }
@@ -526,6 +444,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _postStats(Map<String, dynamic> post, ThemeData theme) {
+    final commentCount =
+        post["comment_count"] ??
+        post["comments_count"] ??
+        post["_count"]?["comments"] ??
+        0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -534,10 +458,7 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(width: 4),
           Text("${post["like_count"] ?? 0}", style: theme.textTheme.bodySmall),
           const SizedBox(width: 12),
-          Text(
-            "${post["comment_count"] ?? 0} comments", // Needs backend to send comment_count
-            style: theme.textTheme.bodySmall,
-          ),
+          Text("$commentCount comments", style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -799,9 +720,6 @@ class _HomeScreenState extends State<HomeScreen>
     routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
-    _debounce?.cancel();
-    _searchController.dispose();
-    _searchFocusNode.dispose();
     super.dispose();
   }
 }

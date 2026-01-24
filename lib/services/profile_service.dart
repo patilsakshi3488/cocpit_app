@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:cocpit_app/services/api_client.dart';
 
 class ProfileService {
-
   /// 🔐 GET LOGGED-IN PROFILE
   /// =========================
   Future<Map<String, dynamic>?> getMyProfile() async {
@@ -92,8 +91,6 @@ class ProfileService {
     return response.statusCode == 200;
   }
 
-
-
   /// =========================
   /// 👤 GET IDENTITY
   /// =========================
@@ -129,7 +126,6 @@ class ProfileService {
       return false;
     }
   }
-
 
   /// =========================
   /// 🖼️ UPLOAD / REPLACE AVATAR
@@ -279,9 +275,7 @@ class ProfileService {
 
     final response = await ApiClient.post(
       "/profile/skills",
-      body: {
-        "name": names.map((e) => e.trim()).toList(),
-      },
+      body: {"name": names.map((e) => e.trim()).toList()},
     );
 
     return response.statusCode == 201;
@@ -312,5 +306,26 @@ class ProfileService {
       }
     } catch (_) {}
     return 0;
+  }
+
+  /// =========================
+  /// 🤝 FOLLOW / UNFOLLOW
+  /// =========================
+  Future<bool> followUser(String userId) async {
+    try {
+      final response = await ApiClient.post("/users/$userId/follow");
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> unfollowUser(String userId) async {
+    try {
+      final response = await ApiClient.delete("/users/$userId/follow");
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
   }
 }

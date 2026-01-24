@@ -6,9 +6,10 @@ import '../config/api_config.dart';
 import 'dart:io';
 
 class FeedApi {
+  // ... (previous methods)
+
   // =========================
-  // 🏠 FETCH FEED
-  // =========================
+
   static Future<Map<String, dynamic>> fetchFeed({
     String? cursorCreatedAt,
     String? cursorPostId,
@@ -237,12 +238,21 @@ class FeedApi {
     }
 
     if (pollData != null) {
+      // Backend expects poll data flattened or specific fields?
+      // Reading frontend: payload.poll_options, payload.poll_duration, payload.content
+      // Let's assume UI passes `pollData` with these keys or we map them here.
+      // Based on frontend:
+      // payload.poll_options = filteredOptions;
+      // payload.poll_duration = pollDuration;
+      // payload.content = pollQuestion;
+
       if (pollData["options"] != null) {
         body["poll_options"] = pollData["options"];
       }
       if (pollData["duration"] != null) {
         body["poll_duration"] = pollData["duration"];
       }
+      // Content is already set
     }
 
     // Send JSON
@@ -253,39 +263,5 @@ class FeedApi {
         "Failed to create post: ${response.statusCode} - ${response.body}",
       );
     }
-  }
-
-  // =========================
-  // 📝 MANAGE POST
-  // =========================
-  static Future<void> deletePost(String postId) async {
-    final response = await ApiClient.delete("/post/$postId");
-
-    if (response.statusCode != 200) {
-      throw Exception("Failed to delete post: ${response.statusCode}");
-    }
-  }
-
-  static Future<void> updatePost(
-    String postId, {
-    String? content,
-    String? title,
-    String? visibility,
-  }) async {
-    final body = <String, dynamic>{};
-    if (content != null) body['content'] = content;
-    if (title != null) body['title'] = title;
-    if (visibility != null) body['visibility'] = visibility;
-
-    final response = await ApiClient.put("/post/$postId", body: body);
-
-    if (response.statusCode != 200) {
-      throw Exception("Failed to update post: ${response.statusCode}");
-    }
-  }
-
-  static Future<void> setPostVisibility(String postId, bool isPrivate) async {
-    final visibility = isPrivate ? 'private' : 'public';
-    await updatePost(postId, visibility: visibility);
   }
 }

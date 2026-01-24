@@ -113,6 +113,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     } else {
       // Group finished. Find next group with unseen stories that is not current user.
       int nextGroupIndex = -1;
+      int previusGroupIndex=-1;
 
       for (int i = _currentGroupIndex + 1; i < widget.groups.length; i++) {
         final g = widget.groups[i];
@@ -140,19 +141,49 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   void _previousStory() {
+    // 1️⃣ Previous story in same user
     if (_currentStoryIndex > 0) {
       setState(() {
         _currentStoryIndex--;
       });
       _loadStory();
-    } else {
-      // Start of group, maybe restart or close?
-      // Usually restarts the first story or stays there.
-      _loadStory();
+      return;
     }
+
+    // 2️⃣ Find previous NON-current-user group
+    int prevGroupIndex = _currentGroupIndex - 1;
+
+    while (prevGroupIndex >= 0 &&
+        widget.groups[prevGroupIndex].isCurrentUser) {
+      prevGroupIndex--; // ⏭ skip current user
+    }
+
+    if (prevGroupIndex >= 0) {
+      final prevGroup = widget.groups[prevGroupIndex];
+
+      // Find first unseen story
+      final firstUnseenIndex =
+      prevGroup.stories.indexWhere((s) => !s.hasViewed);
+
+      setState(() {
+        _currentGroupIndex = prevGroupIndex;
+
+        if (firstUnseenIndex != -1) {
+          _currentStoryIndex = firstUnseenIndex;
+        } else {
+          _currentStoryIndex = prevGroup.stories.length - 1;
+        }
+      });
+
+      _loadStory();
+      return;
+    }
+
+    // 3️⃣ No previous valid user → stay / close
+    // Navigator.pop(context); // optional
   }
 
-  void _pause() {
+    void _pause() {
     if (_isPaused) return;
     setState(() => _isPaused = true);
     _animController.stop();
@@ -644,6 +675,22 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       return Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          // 💬 Chat / Reply
+          IconButton(
+            icon: Icon(
+              Icons.chat_bubble_outline,
+              color: colorScheme.onSurface,
+              size: 26,
+            ),
+            onPressed: () {
+              _pause(); // pause story like WhatsApp
+              // _openChat(story); // open chat / reply UI
+            },
+          ),
+
+          const SizedBox(width: 8),
+
+          // ❤️ Like
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: IconButton(
@@ -659,6 +706,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
           ),
         ],
       );
+
+
     }
   }
 

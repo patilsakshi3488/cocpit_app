@@ -172,7 +172,7 @@ class _StoryTrayState extends State<StoryTray> {
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: border,
+
           image: bgImage != null
               ? DecorationImage(
                   image: NetworkImage(bgImage),
@@ -237,8 +237,10 @@ class _StoryTrayState extends State<StoryTray> {
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: colorScheme.primary,
+
                       child: CircleAvatar(
                         radius: 16,
+                        // border: border,
                         backgroundImage: group.author.avatar != null
                             ? NetworkImage(group.author.avatar!)
                             : null,
@@ -308,7 +310,9 @@ class _StoryTrayState extends State<StoryTray> {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: colorScheme.primary,
+                      backgroundColor: hasUnseen
+                          ? colorScheme.primary   // unseen → colored border
+                          : colorScheme.outlineVariant,
                       child: CircleAvatar(
                         radius: 16,
                         backgroundImage: group.author.avatar != null

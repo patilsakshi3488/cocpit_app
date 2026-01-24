@@ -266,17 +266,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User Info & Categories (Common)
-                  const Row(
+                  Row(
                     children: [
-                      CircleAvatar(
-                        backgroundImage: AssetImage("lib/images/profile.png"),
+                      const CircleAvatar(
+                        backgroundImage: AssetImage("lib/images/profile.jpg"),
                         radius: 20,
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             "You",
                             style: TextStyle(
                               color: Colors.white,
@@ -688,8 +688,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               children: [
                 const Row(
                   children: [
-                    CircleAvatar(
-                      backgroundImage: AssetImage("lib/images/profile.png"),
+                    const CircleAvatar(
+                      backgroundImage: AssetImage("lib/images/profile.jpg"),
                       radius: 18,
                     ),
                     SizedBox(width: 12),
@@ -990,7 +990,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Row(
                 children: [
                   const CircleAvatar(
-                    backgroundImage: AssetImage("lib/images/profile.png"),
+                    backgroundImage: AssetImage("lib/images/profile.jpg"),
                   ),
                   const SizedBox(width: 12),
                   Column(

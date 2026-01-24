@@ -472,17 +472,24 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                               ),
                             ),
 
-                            // READ MORE (only if long description)
-                            if ((story.description != null &&
-                                story.description!.isNotEmpty &&
-                                _isLongText(story.description! )) || (story.title != null && story.title!.isNotEmpty && _isLongText(story.title!)))
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  "Read more",
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
+
+                            // READ MORE (tap only here)
+                            if (_isLongText(story.title!))
+                              GestureDetector(
+                                onTap: () {
+                                  _showDescriptionSheet(
+                                    context,
+                                    story.title!, // 👈 SHOW TITLE TEXT
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    "Read more",
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -502,81 +509,44 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   Widget _buildMedia(Story story) {
-    return SizedBox.expand( // Ensures it fills the story container
-      child: AspectRatio(
-        aspectRatio: 9 / 16,
-        child: story.mediaType == 'video'
-            ? (_videoController != null && _videoController!.value.isInitialized
-            ? FittedBox(
-          fit: BoxFit.cover, // Video fills the screen
-          clipBehavior: Clip.hardEdge,
-          child: SizedBox(
-            width: _videoController!.value.size.width,
-            height: _videoController!.value.size.height,
-            child: VideoPlayer(_videoController!),
-          ),
-        )
-            : const Center(child: CircularProgressIndicator()))
-            : Image.network(
-          story.mediaUrl,
-          fit: BoxFit.cover, // Crophhuge web images to fit the story screen
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return const Center(child: CircularProgressIndicator());
-          },
-          errorBuilder: (context, error, stackTrace) {
-            // Better error UI than a tiny icon
-            return Container(
-              color: Colors.black87,
-              child: const Center(
-                child: Icon(Icons.broken_image, color: Colors.white24, size: 50),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (story.mediaType == 'video') {
+          if (_videoController != null &&
+              _videoController!.value.isInitialized) {
+            final videoSize = _videoController!.value.size;
+            final aspectRatio = videoSize.width / videoSize.height;
+
+            return Center(
+              child: AspectRatio(
+                aspectRatio: aspectRatio,
+                child: VideoPlayer(_videoController!),
               ),
             );
-          },
-        ),
-      ),
+          } else {
+            return const Center(child: CircularProgressIndicator());
+          }
+        } else {
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight,
+                maxWidth: constraints.maxWidth,
+              ),
+              child: Image.network(
+                story.mediaUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(child: CircularProgressIndicator());
+                },
+              ),
+            ),
+          );
+        }
+      },
     );
   }
-
-  // Widget _buildMedia(Story story) {
-  //   return LayoutBuilder(
-  //     builder: (context, constraints) {
-  //       if (story.mediaType == 'video') {
-  //         if (_videoController != null &&
-  //             _videoController!.value.isInitialized) {
-  //           final videoSize = _videoController!.value.size;
-  //           final aspectRatio = videoSize.width / videoSize.height;
-  //
-  //           return Center(
-  //             child: AspectRatio(
-  //               aspectRatio: aspectRatio,
-  //               child: VideoPlayer(_videoController!),
-  //             ),
-  //           );
-  //         } else {
-  //           return const Center(child: CircularProgressIndicator());
-  //         }
-  //       } else {
-  //         return Center(
-  //           child: ConstrainedBox(
-  //             constraints: BoxConstraints(
-  //               maxHeight: constraints.maxHeight,
-  //               maxWidth: constraints.maxWidth,
-  //             ),
-  //             child: Image.network(
-  //               story.mediaUrl,
-  //               fit: BoxFit.contain,
-  //               loadingBuilder: (ctx, child, progress) {
-  //                 if (progress == null) return child;
-  //                 return const Center(child: CircularProgressIndicator());
-  //               },
-  //             ),
-  //           ),
-  //         );
-  //       }
-  //     },
-  //   );
-  // }
 
 
 

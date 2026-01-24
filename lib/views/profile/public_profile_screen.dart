@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../models/public_user.dart';
 import '../../services/public_user_service.dart';
 import '../../services/profile_service.dart';
-import '../feed/chat_screen.dart';
+import '../../services/feed_service.dart';
+import '../../views/profile/profile_posts_section.dart';
+import '../../views/feed/chat_screen.dart';
 import 'profile_header.dart';
 import 'profile_info_identity.dart';
 import 'profile_stats.dart';
@@ -27,6 +29,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   int connectionCount = 0;
   bool isFollowing = false;
   final ProfileService _profileService = ProfileService();
+  List<Map<String, dynamic>> _posts = [];
 
   @override
   void initState() {
@@ -37,9 +40,21 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Future<void> _loadProfile() async {
     try {
       final data = await PublicUserService.getUserProfile(widget.userId);
+
+      // Fetch Posts
+      final postsData = await FeedApi.fetchUserPosts(userId: widget.userId);
+      final fetchedPosts = List<Map<String, dynamic>>.from(
+        postsData['posts'] ?? [],
+      );
+
+      // Fetch Connection Count
+      final count = await _profileService.getConnectionCount(widget.userId);
+
       setState(() {
         user = data;
         isFollowing = data.isFollowing ?? false;
+        _posts = fetchedPosts;
+        connectionCount = count;
         isLoading = false;
       });
     } catch (e) {
@@ -169,6 +184,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ),
             _buildDivider(theme),
             ProfileStats(connectionCount: connectionCount),
+            _buildDivider(theme),
 
             _buildDivider(theme),
             ProfileAboutSection(
@@ -192,6 +208,18 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               onAddSkill: () {},
               isReadOnly: true,
             ),
+            _buildDivider(theme),
+
+            // 🔥 Posts Section (Moved to bottom)
+            if (_posts.isNotEmpty)
+              ProfileLatestPostsSection(
+                posts: _posts,
+                userName: user!.fullName,
+                onSeeAllPosts: () {},
+                onDeletePost: (_) {}, // Read-only for public profile
+                onEditPost: (_) {},
+                onTogglePrivacy: (_, __) {},
+              ),
             const SizedBox(height: 80),
           ],
         ),

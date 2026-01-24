@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppSecureStorage {
@@ -42,12 +43,34 @@ class AppSecureStorage {
     ]);
   }
 
-  // 🔍 SEARCH HISTORY
+  // 🔍 SEARCH HISTORY (USER SPECIFIC)
   static Future<void> saveSearchHistory(String jsonList) async {
-    await _storage.write(key: 'search_history', value: jsonList);
+    final userId = await _getCurrentUserId() ?? 'guest';
+    await _storage.write(key: 'search_history_$userId', value: jsonList);
   }
 
   static Future<String?> getSearchHistory() async {
-    return await _storage.read(key: 'search_history');
+    final userId = await _getCurrentUserId() ?? 'guest';
+    return await _storage.read(key: 'search_history_$userId');
+  }
+
+  /// 🕵️ Helper to extract ID from stored user JSON
+  static Future<String?> _getCurrentUserId() async {
+    try {
+      final userJson = await getUser();
+      if (userJson == null) return null;
+      final Map<String, dynamic> raw = jsonDecode(userJson);
+
+      // Handle potential nesting (e.g., { "user": {...} } or { "data": {...} })
+      final user = raw['user'] ?? raw['data'] ?? raw;
+
+      // Check all common ID fields
+      return user['id']?.toString() ??
+          user['_id']?.toString() ??
+          user['userId']?.toString() ??
+          user['user_id']?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 }

@@ -260,7 +260,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Widget _verifyButton(ThemeData theme) {
-    return Container(
+    return SizedBox(
       height: 54,
       child: ElevatedButton(
         onPressed: () {},

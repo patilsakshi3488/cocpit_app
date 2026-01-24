@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 
 class EventModel {
@@ -160,8 +159,8 @@ class EventModel {
       isRegistered: isRegistered ?? this.isRegistered,
       isSaved: isSaved ?? this.isSaved,
       createdByMe: createdByMe ?? this.createdByMe,
-      category: category ?? this._category,
-      isFree: isFree ?? this._isFree,
+      category: category ?? _category,
+      isFree: isFree ?? _isFree,
     );
   }
 }

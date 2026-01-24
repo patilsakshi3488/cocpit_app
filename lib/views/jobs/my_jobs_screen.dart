@@ -138,11 +138,15 @@ class _MyJobsScreenState extends State<MyJobsScreen> {
       if (location.isNotEmpty &&
           !job['location']
               .toLowerCase()
-              .contains(location.toLowerCase())) return false;
+              .contains(location.toLowerCase())) {
+        return false;
+      }
 
       // EXPERIENCE FILTER
       if (experience != 'All Levels' &&
-          job['experience'] != experience) return false;
+          job['experience'] != experience) {
+        return false;
+      }
 
       // JOB TYPE FILTER
       if ((fullTime || partTime || contract || remote || internship) &&
@@ -152,7 +156,9 @@ class _MyJobsScreenState extends State<MyJobsScreen> {
             if (contract) 'Contract',
             if (remote) 'Remote',
             if (internship) 'Internship',
-          ].contains(job['type'])) return false;
+          ].contains(job['type'])) {
+        return false;
+      }
 
       return true;
     }).toList();

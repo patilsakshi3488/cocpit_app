@@ -24,7 +24,7 @@ class ProfileHeader extends StatelessWidget {
   });
 
   bool _isNetworkImage(String path) {
-    return path.startsWith('http');
+    return path.trim().toLowerCase().startsWith('http');
   }
 
   @override
@@ -33,20 +33,21 @@ class ProfileHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final String resolvedProfileImage =
-    user?['avatar_url']?.toString().isNotEmpty == true
+        user?['avatar_url']?.toString().isNotEmpty == true
         ? user!['avatar_url']
         : profileImage;
 
     final String? resolvedCoverImage =
-    user?['cover_url']?.toString().isNotEmpty == true
+        user?['cover_url']?.toString().isNotEmpty == true
         ? user!['cover_url']
         : coverImage;
 
-    ImageProvider? _imageProvider(String path) {
+    ImageProvider? imageProvider(String path) {
       if (path.isEmpty) return null;
-      return _isNetworkImage(path)
-          ? NetworkImage(path)
-          : AssetImage(path) as ImageProvider;
+      final cleanPath = path.trim();
+      return _isNetworkImage(cleanPath)
+          ? NetworkImage(cleanPath)
+          : AssetImage(cleanPath) as ImageProvider;
     }
 
     return Stack(
@@ -60,7 +61,7 @@ class ProfileHeader extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => FullScreenImage(
-                    imagePath: resolvedCoverImage!,
+                    imagePath: resolvedCoverImage,
                     tag: 'cover_hero',
                   ),
                 ),
@@ -72,20 +73,21 @@ class ProfileHeader extends StatelessWidget {
             child: Container(
               height: 160,
               decoration: BoxDecoration(
-                gradient: resolvedCoverImage == null || resolvedCoverImage.isEmpty
+                gradient:
+                    resolvedCoverImage == null || resolvedCoverImage.isEmpty
                     ? LinearGradient(
-                  colors: [
-                    theme.primaryColor,
-                    theme.primaryColor.withValues(alpha: 0.7),
-                  ],
-                )
+                        colors: [
+                          theme.primaryColor,
+                          theme.primaryColor.withValues(alpha: 0.7),
+                        ],
+                      )
                     : null,
-                image: resolvedCoverImage != null &&
-                    resolvedCoverImage.isNotEmpty
+                image:
+                    resolvedCoverImage != null && resolvedCoverImage.isNotEmpty
                     ? DecorationImage(
-                  image: _imageProvider(resolvedCoverImage)!,
-                  fit: BoxFit.cover,
-                )
+                        image: imageProvider(resolvedCoverImage)!,
+                        fit: BoxFit.cover,
+                      )
                     : null,
               ),
               child: SafeArea(
@@ -98,13 +100,17 @@ class ProfileHeader extends StatelessWidget {
                       children: [
                         if (!isReadOnly) ...[
                           IconButton(
-                            icon: Icon(Icons.camera_alt_outlined,
-                                color: colorScheme.onPrimary),
+                            icon: Icon(
+                              Icons.camera_alt_outlined,
+                              color: colorScheme.onPrimary,
+                            ),
                             onPressed: onCoverCameraPressed,
                           ),
                           IconButton(
-                            icon: Icon(Icons.menu,
-                                color: colorScheme.onPrimary),
+                            icon: Icon(
+                              Icons.menu,
+                              color: colorScheme.onPrimary,
+                            ),
                             onPressed: onMenuPressed,
                           ),
                         ] else
@@ -126,7 +132,9 @@ class ProfileHeader extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: () {
-                  if (resolvedProfileImage.isNotEmpty) {
+                  if (!isReadOnly) {
+                    onCameraPressed();
+                  } else if (resolvedProfileImage.isNotEmpty) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -148,45 +156,21 @@ class ProfileHeader extends StatelessWidget {
                     ),
                     child: CircleAvatar(
                       radius: 65,
-                      backgroundImage:
-                      _imageProvider(resolvedProfileImage),
-                      backgroundColor:
-                      colorScheme.surfaceContainerHighest,
+                      backgroundImage: imageProvider(resolvedProfileImage),
+                      backgroundColor: resolvedProfileImage.isEmpty
+                          ? Colors.grey[300]
+                          : colorScheme.surfaceContainerHighest,
                       child: resolvedProfileImage.isEmpty
-                          ? Icon(Icons.person,
-                          size: 60,
-                          color: colorScheme.onSurface
-                              .withValues(alpha: 0.5))
+                          ? const Icon(
+                              Icons.person,
+                              size: 80, // Larger icon
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                   ),
                 ),
               ),
-              if (!isReadOnly)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: onCameraPressed,
-                    child: Container(
-                      height: 44,
-                      width: 44,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            theme.primaryColor,
-                            theme.primaryColor.withValues(alpha: 0.8),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        border:
-                        Border.all(color: backgroundColor, width: 3),
-                      ),
-                      child: Icon(Icons.camera_alt_outlined,
-                          color: colorScheme.onPrimary),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),

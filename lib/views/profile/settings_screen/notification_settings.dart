@@ -76,7 +76,7 @@ class _NotificationSettingsState extends State<NotificationSettings> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: colorScheme.onPrimary,
+          activeThumbColor: colorScheme.onPrimary,
           activeTrackColor: theme.primaryColor,
         ),
       ],

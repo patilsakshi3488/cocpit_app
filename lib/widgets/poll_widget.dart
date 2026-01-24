@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/feed_service.dart';
 
@@ -201,13 +200,13 @@ class _PollWidgetState extends State<PollWidget> {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.dividerColor.withOpacity(0.1),
+          color: theme.dividerColor.withValues(alpha: 0.1),
           width: 1,
         ),
         boxShadow: [
           if (filterShadow(theme))
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -255,9 +254,9 @@ class _PollWidgetState extends State<PollWidget> {
     // If selected, use primary color for highlight.
     // Progress Bar color: Light primary or subtle surface variant
     final progressColor = isSelected
-        ? colorScheme.primary.withOpacity(0.15)
-        : colorScheme.surfaceContainerHighest.withOpacity(
-            0.5,
+        ? colorScheme.primary.withValues(alpha: 0.15)
+        : colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
           ); // Fallback for visibility
 
     // Border Color: Primary if selected, otherwise subtle outline
@@ -295,11 +294,11 @@ class _PollWidgetState extends State<PollWidget> {
                       width: constraints.maxWidth * value,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.primary.withOpacity(
-                                0.2,
+                            ? colorScheme.primary.withValues(
+                                alpha: 0.2,
                               ) // Highlighted fill
-                            : theme.dividerColor.withOpacity(
-                                0.3,
+                            : theme.dividerColor.withValues(
+                                alpha: 0.3,
                               ), // Neutral fill
                         borderRadius: BorderRadius.horizontal(
                           left: const Radius.circular(

@@ -4,9 +4,9 @@ import '../models/public_user.dart';
 
 class PublicUserService {
   static Future<PublicUser> getUserProfile(String userId) async {
-    // Attempt: /profile/:id (Aligned with ProfileService)
+    // Attempt: /users/:id (Based on ApiConfig)
     try {
-      final url = "/profile/$userId";
+      final url = "/users/$userId";
       print("🚀 Fetching public profile: $url");
 
       final response = await ApiClient.get(url);
@@ -16,6 +16,7 @@ class PublicUserService {
       if (response.statusCode == 200) {
         try {
           final data = jsonDecode(response.body);
+          // If the backend returns { "user": ... } or straight object
           return PublicUser.fromJson(data);
         } catch (e) {
           print("❌ JSON Parse Error: $e");

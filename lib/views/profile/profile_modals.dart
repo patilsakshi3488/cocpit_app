@@ -48,9 +48,13 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
         children: [
           Center(
             child: Container(
-              width: 40, height: 4,
+              width: 40,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(color: theme.dividerColor, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: theme.dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           Row(
@@ -58,20 +62,41 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
             children: [
               Text(
                 "Edit Professional Identity",
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               IconButton(
-                icon: Icon(Icons.close, color: theme.textTheme.bodySmall?.color),
+                icon: Icon(
+                  Icons.close,
+                  color: theme.textTheme.bodySmall?.color,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
           ),
           const SizedBox(height: 32),
-          _buildSection("Open to", ["Full-time", "Freelance", "Consulting", "Mentorship"], openTo, (val) => setState(() => openTo = val)),
+          _buildSection(
+            "Open to",
+            ["Full-time", "Freelance", "Consulting", "Mentorship"],
+            openTo,
+            (val) => setState(() => openTo = val),
+          ),
           const SizedBox(height: 32),
-          _buildSection("Availability", ["Immediate", "30 Days", "Casual Networking"], availability, (val) => setState(() => availability = val), activeColor: Colors.green),
+          _buildSection(
+            "Availability",
+            ["Immediate", "30 Days", "Casual Networking"],
+            availability,
+            (val) => setState(() => availability = val),
+            activeColor: Colors.green,
+          ),
           const SizedBox(height: 32),
-          _buildSection("Work Preference", ["Remote", "Hybrid", "Onsite"], preference, (val) => setState(() => preference = val)),
+          _buildSection(
+            "Work Preference",
+            ["Remote", "Hybrid", "Onsite"],
+            preference,
+            (val) => setState(() => preference = val),
+          ),
           const SizedBox(height: 48),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, {
@@ -83,16 +108,28 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
               backgroundColor: theme.primaryColor,
               foregroundColor: colorScheme.onPrimary,
               minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 0,
             ),
-            child: const Text("Save Changes", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Save Changes",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 12),
           Center(
             child: TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text("Cancel", style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 16, fontWeight: FontWeight.w500)),
+              child: Text(
+                "Cancel",
+                style: TextStyle(
+                  color: theme.textTheme.bodySmall?.color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
         ],
@@ -100,7 +137,13 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
     );
   }
 
-  Widget _buildSection(String title, List<String> options, String current, Function(String) onSelect, {Color? activeColor}) {
+  Widget _buildSection(
+    String title,
+    List<String> options,
+    String current,
+    Function(String) onSelect, {
+    Color? activeColor,
+  }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final primary = activeColor ?? theme.primaryColor;
@@ -108,7 +151,12 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 12,
@@ -118,16 +166,23 @@ class _EditIdentityModalState extends State<EditIdentityModal> {
             return GestureDetector(
               onTap: () => onSelect(opt),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? primary : colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isSelected ? primary : theme.dividerColor),
+                  border: Border.all(
+                    color: isSelected ? primary : theme.dividerColor,
+                  ),
                 ),
                 child: Text(
                   opt,
                   style: TextStyle(
-                    color: isSelected ? colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
+                    color: isSelected
+                        ? colorScheme.onPrimary
+                        : theme.textTheme.bodyMedium?.color,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -164,10 +219,15 @@ class UploadResumeModal extends StatelessWidget {
               const SizedBox(width: 48),
               Text(
                 "Upload Custom Resume",
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               IconButton(
-                icon: Icon(Icons.close, color: theme.textTheme.bodySmall?.color),
+                icon: Icon(
+                  Icons.close,
+                  color: theme.textTheme.bodySmall?.color,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -188,9 +248,18 @@ class UploadResumeModal extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(Icons.upload_outlined, color: theme.primaryColor, size: 48),
+                Icon(
+                  Icons.upload_outlined,
+                  color: theme.primaryColor,
+                  size: 48,
+                ),
                 const SizedBox(height: 16),
-                Text("Click to upload", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text(
+                  "Click to upload",
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text("PDF or DOCX (Max 5MB)", style: theme.textTheme.bodySmall),
               ],
@@ -203,14 +272,25 @@ class UploadResumeModal extends StatelessWidget {
               backgroundColor: theme.primaryColor,
               foregroundColor: colorScheme.onPrimary,
               minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            child: const Text("Save", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Save",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: TextStyle(color: theme.textTheme.bodySmall?.color, fontSize: 16)),
+            child: Text(
+              "Cancel",
+              style: TextStyle(
+                color: theme.textTheme.bodySmall?.color,
+                fontSize: 16,
+              ),
+            ),
           ),
         ],
       ),
@@ -241,12 +321,24 @@ class _ExperienceModalState extends State<ExperienceModal> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.experience?.title ?? "");
-    _companyController = TextEditingController(text: widget.experience?.company ?? "");
-    _startDateController = TextEditingController(text: widget.experience?.startDate ?? "");
-    _endDateController = TextEditingController(text: widget.experience?.endDate ?? "");
-    _locationController = TextEditingController(text: widget.experience?.location ?? "");
-    _descriptionController = TextEditingController(text: widget.experience?.description ?? "");
+    _titleController = TextEditingController(
+      text: widget.experience?.title ?? "",
+    );
+    _companyController = TextEditingController(
+      text: widget.experience?.company ?? "",
+    );
+    _startDateController = TextEditingController(
+      text: widget.experience?.startDate ?? "",
+    );
+    _endDateController = TextEditingController(
+      text: widget.experience?.endDate ?? "",
+    );
+    _locationController = TextEditingController(
+      text: widget.experience?.location ?? "",
+    );
+    _descriptionController = TextEditingController(
+      text: widget.experience?.description ?? "",
+    );
     _currentlyWorking = widget.experience?.currentlyWorking ?? false;
   }
 
@@ -302,7 +394,9 @@ class _ExperienceModalState extends State<ExperienceModal> {
     if (widget.experience == null) return;
     setState(() => _isLoading = true);
     try {
-      final success = await profileService.deleteExperience(widget.experience!.id!);
+      final success = await profileService.deleteExperience(
+        widget.experience!.id!,
+      );
       if (success && mounted) {
         Navigator.pop(context, true);
       }
@@ -320,7 +414,12 @@ class _ExperienceModalState extends State<ExperienceModal> {
     bool isEdit = widget.experience != null;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
@@ -336,10 +435,15 @@ class _ExperienceModalState extends State<ExperienceModal> {
                 const SizedBox(width: 48),
                 Text(
                   isEdit ? "Edit Experience" : "Add Experience",
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: theme.textTheme.bodySmall?.color),
+                  icon: Icon(
+                    Icons.close,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -366,7 +470,10 @@ class _ExperienceModalState extends State<ExperienceModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel("End Date"),
-                      _buildDateField(_endDateController, enabled: !_currentlyWorking),
+                      _buildDateField(
+                        _endDateController,
+                        enabled: !_currentlyWorking,
+                      ),
                     ],
                   ),
                 ),
@@ -377,17 +484,25 @@ class _ExperienceModalState extends State<ExperienceModal> {
               children: [
                 Checkbox(
                   value: _currentlyWorking,
-                  onChanged: (val) => setState(() => _currentlyWorking = val ?? false),
+                  onChanged: (val) =>
+                      setState(() => _currentlyWorking = val ?? false),
                   side: BorderSide(color: theme.dividerColor),
                   activeColor: theme.primaryColor,
                 ),
-                Text("I currently work here", style: theme.textTheme.bodyMedium),
+                Text(
+                  "I currently work here",
+                  style: theme.textTheme.bodyMedium,
+                ),
               ],
             ),
             _buildLabel("Location"),
             _buildTextField(_locationController, "Ex: London, UK"),
             _buildLabel("Description"),
-            _buildTextField(_descriptionController, "Describe your responsibilities...", maxLines: 4),
+            _buildTextField(
+              _descriptionController,
+              "Describe your responsibilities...",
+              maxLines: 4,
+            ),
             const SizedBox(height: 32),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
@@ -401,12 +516,19 @@ class _ExperienceModalState extends State<ExperienceModal> {
                         child: ElevatedButton(
                           onPressed: _handleDelete,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.error.withOpacity(0.1),
+                            backgroundColor: colorScheme.error.withValues(
+                              alpha: 0.1,
+                            ),
                             foregroundColor: colorScheme.error,
                             minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text("Delete", style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            "Delete",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ),
@@ -417,9 +539,14 @@ class _ExperienceModalState extends State<ExperienceModal> {
                         backgroundColor: theme.primaryColor,
                         foregroundColor: colorScheme.onPrimary,
                         minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text("Save", style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        "Save",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],
@@ -434,11 +561,20 @@ class _ExperienceModalState extends State<ExperienceModal> {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 16),
-      child: Text(label, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+      child: Text(
+        label,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    int maxLines = 1,
+  }) {
     final theme = Theme.of(context);
     return TextField(
       controller: controller,
@@ -448,26 +584,47 @@ class _ExperienceModalState extends State<ExperienceModal> {
         hintText: hint,
         hintStyle: theme.textTheme.bodySmall,
         filled: true,
-        fillColor: theme.colorScheme.surfaceContainer.withOpacity(0.5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: theme.dividerColor)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: theme.dividerColor)),
+        fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
         contentPadding: const EdgeInsets.all(16),
       ),
     );
   }
 
-  Widget _buildDateField(TextEditingController controller, {bool enabled = true}) {
+  Widget _buildDateField(
+    TextEditingController controller, {
+    bool enabled = true,
+  }) {
     final theme = Theme.of(context);
     return TextField(
       controller: controller,
       enabled: enabled,
-      style: theme.textTheme.bodyLarge?.copyWith(color: enabled ? null : theme.textTheme.bodySmall?.color),
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: enabled ? null : theme.textTheme.bodySmall?.color,
+      ),
       decoration: InputDecoration(
-        suffixIcon: Icon(Icons.calendar_today, color: theme.textTheme.bodySmall?.color, size: 18),
+        suffixIcon: Icon(
+          Icons.calendar_today,
+          color: theme.textTheme.bodySmall?.color,
+          size: 18,
+        ),
         filled: true,
-        fillColor: theme.colorScheme.surfaceContainer.withOpacity(0.5),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: theme.dividerColor)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: theme.dividerColor)),
+        fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       ),
       readOnly: true,
@@ -518,12 +675,24 @@ class _EducationModalState extends State<EducationModal> {
   @override
   void initState() {
     super.initState();
-    _schoolController = TextEditingController(text: widget.education?.school ?? "");
-    _degreeController = TextEditingController(text: widget.education?.degree ?? "");
-    _fieldController = TextEditingController(text: widget.education?.fieldOfStudy ?? "");
-    _startDateController = TextEditingController(text: widget.education?.startYear ?? "");
-    _endDateController = TextEditingController(text: widget.education?.endYear ?? "");
-    _descriptionController = TextEditingController(text: widget.education?.description ?? "");
+    _schoolController = TextEditingController(
+      text: widget.education?.school ?? "",
+    );
+    _degreeController = TextEditingController(
+      text: widget.education?.degree ?? "",
+    );
+    _fieldController = TextEditingController(
+      text: widget.education?.fieldOfStudy ?? "",
+    );
+    _startDateController = TextEditingController(
+      text: widget.education?.startYear ?? "",
+    );
+    _endDateController = TextEditingController(
+      text: widget.education?.endYear ?? "",
+    );
+    _descriptionController = TextEditingController(
+      text: widget.education?.description ?? "",
+    );
     _currentlyStudying = widget.education?.currentlyStudying ?? false;
   }
 
@@ -576,7 +745,9 @@ class _EducationModalState extends State<EducationModal> {
     if (widget.education == null) return;
     setState(() => _isLoading = true);
     try {
-      final success = await profileService.deleteEducation(widget.education!.id!);
+      final success = await profileService.deleteEducation(
+        widget.education!.id!,
+      );
       if (success && mounted) {
         Navigator.pop(context, true);
       }
@@ -594,7 +765,12 @@ class _EducationModalState extends State<EducationModal> {
     final isEdit = widget.education != null;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
@@ -609,7 +785,9 @@ class _EducationModalState extends State<EducationModal> {
                 const SizedBox(width: 48),
                 Text(
                   isEdit ? "Edit Education" : "Add Education",
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -641,7 +819,10 @@ class _EducationModalState extends State<EducationModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildLabel("End Date"),
-                      _buildDateField(_endDateController, enabled: !_currentlyStudying),
+                      _buildDateField(
+                        _endDateController,
+                        enabled: !_currentlyStudying,
+                      ),
                     ],
                   ),
                 ),
@@ -674,7 +855,9 @@ class _EducationModalState extends State<EducationModal> {
                       child: ElevatedButton(
                         onPressed: _handleDelete,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.error.withOpacity(0.1),
+                          backgroundColor: colorScheme.error.withValues(
+                            alpha: 0.1,
+                          ),
                           foregroundColor: colorScheme.error,
                         ),
                         child: const Text("Delete"),
@@ -700,7 +883,11 @@ class _EducationModalState extends State<EducationModal> {
     child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
   );
 
-  Widget _buildTextField(TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    int maxLines = 1,
+  }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -708,12 +895,17 @@ class _EducationModalState extends State<EducationModal> {
         hintText: hint,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+        fillColor: Theme.of(
+          context,
+        ).colorScheme.surfaceContainer.withValues(alpha: 0.5),
       ),
     );
   }
 
-  Widget _buildDateField(TextEditingController controller, {bool enabled = true}) {
+  Widget _buildDateField(
+    TextEditingController controller, {
+    bool enabled = true,
+  }) {
     return TextField(
       controller: controller,
       readOnly: true,
@@ -776,7 +968,6 @@ class _SkillsModalState extends State<SkillsModal> {
   }
 
   void _addPendingSkillIfAny() {
-
     final text = _skillController.text.trim();
     if (text.isNotEmpty) {
       _addLocalSkill();
@@ -786,10 +977,14 @@ class _SkillsModalState extends State<SkillsModal> {
   void _addLocalSkill() {
     final text = _skillController.text.trim();
     if (text.isEmpty) return;
-    if (_workingSkills.any((s) => s.name.toLowerCase() == text.toLowerCase())) return;
+    if (_workingSkills.any((s) => s.name.toLowerCase() == text.toLowerCase())) {
+      return;
+    }
 
     setState(() {
-      _workingSkills.add(Skill(id: 'temp_${DateTime.now().millisecondsSinceEpoch}', name: text));
+      _workingSkills.add(
+        Skill(id: 'temp_${DateTime.now().millisecondsSinceEpoch}', name: text),
+      );
       _skillController.clear();
     });
   }
@@ -834,14 +1029,18 @@ class _SkillsModalState extends State<SkillsModal> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).viewInsets.bottom + 32),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
@@ -854,8 +1053,16 @@ class _SkillsModalState extends State<SkillsModal> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const SizedBox(width: 48),
-              Text("Manage Skills", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              Text(
+                "Manage Skills",
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -868,33 +1075,59 @@ class _SkillsModalState extends State<SkillsModal> {
                     hintText: "Add a new skill...",
                     filled: true,
                     fillColor: scheme.surfaceContainer.withOpacity(0.5),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   onSubmitted: (_) => _addLocalSkill(),
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(onPressed: _addLocalSkill, child: const Icon(Icons.add)),
+              ElevatedButton(
+                onPressed: _addLocalSkill,
+                child: const Icon(Icons.add),
+              ),
             ],
           ),
           const SizedBox(height: 24),
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: _workingSkills.map((skill) => _chip(skill, () => _removeLocalSkill(skill), theme, scheme)).toList(),
+            children: _workingSkills
+                .map(
+                  (skill) => _chip(
+                    skill,
+                    () => _removeLocalSkill(skill),
+                    theme,
+                    scheme,
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 48),
           ElevatedButton(
             onPressed: _isSaving ? null : _saveChanges,
-            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 56)),
-            child: _isSaving ? const CircularProgressIndicator(color: Colors.white) : const Text("Save Changes", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 56),
+            ),
+            child: _isSaving
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text(
+                    "Save Changes",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _chip(Skill skill, VoidCallback onDelete, ThemeData theme, ColorScheme scheme) {
+  Widget _chip(
+    Skill skill,
+    VoidCallback onDelete,
+    ThemeData theme,
+    ColorScheme scheme,
+  ) {
     return Container(
       padding: const EdgeInsets.only(left: 16, right: 6, top: 4, bottom: 4),
       decoration: BoxDecoration(

@@ -32,4 +32,13 @@ class SearchUser {
       accountType: userData['account_type'],
     );
   }
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "full_name": fullName,
+      "headline": headline,
+      "avatar_url": avatarUrl,
+      "account_type": accountType,
+    };
+  }
 }

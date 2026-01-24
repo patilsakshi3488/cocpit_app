@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/event_model.dart';
 import 'api_client.dart';

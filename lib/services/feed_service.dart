@@ -67,8 +67,36 @@ class FeedApi {
   }
 
   // =========================
-  // ❤️ LIKES
+  // 👤 FETCH ANY USER POSTS
   // =========================
+  static Future<Map<String, dynamic>> fetchUserPosts({
+    required String userId,
+    String? cursorCreatedAt,
+    String? cursorPostId,
+  }) async {
+    String url = "/users/$userId/posts?limit=10";
+    final params = <String>[];
+
+    if (cursorCreatedAt != null) {
+      params.add("cursorCreatedAt=${Uri.encodeComponent(cursorCreatedAt)}");
+    }
+    if (cursorPostId != null) {
+      params.add("cursorPostId=${Uri.encodeComponent(cursorPostId)}");
+    }
+
+    if (params.isNotEmpty) {
+      url += "&${params.join("&")}";
+    }
+
+    final response = await ApiClient.get(url);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to fetch user posts: ${response.statusCode}");
+    }
+  }
+
   static Future<Map<String, dynamic>> toggleLike(String postId) async {
     final response = await ApiClient.post("/post/$postId/like");
 

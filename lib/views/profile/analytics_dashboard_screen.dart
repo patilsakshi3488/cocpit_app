@@ -652,10 +652,11 @@ class RadarChartPainter extends CustomPainter {
         final angle = (j * 60) * math.pi / 180;
         final x = center.dx + r * math.cos(angle);
         final y = center.dy + r * math.sin(angle);
-        if (j == 0)
+        if (j == 0) {
           path.moveTo(x, y);
-        else
+        } else {
           path.lineTo(x, y);
+        }
       }
       path.close();
       canvas.drawPath(path, gridPaint);
@@ -703,10 +704,11 @@ class RadarChartPainter extends CustomPainter {
       final r = radius * targetValues[i];
       final x = center.dx + r * math.cos(angle);
       final y = center.dy + r * math.sin(angle);
-      if (i == 0)
+      if (i == 0) {
         targetPath.moveTo(x, y);
-      else
+      } else {
         targetPath.lineTo(x, y);
+      }
     }
     targetPath.close();
     canvas.drawPath(targetPath, targetPaint);
@@ -726,10 +728,11 @@ class RadarChartPainter extends CustomPainter {
       final r = radius * youValues[i];
       final x = center.dx + r * math.cos(angle);
       final y = center.dy + r * math.sin(angle);
-      if (i == 0)
+      if (i == 0) {
         youPath.moveTo(x, y);
-      else
+      } else {
         youPath.lineTo(x, y);
+      }
     }
     youPath.close();
     canvas.drawPath(youPath, youPaint);
@@ -831,10 +834,11 @@ class LineChartPainter extends CustomPainter {
     for (var i = 0; i < bluePoints.length; i++) {
       final x = (size.width / (bluePoints.length - 1)) * i;
       final y = size.height * (1 - bluePoints[i]);
-      if (i == 0)
+      if (i == 0) {
         bluePath.moveTo(x, y);
-      else
+      } else {
         bluePath.lineTo(x, y);
+      }
     }
 
     final blueFillPath = Path.from(bluePath);
@@ -881,10 +885,11 @@ class LineChartPainter extends CustomPainter {
     for (var i = 0; i < greenPoints.length; i++) {
       final x = (size.width / (greenPoints.length - 1)) * i;
       final y = size.height * (1 - greenPoints[i]);
-      if (i == 0)
+      if (i == 0) {
         greenPath.moveTo(x, y);
-      else
+      } else {
         greenPath.lineTo(x, y);
+      }
     }
 
     canvas.drawPath(

@@ -569,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen>
           Icon(
             icon,
             size: 20,
-            color: color ?? theme.iconTheme.color?.withOpacity(0.7),
+            color: color ?? theme.iconTheme.color?.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 8),
           Text(

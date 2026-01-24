@@ -40,7 +40,7 @@ class ProfileInfoIdentity extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -50,21 +50,14 @@ class ProfileInfoIdentity extends StatelessWidget {
               Flexible(
                 child: Text(
                   name,
-                  style: theme.textTheme.displaySmall?.copyWith(
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.verified, color: theme.primaryColor, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                "• 2nd",
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.textTheme.bodySmall?.color,
-                ),
-              ),
+              Icon(Icons.verified, color: theme.primaryColor, size: 20),
               const Spacer(),
               if (!isReadOnly)
                 IconButton(

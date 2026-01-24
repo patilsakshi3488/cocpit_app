@@ -13,11 +13,13 @@ class ProfileExperienceSection extends StatelessWidget {
     this.isReadOnly = false,
   });
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bodySmall = theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600], fontSize: 13);
+    final bodySmall = theme.textTheme.bodySmall?.copyWith(
+      color: Colors.grey[600],
+      fontSize: 13,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -29,12 +31,20 @@ class ProfileExperienceSection extends StatelessWidget {
             children: [
               Text(
                 "Experience",
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (!isReadOnly)
                 TextButton(
                   onPressed: () => onAddEditExperience(),
-                  child: Text("Add", style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    "Add",
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -54,7 +64,10 @@ class ProfileExperienceSection extends StatelessWidget {
                       color: theme.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.business_center, color: theme.primaryColor),
+                    child: Icon(
+                      Icons.business_center,
+                      color: theme.primaryColor,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -67,13 +80,24 @@ class ProfileExperienceSection extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 exp.title,
-                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             if (!isReadOnly)
                               IconButton(
-                                icon: Icon(Icons.edit_outlined, color: theme.iconTheme.color?.withValues(alpha: 0.5), size: 20),
-                                onPressed: () => onAddEditExperience(experience: exp, index: idx),
+                                icon: Icon(
+                                  Icons.edit_outlined,
+                                  color: theme.iconTheme.color?.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  size: 20,
+                                ),
+                                onPressed: () => onAddEditExperience(
+                                  experience: exp,
+                                  index: idx,
+                                ),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                               ),
@@ -81,17 +105,18 @@ class ProfileExperienceSection extends StatelessWidget {
                         ),
                         Text(exp.company, style: theme.textTheme.bodyLarge),
                         const SizedBox(height: 2),
-                        Text(
-                          exp.dateRange,
-                          style: bodySmall,
-                        ),
+                        Text(exp.dateRange, style: bodySmall),
                         if (exp.location.isNotEmpty)
                           Text(exp.location, style: bodySmall),
                         const SizedBox(height: 8),
                         if (exp.description.isNotEmpty)
                           Text(
                             exp.description,
-                            style: theme.textTheme.bodyMedium?.copyWith(height: 1.5, color: theme.textTheme.bodyLarge?.color?.withOpacity(0.8)),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
+                              color: theme.textTheme.bodyLarge?.color
+                                  ?.withValues(alpha: 0.8),
+                            ),
                           ),
                       ],
                     ),

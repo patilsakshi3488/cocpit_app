@@ -153,7 +153,7 @@ class LineChartPainter extends CustomPainter {
     if (interactions.isEmpty || profileViews.isEmpty) return;
 
     final double stepX = size.width / (interactions.length - 1);
-    final double maxY = 200.0;
+    const double maxY = 200.0;
 
     Offset getOffset(int index, double value) {
       return Offset(index * stepX, size.height - (value / maxY * size.height));

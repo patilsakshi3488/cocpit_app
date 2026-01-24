@@ -139,8 +139,8 @@ class ThemeService extends ChangeNotifier {
       cardColor = const Color(0xFF1E1E1E); // Dark grey card
     }
 
-    final textColor = Colors.white;
-    final subTextColor = Colors.white70;
+    const textColor = Colors.white;
+    const subTextColor = Colors.white70;
 
     return ThemeData(
       useMaterial3: true,
@@ -162,7 +162,7 @@ class ThemeService extends ChangeNotifier {
         surfaceContainer: cardColor,
       ),
 
-      textTheme: TextTheme(
+      textTheme: const TextTheme(
         displayLarge: TextStyle(color: textColor, fontWeight: FontWeight.w900),
         displayMedium: TextStyle(color: textColor, fontWeight: FontWeight.w900),
         displaySmall: TextStyle(color: textColor, fontWeight: FontWeight.w900),
@@ -175,7 +175,7 @@ class ThemeService extends ChangeNotifier {
         bodySmall: TextStyle(color: subTextColor, fontSize: 12),
       ),
 
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
@@ -200,7 +200,7 @@ class ThemeService extends ChangeNotifier {
         thickness: 1,
       ),
 
-      iconTheme: IconThemeData(color: textColor),
+      iconTheme: const IconThemeData(color: textColor),
       
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

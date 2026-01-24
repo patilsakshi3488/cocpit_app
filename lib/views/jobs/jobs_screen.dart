@@ -1753,8 +1753,9 @@ class _PostJobModalState extends State<_PostJobModal> {
                         child: ElevatedButton(
                           onPressed: () {
                             if (titleController.text.isEmpty ||
-                                companyController.text.isEmpty)
+                                companyController.text.isEmpty) {
                               return;
+                            }
                             final newJob = {
                               'id': DateTime.now().millisecondsSinceEpoch
                                   .toString(),

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 
 class CareerMomentViewer extends StatefulWidget {
@@ -117,8 +116,9 @@ class _CareerMomentViewerState extends State<CareerMomentViewer> with SingleTick
                         animation: _animController,
                         builder: (context, _) {
                           double val = 0.0;
-                          if (idx < current.storyIndex) val = 1.0;
-                          else if (idx == current.storyIndex) val = _animController.value;
+                          if (idx < current.storyIndex) {
+                            val = 1.0;
+                          } else if (idx == current.storyIndex) val = _animController.value;
                           return LinearProgressIndicator(
                             value: val,
                             backgroundColor: Colors.white24,

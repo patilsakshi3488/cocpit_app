@@ -88,7 +88,7 @@ class _PrivacySettingsState extends State<PrivacySettings> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: colorScheme.onPrimary,
+          activeThumbColor: colorScheme.onPrimary,
           activeTrackColor: theme.primaryColor,
         ),
       ],

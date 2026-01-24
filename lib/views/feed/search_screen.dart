@@ -21,7 +21,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _error;
 
   // Real persistent history
-  List<String> _recentSearches = [];
+  List<SearchUser> _recentSearches = [];
 
   @override
   void initState() {
@@ -37,33 +37,45 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final jsonStr = await AppSecureStorage.getSearchHistory();
       if (jsonStr != null) {
+        final List<dynamic> rawList = jsonDecode(jsonStr);
         setState(() {
-          _recentSearches = List<String>.from(jsonDecode(jsonStr));
+          _recentSearches = rawList.map((e) {
+            // BACKWARD COMPATIBILITY: Handle old String history
+            if (e is String) {
+              return SearchUser(id: '', fullName: e);
+            }
+            return SearchUser.fromJson(e);
+          }).toList();
         });
       }
     } catch (_) {}
   }
 
-  Future<void> _addToHistory(String query) async {
-    if (query.trim().isEmpty) return;
-    final cleanQuery = query.trim();
+  Future<void> _addToHistory(SearchUser user) async {
+    if (user.fullName.trim().isEmpty) return;
 
     setState(() {
-      _recentSearches.remove(cleanQuery); // Remove duplicates
-      _recentSearches.insert(0, cleanQuery); // Add to top
+      // Remove duplicates by ID (preferred) or Name
+      _recentSearches.removeWhere(
+        (u) => u.id == user.id || (u.id.isEmpty && u.fullName == user.fullName),
+      );
+
+      _recentSearches.insert(0, user); // Add to top
       if (_recentSearches.length > 5) {
         _recentSearches = _recentSearches.sublist(0, 5); // Limit to 5
       }
     });
 
-    await AppSecureStorage.saveSearchHistory(jsonEncode(_recentSearches));
+    final jsonList = _recentSearches.map((u) => u.toJson()).toList();
+    await AppSecureStorage.saveSearchHistory(jsonEncode(jsonList));
   }
 
-  Future<void> _removeFromHistory(String query) async {
+  Future<void> _removeFromHistory(SearchUser user) async {
     setState(() {
-      _recentSearches.remove(query);
+      _recentSearches.remove(user);
     });
-    await AppSecureStorage.saveSearchHistory(jsonEncode(_recentSearches));
+    final jsonList = _recentSearches.map((u) => u.toJson()).toList();
+    await AppSecureStorage.saveSearchHistory(jsonEncode(jsonList));
   }
 
   Future<void> _search(String query) async {
@@ -150,8 +162,10 @@ class _SearchScreenState extends State<SearchScreen> {
                           controller: _controller,
                           focusNode: _focusNode,
                           onChanged: (val) => _search(val),
-                          onSubmitted: (val) =>
-                              _addToHistory(val), // ✅ Save on Enter
+                          onSubmitted: (val) {
+                            // Handle manual text entry search if needed, currently only tapping results saves history
+                            _search(val);
+                          },
                           style: theme.textTheme.bodyLarge,
                           decoration: InputDecoration(
                             hintText: "Search",
@@ -167,6 +181,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     onPressed: () {
                                       _controller.clear();
                                       _search("");
+                                      _loadHistory(); // Reload history on clear
                                     },
                                   )
                                 : null,
@@ -192,7 +207,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (_error != null) {
       return Center(
-        child: Text(_error!, style: TextStyle(color: Colors.red)),
+        child: Text(_error!, style: const TextStyle(color: Colors.red)),
       );
     }
 
@@ -214,16 +229,38 @@ class _SearchScreenState extends State<SearchScreen> {
             child: ListView.builder(
               itemCount: _recentSearches.length,
               itemBuilder: (context, index) {
+                final historyItem = _recentSearches[index];
                 return ListTile(
-                  leading: const Icon(Icons.history, color: Colors.grey),
-                  title: Text(_recentSearches[index]),
+                  leading: CircleAvatar(
+                    backgroundImage: historyItem.avatarUrl != null
+                        ? NetworkImage(historyItem.avatarUrl!)
+                        : null,
+                    radius: 16,
+                    child: historyItem.avatarUrl == null
+                        ? const Icon(Icons.history, size: 16)
+                        : null,
+                  ),
+                  title: Text(historyItem.fullName),
                   trailing: IconButton(
                     icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                    onPressed: () => _removeFromHistory(_recentSearches[index]),
+                    onPressed: () => _removeFromHistory(historyItem),
                   ),
                   onTap: () {
-                    _controller.text = _recentSearches[index];
-                    _search(_recentSearches[index]);
+                    // 🚀 NAVIGATE DIRECTLY
+                    // If ID is missing (legacy string history), just populate text
+                    if (historyItem.id.isEmpty) {
+                      _controller.text = historyItem.fullName;
+                      _search(historyItem.fullName);
+                    } else {
+                      // Move to top of history logic if desired, or just navigate
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              PublicProfileScreen(userId: historyItem.id),
+                        ),
+                      );
+                    }
                   },
                 );
               },
@@ -261,8 +298,8 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           subtitle: Text(user.headline ?? "No headline"),
           onTap: () {
-            // ✅ Only save valid, completed searches (User Name)
-            _addToHistory(user.fullName);
+            // ✅ Save User Object to History
+            _addToHistory(user);
 
             Navigator.push(
               context,

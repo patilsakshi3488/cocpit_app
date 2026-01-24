@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../services/feed_service.dart';
-import '../../../services/secure_storage.dart';
-import 'dart:convert';
+import 'package:intl/intl.dart';
+import '../../../../services/feed_service.dart';
+import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
 import '../../profile/public_profile_screen.dart';
-import '../../profile/profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
   final bool isOwner;
+  final bool simpleView;
   final Function(String)? onDelete;
   final Function(String)? onEdit;
   final Function(String, bool)? onPrivacyChange;
@@ -20,6 +20,7 @@ class PostCard extends StatefulWidget {
     super.key,
     required this.post,
     this.isOwner = false,
+    this.simpleView = false,
     this.onDelete,
     this.onEdit,
     this.onPrivacyChange,
@@ -86,20 +87,34 @@ class _PostCardState extends State<PostCard> {
         : null;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 8), // Inner padding
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16), // Rounded corners
-        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      margin: widget.simpleView
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: widget.simpleView
+          ? BoxDecoration(
+              color: theme.cardColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: theme.dividerColor.withValues(alpha: 0.2),
+                  width: 8, // Thicker separator for flat feed
+                ),
+              ),
+            )
+          : BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: theme.dividerColor.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -194,8 +209,9 @@ class _PostCardState extends State<PostCard> {
       return PopupMenuButton<String>(
         onSelected: (value) {
           if (value == 'edit') widget.onEdit?.call(postId);
-          if (value == 'privacy')
+          if (value == 'privacy') {
             widget.onPrivacyChange?.call(postId, !isPrivate);
+          }
           if (value == 'delete') widget.onDelete?.call(postId);
           if (value == 'analytics') _showPollAnalytics();
         },
@@ -253,67 +269,9 @@ class _PostCardState extends State<PostCard> {
     if (pollData == null) return;
 
     final options = (pollData["options"] as List? ?? []);
-    int totalVotes = 0;
-    for (var o in options) {
-      totalVotes += (asInt(o["vote_count"]));
-    }
-
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Poll Analytics"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 150,
-              width: 150,
-              child: Stack(
-                children: [
-                  const Center(
-                    child: Icon(
-                      Icons.pie_chart,
-                      size: 100,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      "$totalVotes",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "Total Votes",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const Divider(),
-            ...options.map((o) {
-              final count = asInt(o["vote_count"]);
-              return ListTile(
-                title: Text(o["option_text"] ?? ""),
-                trailing: Text(
-                  "$count votes (${totalVotes > 0 ? (count * 100 / totalVotes).toStringAsFixed(0) : 0}%)",
-                ),
-              );
-            }).toList(),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Close"),
-          ),
-        ],
-      ),
+      builder: (ctx) => PollAnalyticsDialog(options: options),
     );
   }
 

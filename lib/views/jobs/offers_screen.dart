@@ -6,8 +6,8 @@ class OffersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bg = const Color(0xFF0B1220);
-    final Color primary = const Color(0xFF6366F1);
+    const Color bg = Color(0xFF0B1220);
+    const Color primary = Color(0xFF6366F1);
 
     final List<Map<String, dynamic>> mockOffers = [
       {

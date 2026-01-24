@@ -20,6 +20,7 @@ import 'profile_education_section.dart';
 import 'profile_skills_section.dart';
 import 'profile_posts_section.dart';
 import 'profile_suggested_section.dart';
+import '../feed/widgets/edit_post_modal.dart';
 import 'profile_modals.dart';
 import 'photo_action_helper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -141,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         headline = user['headline'] ?? '';
         location = user['location'] ?? '';
         about = user['about'] ?? '';
-        profileImage = user['avatar'] ?? profileImage;
+        profileImage = user['avatar_url'] ?? user['avatar'] ?? '';
 
         experiences = fetchedExperiences;
         educations = fetchedEducations;
@@ -400,10 +401,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleEditPost(String postId) async {
-    // Navigate to CreatePostScreen in edit mode (not implemented yet)
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Edit feature coming soon")));
+    final index = myPosts.indexWhere(
+      (p) =>
+          p['id']?.toString() == postId || p['post_id']?.toString() == postId,
+    );
+    if (index == -1) return;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => EditPostModal(post: myPosts[index]),
+    );
+
+    if (result == true) {
+      _loadProfile();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Post updated successfully")),
+      );
+    }
   }
 
   /// =========================
@@ -461,7 +477,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       imagePath: profileImage,
                       heroTag: 'profile_hero',
                       onUpdate: _handleAvatarUpdate,
-                      onDelete: () {}, // Implement delete if API supports it
+                      onDelete: () async {
+                        final success = await profileService.deleteAvatar();
+                        if (success) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Profile photo removed"),
+                              ),
+                            );
+                            _loadProfile();
+                          }
+                        }
+                      },
                     );
                   },
                   onCoverCameraPressed: () {
@@ -534,7 +562,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTogglePrivacy: _handleTogglePrivacy,
               ),
               _divider(theme),
-              ProfileSuggestedSection(suggestedUsers: const []),
+              const ProfileSuggestedSection(suggestedUsers: []),
               const SizedBox(height: 80),
             ],
           ),

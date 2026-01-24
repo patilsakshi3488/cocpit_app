@@ -15,7 +15,14 @@ class ProfileSuggestedSection extends StatelessWidget {
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Text("Suggested for you", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+          child: Text(
+            "Suggested for you",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         SizedBox(
           height: 240,
@@ -32,13 +39,18 @@ class ProfileSuggestedSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.05),
+                  ),
                 ),
                 child: Column(
                   children: [
                     Stack(
                       children: [
-                        CircleAvatar(radius: 40, backgroundImage: AssetImage(user['profile'])),
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundImage: AssetImage(user['profile']),
+                        ),
                         if (user['isVerified'])
                           const Positioned(
                             bottom: 0,
@@ -46,25 +58,59 @@ class ProfileSuggestedSection extends StatelessWidget {
                             child: CircleAvatar(
                               radius: 10,
                               backgroundColor: Color(0xFF4F70F0),
-                              child: Icon(Icons.check, color: Colors.white, size: 12),
+                              child: Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              ),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(user['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(user['role'], style: const TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      user['name'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      user['role'],
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
-                    Text("${user['followers']} followers", style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    Text(
+                      "${user['followers']} followers",
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
                     const Spacer(),
                     ElevatedButton(
                       onPressed: () {},
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF4F70F0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         minimumSize: const Size(double.infinity, 32),
                       ),
-                      child: const Text("Follow", style: TextStyle(color: Colors.white, fontSize: 13)),
+                      child: const Text(
+                        "Follow",
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
                     ),
                   ],
                 ),

@@ -41,14 +41,21 @@ class PublicUser {
       final location = userData['location'];
       final about = userData['about'] ?? userData['about_text'];
 
-      final experiences = (userData['experiences'] as List? ?? [])
+      final experiencesList =
+          userData['experiences'] ?? json['experiences'] ?? [];
+      final experiences = (experiencesList as List)
           .map((e) => PublicExperience.fromJson(e))
           .toList();
-      final educations = (userData['educations'] as List? ?? [])
+
+      final educationsList = userData['educations'] ?? json['educations'] ?? [];
+      final educations = (educationsList as List)
           .map((e) => PublicEducation.fromJson(e))
           .toList();
-      final skills = List<String>.from(userData['skills'] ?? []);
-      final isFollowing = userData['is_following'];
+
+      final skillsList = userData['skills'] ?? json['skills'] ?? [];
+      final skills = List<String>.from(skillsList);
+
+      final isFollowing = userData['is_following'] ?? json['is_following'];
 
       return PublicUser(
         id: id,

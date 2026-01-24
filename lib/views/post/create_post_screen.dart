@@ -108,8 +108,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (content.isEmpty &&
         _selectedFiles.isEmpty &&
         !_showPollCreator &&
-        !_isArticle)
+        !_isArticle) {
       return;
+    }
 
     if (_showPollCreator && _pollQuestionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,24 +266,24 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User Info & Categories (Common)
-                  Row(
+                  const Row(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         backgroundImage: AssetImage("lib/images/profile.png"),
                         radius: 20,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "You",
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const Text(
+                          Text(
                             "Post to Anyone",
                             style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
@@ -341,7 +342,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             color: const Color(0xFF2B2D31),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.grey.withOpacity(0.3),
+              color: Colors.grey.withValues(alpha: 0.3),
               style: BorderStyle.none,
             ),
           ),
@@ -396,8 +397,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             color: Color(0xFF2B2D31),
             borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
-          child: Row(
-            children: const [
+          child: const Row(
+            children: [
               Icon(Icons.format_bold, color: Colors.grey),
               SizedBox(width: 16),
               Icon(Icons.format_italic, color: Colors.grey),
@@ -431,7 +432,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           height: 300,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF2B2D31).withOpacity(0.5),
+            color: const Color(0xFF2B2D31).withValues(alpha: 0.5),
             borderRadius: const BorderRadius.vertical(
               bottom: Radius.circular(8),
             ),
@@ -502,8 +503,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         if (_pollOptionsControllers.length < 4)
           GestureDetector(
             onTap: _addPollOption,
-            child: Row(
-              children: const [
+            child: const Row(
+              children: [
                 Icon(Icons.add, color: Color(0xFF6B7AFE)),
                 SizedBox(width: 8),
                 Text(
@@ -609,7 +610,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -685,17 +686,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               children: [
-                Row(
+                const Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       backgroundImage: AssetImage("lib/images/profile.png"),
                       radius: 18,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "You",
                           style: TextStyle(
                             color: Colors.white,

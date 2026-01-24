@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/event_service.dart';
 
@@ -188,14 +187,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           value: hasWaitlist,
                           onChanged: (v) => setState(() => hasWaitlist = v),
                           title: Text('Enable Waitlist', style: theme.textTheme.bodyLarge),
-                          activeColor: theme.primaryColor,
+                          activeThumbColor: theme.primaryColor,
                         ),
                          SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           value: isFreeEvent,
                           onChanged: (v) => setState(() => isFreeEvent = v),
                           title: Text('Free Event', style: theme.textTheme.bodyLarge),
-                          activeColor: theme.primaryColor,
+                          activeThumbColor: theme.primaryColor,
                         ),
                       ]),
                       

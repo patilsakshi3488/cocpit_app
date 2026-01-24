@@ -136,7 +136,11 @@ class ProfileService {
       fileField: "avatar",
       file: image,
     );
+    return response.statusCode == 200;
+  }
 
+  Future<bool> deleteAvatar() async {
+    final response = await ApiClient.delete("/profile/avatar");
     return response.statusCode == 200;
   }
 

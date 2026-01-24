@@ -6,7 +6,7 @@ class ApiConfig {
   // ======================
 
   static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.6:5000/api";
+      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.13:5000/api";
 
   // ======================
   // AUTH ENDPOINTS (PATHS)
@@ -29,11 +29,15 @@ class ApiConfig {
   // ======================
   // POST ENDPOINTS
   // ======================
-  // ======================
-  // POST ENDPOINTS
-  // ======================
   static String get posts =>
       "/post"; // Singular based on backend: router.post("/post", ...)
   static String get upload =>
       "/upload"; // Based on backend: router.post("/upload", ...)
+
+  // ======================
+  // STORY ENDPOINTS
+  // ======================
+  static String get storiesGrouped => "/stories/grouped";
+  static String get story => "/story"; // For POST /story
+  static String get stories => "/stories";
 }

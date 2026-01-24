@@ -30,6 +30,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
 
   // Logic
   bool _isPaused = false;
+  double _dragOffsetY = 0.0;
 
   @override
   void initState() {
@@ -110,8 +111,31 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       });
       _loadStory();
     } else {
-      // Group finished
-      Navigator.pop(context);
+      // Group finished. Find next group with unseen stories that is not current user.
+      int nextGroupIndex = -1;
+
+      for (int i = _currentGroupIndex + 1; i < widget.groups.length; i++) {
+        final g = widget.groups[i];
+        if (!g.isCurrentUser && g.stories.any((s) => !s.hasViewed)) {
+          nextGroupIndex = i;
+          break;
+        }
+      }
+
+      if (nextGroupIndex != -1) {
+        // Found next group
+        final g = widget.groups[nextGroupIndex];
+        int firstUnseen = g.stories.indexWhere((s) => !s.hasViewed);
+
+        setState(() {
+          _currentGroupIndex = nextGroupIndex;
+          _currentStoryIndex = firstUnseen != -1 ? firstUnseen : 0;
+          _dragOffsetY = 0.0; // Reset drag just in case
+        });
+        _loadStory();
+      } else {
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -318,21 +342,37 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     final group = _currentGroup;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: GestureDetector(
-        onTapDown: (_) => _pause(),
-        onTapUp: (_) => _resume(),
-        onTapCancel: _resume,
-        onLongPress: _pause,
-        onLongPressUp: _resume,
-        onVerticalDragEnd: (details) {
-          if (details.primaryVelocity != null &&
-              details.primaryVelocity! > 300) {
-            Navigator.pop(context);
-          }
-        },
-        child: Stack(
-          children: [
+      backgroundColor: Colors.black, // Dark background for better swipe effect
+      body: Transform.translate(
+        offset: Offset(0, _dragOffsetY),
+        child: GestureDetector(
+          onTapDown: (_) => _pause(),
+          onTapUp: (_) => _resume(),
+          onTapCancel: _resume,
+          onLongPress: _pause,
+          onLongPressUp: _resume,
+          onVerticalDragUpdate: (details) {
+            if (details.delta.dy > 0 || _dragOffsetY > 0) {
+              setState(() {
+                _dragOffsetY += details.delta.dy;
+              });
+            }
+          },
+          onVerticalDragEnd: (details) {
+            if (_dragOffsetY > 100 ||
+                (details.primaryVelocity != null &&
+                    details.primaryVelocity! > 500)) {
+              Navigator.pop(context);
+            } else {
+              setState(() {
+                _dragOffsetY = 0.0;
+              });
+            }
+          },
+          child: Container(
+            color: colorScheme.surface, // Inner content bg
+            child: Stack(
+              children: [
             // ======================
             // Media
             // ======================
@@ -420,13 +460,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                           ),
                         ),
                         const Spacer(),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: colorScheme.onSurface,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                        // Close icon removed
                       ],
                     ),
                   ),
@@ -502,7 +536,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                 ],
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

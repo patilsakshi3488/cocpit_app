@@ -3,6 +3,7 @@ import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
 import 'package:cocpit_app/views/story/story_viewer_screen.dart';
 import 'package:cocpit_app/views/story/create_story_screen.dart';
+import 'package:cocpit_app/views/story/video_story_thumbnail.dart';
 
 class StoryTray extends StatefulWidget {
   const StoryTray({super.key});
@@ -83,6 +84,11 @@ class _StoryTrayState extends State<StoryTray> {
 
   void _onStoryViewed() {
     // When returning from viewer, refresh logic (sorting might change)
+    if (mounted) {
+      setState(() {
+        _groups = _sortGroups(_groups);
+      });
+    }
     _fetchStories();
   }
 
@@ -123,12 +129,26 @@ class _StoryTrayState extends State<StoryTray> {
     final hasStories = group.stories.isNotEmpty;
 
     String? bgImage;
+    String? videoUrl;
     if (hasStories) {
       final latest = group.stories.last;
       if (latest.mediaType == 'image') {
         bgImage = latest.mediaUrl;
+      } else if (latest.mediaType == 'video') {
+        videoUrl = latest.mediaUrl;
       }
     }
+
+    // Border logic
+    final bool hasUnseen = group.stories.any((s) => !s.hasViewed);
+    final Border? border = hasStories
+        ? Border.all(
+            color: hasUnseen
+                ? colorScheme.primary
+                : (Colors.grey[400] ?? Colors.grey),
+            width: hasUnseen ? 3.0 : 2.0,
+          )
+        : null;
 
     return GestureDetector(
       onTap: () async {
@@ -149,20 +169,28 @@ class _StoryTrayState extends State<StoryTray> {
       child: Container(
         width: width,
         margin: const EdgeInsets.only(right: 12),
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
+          border: border,
           image: bgImage != null
               ? DecorationImage(
-            image: NetworkImage(bgImage),
-            fit: BoxFit.cover,
-          )
+                  image: NetworkImage(bgImage),
+                  fit: BoxFit.cover,
+                )
               : null,
           color: (group.isCurrentUser && !hasStories)
               ? colorScheme.primary
               : colorScheme.surfaceVariant,
         ),
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            // Video Thumbnail Layer
+            if (videoUrl != null && bgImage == null)
+              Positioned.fill(
+                child: VideoStoryThumbnail(mediaUrl: videoUrl),
+              ),
             // ======================
             // 1. Current User - No Story
             // ======================
@@ -313,17 +341,6 @@ class _StoryTrayState extends State<StoryTray> {
                 ),
               ),
 
-            // ======================
-            // Video fallback
-            // ======================
-            if (bgImage == null && hasStories)
-              Center(
-                child: Icon(
-                  Icons.play_circle_fill,
-                  color: colorScheme.onSurface.withOpacity(0.8),
-                  size: 40,
-                ),
-              ),
           ],
         ),
       ),

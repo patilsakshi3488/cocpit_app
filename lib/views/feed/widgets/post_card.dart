@@ -7,6 +7,8 @@ import '../../../widgets/poll_widget.dart';
 import '../../profile/public_profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
+import '../../../../services/secure_storage.dart';
+import '../../profile/profile_screen.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -32,11 +34,25 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   late Map<String, dynamic> post;
+  String? currentUserId;
 
   @override
   void initState() {
     super.initState();
     post = widget.post;
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final uid = await AppSecureStorage.getCurrentUserId();
+    if (mounted) setState(() => currentUserId = uid);
+  }
+
+  // Check if post belongs to logged-in user
+  bool get isMine {
+    final authorId =
+        post["author_id"]?.toString() ?? post["user_id"]?.toString();
+    return currentUserId != null && authorId == currentUserId;
   }
 
   // Handle differences in ID naming
@@ -152,11 +168,22 @@ class _PostCardState extends State<PostCard> {
 
     return GestureDetector(
       onTap: () async {
-        if (widget.isOwner) return; // Already on profile
+        // If explicitly set as owner (e.g. on profile page), maybe do nothing?
+        // But user requirement says: "If viewing own profile ... show editable profile UI"
+        // If I am on my profile, clicking my posts shouldn't navigate me to my profile again?
+        // Let's stick to the condition: if isMine -> ProfileScreen, else PublicProfileScreen.
+
         String? authorId =
             post["author_id"]?.toString() ?? post["user_id"]?.toString();
 
-        if (authorId != null) {
+        if (authorId == null) return;
+
+        if (isMine) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          );
+        } else {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -202,7 +229,8 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _buildPostMenu(ThemeData theme) {
-    if (widget.isOwner) {
+    // Only show full menu if it's MY post or explicitly passed as owner
+    if (isMine || widget.isOwner) {
       final isPrivate = post['visibility'] == 'private';
       final hasPoll = post["poll"] != null;
 
@@ -261,6 +289,16 @@ class _PostCardState extends State<PostCard> {
         child: Icon(Icons.more_horiz, color: theme.iconTheme.color),
       );
     }
+    // For other users, show generic report/share options or nothing?
+    // User requirement: "Posts should NOT show edit/delete/privacy options"
+    // I'll leave a simple "more" icon that currently does nothing or maybe share
+    // For now, returning standard icon but with no items if not owner?
+    // Or simpler: just hide it if not owner?
+    // Usually there is "Report" or "Share". existing code returned Icon(more_vert).
+    // I'll keep it as Icon(more_vert) for consistency but maybe make it do nothing or show minimal menu.
+    // For now, I'll return empty if not owner to be strict per user request?
+    // "Posts should NOT show edit/delete/privacy options" -> doesn't say "no menu".
+    // I'll stick to the previous behavior for non-owners: Icon(more_vert)
     return Icon(Icons.more_vert, color: theme.iconTheme.color);
   }
 

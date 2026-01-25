@@ -62,7 +62,8 @@ class _SignInScreenState extends State<SignInScreen> {
         (_) => false,
       );
     } catch (e) {
-      _showSnack("Server error. Try again.");
+      print("Login error: $e"); // Debug print
+      _showSnack("Server error. Try again. Error: $e");
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -128,8 +129,9 @@ class _SignInScreenState extends State<SignInScreen> {
                             : Icons.visibility_off,
                         size: 20,
                       ),
-                      onPressed: () =>
-                          setState(() => isPasswordVisible = !isPasswordVisible),
+                      onPressed: () => setState(
+                        () => isPasswordVisible = !isPasswordVisible,
+                      ),
                     ),
                   ),
 
@@ -162,14 +164,18 @@ class _SignInScreenState extends State<SignInScreen> {
             color: theme.primaryColor,
             borderRadius: BorderRadius.circular(12),
           ),
-          child:
-          const Icon(Icons.business_center, color: Colors.white, size: 28),
+          child: const Icon(
+            Icons.business_center,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
         const SizedBox(width: 14),
         Text(
           "Cocpit",
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -180,8 +186,9 @@ class _SignInScreenState extends State<SignInScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         text,
-        style: theme.textTheme.titleSmall
-            ?.copyWith(fontWeight: FontWeight.w600),
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -205,9 +212,7 @@ class _SignInScreenState extends State<SignInScreen> {
         suffixIcon: suffixIcon,
         filled: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -225,8 +230,7 @@ class _SignInScreenState extends State<SignInScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const ForgotPasswordScreen()),
+              MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
             );
           },
           child: Text(

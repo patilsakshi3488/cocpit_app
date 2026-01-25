@@ -88,23 +88,27 @@ class ApiClient {
 
     if (file != null) {
       request.files.add(
-          await http.MultipartFile.fromPath(
-              fileField,
-              file.path,
-              contentType: http.MediaType.parse(
-                lookupMimeType(file.path) ?? 'image/jpeg',
-              ))
+        await http.MultipartFile.fromPath(
+          fileField,
+          file.path,
+          contentType: http.MediaType.parse(
+            lookupMimeType(file.path) ?? 'image/jpeg',
+          ),
+        ),
       );
     }
-      // Handle multiple files
+    // Handle multiple files
     if (files != null) {
       for (var f in files) {
-        request.files.add(   await http.MultipartFile.fromPath(
-          fileField,
-          f.path,
-          contentType: http.MediaType.parse(
-            lookupMimeType(f.path) ?? 'image/jpeg',
-          ),));
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            fileField,
+            f.path,
+            contentType: http.MediaType.parse(
+              lookupMimeType(f.path) ?? 'image/jpeg',
+            ),
+          ),
+        );
       }
     }
 
@@ -123,17 +127,26 @@ class ApiClient {
       if (token != null) "Authorization": "Bearer $token",
     };
 
-    http.Response response = await request(headers());
+    print("Making request to: ${ApiConfig.baseUrl}"); // Debug URL
+    try {
+      http.Response response = await request(headers());
+      print("Response status: ${response.statusCode}");
+      print("Response body: ${response.body}");
 
-    // 🔁 Retry with fresh token
-    if (response.statusCode == 401) {
-      final newToken = await AuthService().refreshAccessToken();
-      if (newToken != null) {
-        token = newToken;
-        response = await request(headers());
+      // 🔁 Retry with fresh token
+      if (response.statusCode == 401) {
+        print("401 detected, refreshing token...");
+        final newToken = await AuthService().refreshAccessToken();
+        if (newToken != null) {
+          token = newToken;
+          response = await request(headers());
+        }
       }
-    }
 
-    return response;
+      return response;
+    } catch (e) {
+      print("ApiClient Error: $e");
+      rethrow;
+    }
   }
 }

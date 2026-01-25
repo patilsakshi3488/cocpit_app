@@ -45,17 +45,17 @@ class AppSecureStorage {
 
   // 🔍 SEARCH HISTORY (USER SPECIFIC)
   static Future<void> saveSearchHistory(String jsonList) async {
-    final userId = await _getCurrentUserId() ?? 'guest';
+    final userId = await getCurrentUserId() ?? 'guest';
     await _storage.write(key: 'search_history_$userId', value: jsonList);
   }
 
   static Future<String?> getSearchHistory() async {
-    final userId = await _getCurrentUserId() ?? 'guest';
+    final userId = await getCurrentUserId() ?? 'guest';
     return await _storage.read(key: 'search_history_$userId');
   }
 
   /// 🕵️ Helper to extract ID from stored user JSON
-  static Future<String?> _getCurrentUserId() async {
+  static Future<String?> getCurrentUserId() async {
     try {
       final userJson = await getUser();
       if (userJson == null) return null;

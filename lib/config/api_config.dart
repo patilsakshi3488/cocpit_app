@@ -6,7 +6,7 @@ class ApiConfig {
   // ======================
 
   static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.8:5000/api";
+      dotenv.env['API_BASE_URL'] ?? "http://10.0.2.2:5000/api";
 
   // ======================
   // AUTH ENDPOINTS (PATHS)

@@ -62,7 +62,7 @@ class _SignInScreenState extends State<SignInScreen> {
         (_) => false,
       );
     } catch (e) {
-      _showSnack("Server error. Try again.");
+      _showSnack("Server error: $e");
     } finally {
       if (mounted) setState(() => isLoading = false);
     }

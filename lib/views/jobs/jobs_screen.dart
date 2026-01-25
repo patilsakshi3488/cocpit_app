@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../bottom_navigation.dart';
 import '../../widgets/app_top_bar.dart';
+import 'job_posts_dashboard.dart';
+import 'package:file_picker/file_picker.dart';
+import '../../services/local_job_service.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -13,44 +16,7 @@ class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
   int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring
 
-  final List<Map<String, dynamic>> _allViewJobs = [
-    {
-      'id': '1',
-      'title': 'Senior Financial Analyst',
-      'company': 'JPMorgan Chase',
-      'initial': 'J',
-      'salary': r'$125k - $155k',
-      'salaryVal': 140,
-      'location': 'New York, NY',
-      'type': 'Full-time',
-      'workMode': 'Hybrid',
-      'expLevel': 'Mid Level',
-      'time': '2 days ago',
-      'applicants': '25 applicants applied',
-      'match': '82%',
-      'response': 'Recruiter usually responds in 2 days',
-      'isHiring': false,
-      'isSaved': false,
-    },
-    {
-      'id': '2',
-      'title': 'Business Analyst',
-      'company': 'McKinsey & Company',
-      'initial': 'M',
-      'salary': r'$110k - $140k',
-      'salaryVal': 125,
-      'location': 'Boston, MA',
-      'type': 'Full-time',
-      'workMode': 'Onsite',
-      'expLevel': 'Entry Level',
-      'time': '3 days ago',
-      'applicants': '18 applicants applied',
-      'match': '87%',
-      'response': 'Recruiter usually responds in 4 days',
-      'isHiring': true,
-      'isSaved': false,
-    },
-  ];
+  final List<Map<String, dynamic>> _allViewJobs = [];
 
   late List<Map<String, dynamic>> viewJobs;
 
@@ -58,102 +24,58 @@ class _JobsScreenState extends State<JobsScreen> {
   void initState() {
     super.initState();
     viewJobs = List.from(_allViewJobs);
+    _loadUserData();
   }
 
-  final List<Map<String, dynamic>> myJobsInProgress = [
-    {
-      'id': 'p1',
-      'title': 'Product Designer',
-      'company': 'Adobe',
-      'initial': 'A',
-      'salary': r'$120k - $140k',
-      'location': 'Remote',
-      'type': 'Full-time',
-      'time': 'Interview scheduled',
-      'applicants': '8 applicants applied',
-      'match': '87%',
-      'response': 'Recruiter usually responds in 2 days',
-      'status': 'In Progress',
-      'statusColor': Colors.orangeAccent,
-      'timelineStep': 2,
-      'isSaved': false,
-    },
-  ];
+  final List<Map<String, dynamic>> myJobsInProgress = [];
 
-  final List<Map<String, dynamic>> myJobsApplied = [
-    {
-      'id': 'a1',
-      'title': 'Senior Financial Analyst',
-      'company': 'JPMorgan Chase',
-      'initial': 'J',
-      'salary': r'$125k - $155k',
-      'location': 'New York, NY',
-      'type': 'Full-time',
-      'time': '2 days ago',
-      'applicants': '25 applicants applied',
-      'match': '82%',
-      'response': 'Recruiter usually responds in 2 days',
-      'status': 'Applied',
-      'statusColor': Colors.blueAccent,
-      'isHiring': false,
-      'timelineStep': 0,
-      'isSaved': false,
-    },
-  ];
+  final List<Map<String, dynamic>> myJobsApplied = [];
 
-  final List<Map<String, dynamic>> myJobsInPast = [
-    {
-      'id': 'pa1',
-      'title': 'UX Researcher',
-      'company': 'Spotify',
-      'initial': 'S',
-      'salary': r'$100k - $130k',
-      'location': 'Remote',
-      'type': 'Full-time',
-      'time': 'Closed 1 week ago',
-      'applicants': '60 applicants applied',
-      'match': '93%',
-      'response': 'Recruiter usually responds in 4 days',
-      'status': 'Closed',
-      'statusColor': Colors.grey,
-      'isHiring': true,
-      'isSaved': false,
-    },
-  ];
+  final List<Map<String, dynamic>> myJobsInPast = [];
 
-  final List<Map<String, dynamic>> offers = [
-    {
-      'id': 'o1',
-      'title': 'Senior Financial Analyst',
-      'company': 'JPMorgan Chase',
-      'initial': 'J',
-      'salary': r'$125k - $155k',
-      'location': 'New York, NY',
-      'type': 'Full-time',
-      'time': 'Today',
-      'applicants': '0 applicants applied',
-      'match': '69%',
-      'response': 'Recruiter usually responds in 5 days',
-      'isSaved': false,
-    },
-    {
-      'id': 'o2',
-      'title': 'Business Analyst',
-      'company': 'McKinsey & Company',
-      'initial': 'M',
-      'salary': r'$110k - $140k',
-      'location': 'Boston, MA',
-      'type': 'Full-time',
-      'time': '1 day ago',
-      'applicants': '0 applicants applied',
-      'match': '72%',
-      'response': 'Recruiter usually responds in 2 days',
-      'isSaved': false,
-    },
-  ];
+  final List<Map<String, dynamic>> offers = [];
 
   final List<Map<String, dynamic>> myJobsSaved = [];
   final List<Map<String, dynamic>> myJobsHiring = [];
+  final List<Map<String, dynamic>> myPostedJobs = [];
+  
+  final _localJobService = LocalJobService();
+
+
+
+  Future<void> _loadUserData() async {
+    final posted = await _localJobService.getPostedJobs();
+    final applied = await _localJobService.getAppliedJobs();
+    final saved = await _localJobService.getSavedJobs();
+    
+    if (mounted) {
+      setState(() {
+        myPostedJobs.clear();
+        myPostedJobs.addAll(posted);
+        
+        myJobsApplied.clear();
+        myJobsApplied.addAll(applied);
+        
+        myJobsSaved.clear();
+        myJobsSaved.addAll(saved);
+        
+        // Update dashboard view if needed
+        if (myJobsHiring.isEmpty && myPostedJobs.isNotEmpty) {
+           myJobsHiring.addAll(myPostedJobs);
+        }
+
+        // Merge posted jobs into main feed (View Jobs)
+        if (myPostedJobs.isNotEmpty) {
+           final existingIds = _allViewJobs.map((j) => j['id']).toSet();
+           final newJobs = myPostedJobs.where((j) => !existingIds.contains(j['id'])).toList();
+           if (newJobs.isNotEmpty) {
+             _allViewJobs.insertAll(0, newJobs);
+             viewJobs = List.from(_allViewJobs);
+           }
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,18 +83,25 @@ class _JobsScreenState extends State<JobsScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppTopBar(
+        key: const ValueKey('jobs_appbar_v2'), // Force rebuild to remove icon
         searchType: SearchType.jobs,
         onSearchTap: () => _showSearchModal(context),
-        onFilterTap: () => _showFilterModal(context),
+        onFilterTap: null, // Explicitly null to ensure no filter icon in search bar
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 3),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _postJobHeader(theme)),
-          SliverToBoxAdapter(child: _tabs(theme)),
-          _contentArea(theme),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.delayed(const Duration(seconds: 1));
+          await _loadUserData();
+        },
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: _postJobHeader(theme)),
+            SliverToBoxAdapter(child: _tabs(theme)),
+            _contentArea(theme),
+          ],
+        ),
       ),
     );
   }
@@ -180,55 +109,95 @@ class _JobsScreenState extends State<JobsScreen> {
   Widget _postJobHeader(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: GestureDetector(
-        onTap: () => _showPostJobModal(context),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.primaryColor.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: theme.primaryColor,
-                child: Icon(
-                  Icons.add,
-                  color: theme.colorScheme.onPrimary,
-                  size: 14,
+      child: Row(
+        children: [
+          // Post Job Button (First and Expanded)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showPostJobModal(context),
+              child: Container(
+                padding: const EdgeInsets.all(12), // Slightly reduced padding for "small" feel
+                decoration: BoxDecoration(
+                  color: theme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.primaryColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: theme.primaryColor,
+                      child: Icon(
+                        Icons.add,
+                        color: theme.colorScheme.onPrimary,
+                        size: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Post a job",
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.primaryColor,
+                            ),
+                          ),
+                          Text(
+                            "Find the right talent", // Shortened text to fit better
+                            style: theme.textTheme.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Filter Button (Second)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _showFilterModal(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: theme.dividerColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center, // Center content
                   children: [
+                    Icon(
+                      Icons.tune,
+                      color: theme.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      "Post a job",
+                      "Filter",
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.primaryColor,
                       ),
                     ),
-                    Text(
-                      "Find the right talent for your team",
-                      style: theme.textTheme.bodySmall,
-                    ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.primaryColor,
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -246,6 +215,7 @@ class _JobsScreenState extends State<JobsScreen> {
                 _tabPill(theme, "View Jobs", 0),
                 _tabPill(theme, "My Jobs", 1),
                 _tabPill(theme, "Offers", 2, badge: "2"),
+                _tabPill(theme, "Job Posts Dashboard", 3), // New Tab
               ],
             ),
           ),
@@ -351,6 +321,12 @@ class _JobsScreenState extends State<JobsScreen> {
   }
 
   Widget _contentArea(ThemeData theme) {
+    // 1. Dashboard View
+    if (mainTab == 3) {
+      return JobPostsDashboard(postedJobs: myPostedJobs);
+    }
+
+    // 2. Other Views
     List<Map<String, dynamic>> list = [];
     bool isHiringView = false;
 
@@ -376,6 +352,7 @@ class _JobsScreenState extends State<JobsScreen> {
     if (list.isEmpty) {
       return SliverToBoxAdapter(child: _emptyState(theme));
     }
+
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -497,22 +474,22 @@ class _JobsScreenState extends State<JobsScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(job['company'], style: theme.textTheme.bodyLarge),
-                        const SizedBox(width: 8),
                         Icon(
                           Icons.circle,
                           size: 4,
                           color: theme.textTheme.bodySmall?.color,
                         ),
-                        const SizedBox(width: 8),
                         Text(
                           job['location'],
                           style: theme.textTheme.bodyMedium,
                         ),
-                        if (job['isHiring'] == true) ...[
-                          const SizedBox(width: 10),
+                        if (job['isHiring'] == true)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -531,7 +508,6 @@ class _JobsScreenState extends State<JobsScreen> {
                               ),
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ],
@@ -600,6 +576,7 @@ class _JobsScreenState extends State<JobsScreen> {
         updateIsSaved(offers);
         updateIsSaved(myJobsHiring);
       }
+      _localJobService.saveSavedJobs(myJobsSaved);
     });
   }
 
@@ -921,6 +898,7 @@ class _JobsScreenState extends State<JobsScreen> {
               'time': 'Applied Just now',
               'timelineStep': 0,
             });
+            _localJobService.saveAppliedJobs(myJobsApplied);
             mainTab = 1;
             subTab = 1;
           });
@@ -976,6 +954,8 @@ class _JobsScreenState extends State<JobsScreen> {
             _allViewJobs.insert(0, newJob);
             viewJobs = List.from(_allViewJobs);
             myJobsHiring.insert(0, newJob);
+            myPostedJobs.insert(0, newJob);
+            _localJobService.savePostedJobs(myPostedJobs);
             mainTab = 1;
             subTab = 4;
           });
@@ -1022,7 +1002,36 @@ class _FilterModalState extends State<_FilterModal> {
   bool remoteOnly = false;
   String experienceLevel = "All Levels";
   String jobType = "Full-time";
-  RangeValues salaryRange = const RangeValues(50, 200);
+  double salaryRange = 100; // Changed from RangeValues to double
+  final TextEditingController locationController = TextEditingController();
+
+  // New Filter States
+  final Map<String, bool> workMode = {
+    'Remote': false,
+    'Hybrid': false,
+    'Onsite': false,
+  };
+
+  final Map<String, bool> companyType = {
+    'Startup': false,
+    'MNC': false,
+    'Product-based': false,
+    'Service-based': false,
+  };
+
+  final Map<String, bool> industry = {
+    'Technology': false,
+    'Finance': false,
+    'Healthcare': false,
+    'Education': false,
+    'Retail': false,
+  };
+
+  @override
+  void dispose() {
+    locationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1034,7 +1043,7 @@ class _FilterModalState extends State<_FilterModal> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 16), // Changed from 12 to 16
           Container(
             width: 40,
             height: 4,
@@ -1066,7 +1075,11 @@ class _FilterModalState extends State<_FilterModal> {
                             remoteOnly = false;
                             experienceLevel = "All Levels";
                             jobType = "Full-time";
-                            salaryRange = const RangeValues(50, 200);
+                            salaryRange = 100; // Reset to default double value
+                            locationController.clear();
+                            workMode.updateAll((key, value) => false);
+                            companyType.updateAll((key, value) => false);
+                            industry.updateAll((key, value) => false);
                           });
                         },
                         child: Text(
@@ -1093,6 +1106,12 @@ class _FilterModalState extends State<_FilterModal> {
                     (v) => setState(() => remoteOnly = v),
                   ),
                   Divider(color: widget.theme.dividerColor, height: 40),
+
+                  // --- NEW: Work Mode ---
+                  _checkboxSection("Work Mode", workMode),
+                  Divider(color: widget.theme.dividerColor, height: 24),
+
+                  // --- NEW: Location ---
                   Text(
                     "Location",
                     style: widget.theme.textTheme.titleMedium?.copyWith(
@@ -1113,29 +1132,47 @@ class _FilterModalState extends State<_FilterModal> {
                       decoration: InputDecoration(
                         hintText: "Add city...",
                         hintStyle: widget.theme.textTheme.bodySmall,
-                        border: InputBorder.none,
                       ),
                     ),
                   ),
                   Divider(color: widget.theme.dividerColor, height: 40),
+
+                  // --- NEW: Company Type ---
+                  _checkboxSection("Company Type", companyType),
+                  Divider(color: widget.theme.dividerColor, height: 24),
+
+                  // --- NEW: Industry ---
+                  _checkboxSection("Industry", industry),
+                  Divider(color: widget.theme.dividerColor, height: 24),
+
                   Text(
                     "Salary Range (k/year)",
                     style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  RangeSlider(
-                    values: salaryRange,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "\$0k",
+                        style: widget.theme.textTheme.bodyMedium,
+                      ),
+                      Text(
+                        "\$${salaryRange.toInt()}k",
+                        style: TextStyle(
+                          color: widget.theme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: salaryRange,
                     min: 0,
-                    max: 500,
-                    divisions: 50,
-                    labels: RangeLabels(
-                      "${salaryRange.start.round()}k",
-                      "${salaryRange.end.round()}k",
-                    ),
+                    max: 200,
                     activeColor: widget.theme.primaryColor,
-                    onChanged: (v) => setState(() => salaryRange = v),
+                    onChanged: (val) => setState(() => salaryRange = val),
                   ),
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
@@ -1256,6 +1293,37 @@ class _FilterModalState extends State<_FilterModal> {
               ? widget.theme.primaryColor
               : widget.theme.dividerColor,
         ),
+      ),
+    );
+  }
+
+  Widget _checkboxSection(String title, Map<String, bool> items) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        title: Text(
+          title,
+          style: widget.theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        initiallyExpanded: true,
+        children: items.keys.map((key) {
+          return CheckboxListTile(
+            title: Text(key, style: widget.theme.textTheme.bodyMedium),
+            value: items[key],
+            activeColor: widget.theme.primaryColor,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (val) {
+              setState(() {
+                items[key] = val ?? false;
+              });
+            },
+          );
+        }).toList(),
       ),
     );
   }
@@ -1396,7 +1464,7 @@ class _SearchModalState extends State<_SearchModal> {
   }
 }
 
-class _ApplyModal extends StatelessWidget {
+class _ApplyModal extends StatefulWidget {
   final ThemeData theme;
   final Map<String, dynamic> job;
   final Function(Map<String, dynamic>) onApplied;
@@ -1408,11 +1476,41 @@ class _ApplyModal extends StatelessWidget {
   });
 
   @override
+  State<_ApplyModal> createState() => _ApplyModalState();
+}
+
+class _ApplyModalState extends State<_ApplyModal> {
+  String? _uploadedFileName;
+
+  void _pickResume() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx'],
+      );
+
+      if (result != null) {
+        setState(() {
+          _uploadedFileName = result.files.single.name;
+        });
+      }
+    } catch (e) {
+      // Handle potential permission errors or other issues
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error picking file: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
+        color: widget.theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       padding: const EdgeInsets.all(24),
@@ -1423,8 +1521,8 @@ class _ApplyModal extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  "Apply to ${job['title']}",
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  "Apply to ${widget.job['title']}",
+                  style: widget.theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -1433,7 +1531,7 @@ class _ApplyModal extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   Icons.close,
-                  color: theme.textTheme.bodySmall?.color,
+                  color: widget.theme.textTheme.bodySmall?.color,
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -1447,7 +1545,7 @@ class _ApplyModal extends StatelessWidget {
                 children: [
                   Text(
                     "Full Name",
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1462,7 +1560,7 @@ class _ApplyModal extends StatelessWidget {
                           children: [
                             Text(
                               "Email",
-                              style: theme.textTheme.titleMedium?.copyWith(
+                              style: widget.theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1478,7 +1576,7 @@ class _ApplyModal extends StatelessWidget {
                           children: [
                             Text(
                               "Phone (Optional)",
-                              style: theme.textTheme.titleMedium?.copyWith(
+                              style: widget.theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1492,7 +1590,7 @@ class _ApplyModal extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(
                     "Resume",
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1501,7 +1599,7 @@ class _ApplyModal extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(
                     "Cover Note (Optional)",
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1510,8 +1608,21 @@ class _ApplyModal extends StatelessWidget {
                   const SizedBox(height: 40),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context);
-                      onApplied(job);
+                      if (_uploadedFileName == null) {
+                         ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Please upload your resume first."),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      
+                      widget.onApplied(widget.job);
+                      // Navigator.pop handled by onApplied or below?
+                      // The original onApplied implementation also did pop.
+                      // We will rely on onApplied implementation from parent to pop.
+                      
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text("Application submitted successfully!"),
@@ -1521,7 +1632,7 @@ class _ApplyModal extends StatelessWidget {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.primaryColor,
+                      backgroundColor: widget.theme.primaryColor,
                       minimumSize: const Size(double.infinity, 56),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -1530,7 +1641,7 @@ class _ApplyModal extends StatelessWidget {
                     child: Text(
                       "Submit Application",
                       style: TextStyle(
-                        color: theme.colorScheme.onPrimary,
+                        color: widget.theme.colorScheme.onPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1549,19 +1660,19 @@ class _ApplyModal extends StatelessWidget {
   Widget _field(String hint, {int maxLines = 1}) {
     return TextField(
       maxLines: maxLines,
-      style: theme.textTheme.bodyLarge,
+      style: widget.theme.textTheme.bodyLarge,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: theme.textTheme.bodySmall,
+        hintStyle: widget.theme.textTheme.bodySmall,
         filled: true,
-        fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+        fillColor: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.dividerColor),
+          borderSide: BorderSide(color: widget.theme.dividerColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.dividerColor),
+          borderSide: BorderSide(color: widget.theme.dividerColor),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -1572,44 +1683,61 @@ class _ApplyModal extends StatelessWidget {
   }
 
   Widget _resumeUpload() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.upload_outlined,
-            color: theme.textTheme.bodySmall?.color,
-            size: 40,
+    bool isUploaded = _uploadedFileName != null;
+    return GestureDetector(
+      onTap: _pickResume,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        decoration: BoxDecoration(
+          color: isUploaded 
+              ? Colors.green.withValues(alpha: 0.1) 
+              : widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isUploaded ? Colors.green : widget.theme.dividerColor,
+            width: isUploaded ? 2 : 1,
           ),
-          const SizedBox(height: 16),
-          Text(
-            "Upload Resume",
-            style: TextStyle(
-              color: theme.primaryColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+        ),
+        child: Column(
+          children: [
+            Icon(
+              isUploaded ? Icons.check_circle_outline : Icons.upload_outlined,
+              color: isUploaded ? Colors.green : widget.theme.textTheme.bodySmall?.color,
+              size: 40,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "PDF, DOCX up to 5MB",
-            style: TextStyle(
-              color: theme.textTheme.bodySmall?.color,
-              fontSize: 12,
+            const SizedBox(height: 16),
+            Text(
+              isUploaded ? _uploadedFileName! : "Upload Resume",
+              style: TextStyle(
+                color: isUploaded ? Colors.green : widget.theme.primaryColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            if (!isUploaded)
+              Text(
+                "PDF, DOCX up to 5MB",
+                style: TextStyle(
+                  color: widget.theme.textTheme.bodySmall?.color,
+                  fontSize: 12,
+                ),
+              ),
+             if (isUploaded)
+              Text(
+                "Tap to change",
+                style: TextStyle(
+                  color: widget.theme.textTheme.bodySmall?.color,
+                  fontSize: 12,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
-
 class _PostJobModal extends StatefulWidget {
   final ThemeData theme;
   final Function(Map<String, dynamic>) onJobPosted;

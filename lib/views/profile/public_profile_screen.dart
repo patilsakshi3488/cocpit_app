@@ -3,6 +3,7 @@ import '../../models/public_user.dart';
 import '../../services/public_user_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/feed_service.dart';
+import '../../services/secure_storage.dart';
 import '../../views/profile/profile_posts_section.dart';
 import '../../views/feed/chat_screen.dart';
 import 'profile_header.dart';
@@ -13,6 +14,7 @@ import 'profile_experience_section.dart';
 import 'profile_education_section.dart';
 import 'profile_skills_section.dart';
 import 'profile_models.dart';
+import 'profile_photo_viewer.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final String userId;
@@ -38,6 +40,15 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 
   Future<void> _loadProfile() async {
+    // Safety check: If this is ME, redirect to main profile
+    if (widget.userId != "me") {
+      final myId = await AppSecureStorage.getCurrentUserId();
+      if (myId == widget.userId && mounted) {
+        Navigator.pushReplacementNamed(context, '/profile');
+        return;
+      }
+    }
+
     try {
       final data = await PublicUserService.getUserProfile(widget.userId);
 
@@ -147,13 +158,51 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ProfileHeader(
-              user: {'avatar_url': user!.avatarUrl},
-              profileImage: 'lib/images/profile.jpg',
+              user: {
+                'avatar_url': user!.avatarUrl,
+                'cover_image_url': user!.coverImageUrl,
+              },
+              profileImage: user!.avatarUrl ?? '',
+              coverImage: user!.coverImageUrl,
               onMenuPressed: () {},
-              onCameraPressed: () {},
-              onCoverCameraPressed: () {},
+              onAvatarTap: () {
+                // Open viewer for public profile (read-only)
+                if (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProfilePhotoViewer(
+                        imagePath: user!.avatarUrl,
+                        heroTag: 'profile_hero_${widget.userId}', // Unique tag
+                        isCurrentUser: false,
+                        onUpdate: (_) async {}, // No-op
+                        onDelete: () async {}, // No-op
+                      ),
+                    ),
+                  );
+                }
+              },
+              onCoverTap: () {
+                if (user?.coverImageUrl != null &&
+                    user!.coverImageUrl!.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProfilePhotoViewer(
+                        imagePath: user!.coverImageUrl,
+                        heroTag: 'cover_hero_${widget.userId}',
+                        isCurrentUser: false,
+                        isCover: true,
+                        onUpdate: (_) async {},
+                        onDelete: () async {},
+                      ),
+                    ),
+                  );
+                }
+              },
               backgroundColor: theme.scaffoldBackgroundColor,
               isReadOnly: true,
+              heroTag: 'profile_hero_${widget.userId}',
             ),
             const SizedBox(height: 80),
             ProfileInfoIdentity(
@@ -219,6 +268,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 onDeletePost: (_) {}, // Read-only for public profile
                 onEditPost: (_) {},
                 onTogglePrivacy: (_, __) {},
+                userId: widget.userId,
+                isOwner: false,
               ),
             const SizedBox(height: 80),
           ],

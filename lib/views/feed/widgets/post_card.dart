@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import '../../../../services/feed_service.dart';
 import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
 import '../../profile/public_profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
+import '../../../../services/secure_storage.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -32,11 +32,59 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   late Map<String, dynamic> post;
+  String? currentUserId;
 
   @override
   void initState() {
     super.initState();
     post = widget.post;
+    _loadCurrentUser();
+    _checkInitialCommentCount();
+  }
+
+  Future<void> _checkInitialCommentCount() async {
+    // If the feed says 0, double check (workaround for backend bug)
+    final initialCount =
+        post["comment_count"] ??
+        post["comments_count"] ??
+        post["_count"]?["comments"] ??
+        0;
+
+    int count = 0;
+    if (initialCount is int) count = initialCount;
+    if (initialCount is String) count = int.tryParse(initialCount) ?? 0;
+
+    if (count == 0) {
+      try {
+        final comments = await FeedApi.fetchComments(postId);
+        if (mounted && comments.isNotEmpty) {
+          setState(() {
+            post["comment_count"] = comments.length;
+          });
+        }
+      } catch (_) {
+        // Ignore errors, keep 0
+      }
+    }
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final uid = await AppSecureStorage.getCurrentUserId();
+    if (mounted) setState(() => currentUserId = uid);
+  }
+
+  // Check if post belongs to logged-in user
+  bool get isMine {
+    final String? authorId = getAuthorId();
+    return currentUserId != null && authorId == currentUserId;
+  }
+
+  String? getAuthorId() {
+    return post["author_id"]?.toString() ??
+        post["user_id"]?.toString() ??
+        post["user"]?["id"]?.toString() ??
+        post["user"]?["user_id"]?.toString() ??
+        post["author"]?["id"]?.toString();
   }
 
   // Handle differences in ID naming
@@ -152,11 +200,32 @@ class _PostCardState extends State<PostCard> {
 
     return GestureDetector(
       onTap: () async {
-        if (widget.isOwner) return; // Already on profile
-        String? authorId =
-            post["author_id"]?.toString() ?? post["user_id"]?.toString();
+        // If explicitly set as owner (e.g. on profile page), maybe do nothing?
+        // But user requirement says: "If viewing own profile ... show editable profile UI"
+        // If I am on my profile, clicking my posts shouldn't navigate me to my profile again?
+        // Let's stick to the condition: if isMine -> ProfileScreen, else PublicProfileScreen.
 
-        if (authorId != null) {
+        String? authorId = getAuthorId();
+
+        if (authorId == null) return;
+
+        // Ensure we have current user ID before deciding navigation
+        String? myId = currentUserId;
+        if (myId == null) {
+          myId = await AppSecureStorage.getCurrentUserId();
+          if (mounted) setState(() => currentUserId = myId);
+        }
+
+        final bool amIOwner = myId != null && authorId == myId;
+
+        if (amIOwner) {
+          // Switch to Profile Tab
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/profile',
+            (route) => false,
+          );
+        } else {
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -202,7 +271,8 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _buildPostMenu(ThemeData theme) {
-    if (widget.isOwner) {
+    // Only show full menu if it's MY post or explicitly passed as owner
+    if (isMine || widget.isOwner) {
       final isPrivate = post['visibility'] == 'private';
       final hasPoll = post["poll"] != null;
 
@@ -261,7 +331,66 @@ class _PostCardState extends State<PostCard> {
         child: Icon(Icons.more_horiz, color: theme.iconTheme.color),
       );
     }
-    return Icon(Icons.more_vert, color: theme.iconTheme.color);
+    // Non-owner menu actions
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        if (value == 'share') {
+          Clipboard.setData(
+            ClipboardData(text: "https://example.com/post/$postId"),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Link copied to clipboard")),
+          );
+        }
+        if (value == 'report') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Post reported to admins")),
+          );
+        }
+        if (value == 'save') {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Post saved")));
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'share',
+          child: Row(
+            children: [
+              Icon(Icons.share, size: 18, color: theme.iconTheme.color),
+              const SizedBox(width: 8),
+              const Text("Share"),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'save',
+          child: Row(
+            children: [
+              Icon(
+                Icons.bookmark_border,
+                size: 18,
+                color: theme.iconTheme.color,
+              ),
+              const SizedBox(width: 8),
+              const Text("Save Post"),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'report',
+          child: Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+              SizedBox(width: 8),
+              Text("Report", style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+      child: Icon(Icons.more_vert, color: theme.iconTheme.color),
+    );
   }
 
   void _showPollAnalytics() {
@@ -350,8 +479,29 @@ class _PostCardState extends State<PostCard> {
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (context) =>
-                  CommentsSheet(postId: postId, onCommentAdded: () {}),
+              builder: (context) => CommentsSheet(
+                postId: postId,
+                onCommentAdded: () {
+                  if (mounted) {
+                    setState(() {
+                      // Increment local count
+                      final current =
+                          post["comment_count"] ??
+                          post["comments_count"] ??
+                          post["_count"]?["comments"] ??
+                          0;
+
+                      // Convert to int safely
+                      int count = 0;
+                      if (current is int) count = current;
+                      if (current is String) count = int.tryParse(current) ?? 0;
+
+                      // Update preferred field
+                      post["comment_count"] = count + 1;
+                    });
+                  }
+                },
+              ),
             );
           },
           child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),

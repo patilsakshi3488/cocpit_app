@@ -3,6 +3,7 @@ class PublicUser {
   final String fullName;
   final String? headline;
   final String? avatarUrl;
+  final String? coverImageUrl;
   final String? location;
   final String? about;
 
@@ -16,6 +17,7 @@ class PublicUser {
     required this.fullName,
     this.headline,
     this.avatarUrl,
+    this.coverImageUrl,
     this.location,
     this.about,
     required this.experiences,
@@ -38,6 +40,10 @@ class PublicUser {
 
       final headline = userData['headline'];
       final avatarUrl = userData['avatar'] ?? userData['avatar_url'];
+      final coverImageUrl =
+          userData['cover_image'] ??
+          userData['cover_image_url'] ??
+          userData['cover_url'];
       final location = userData['location'];
       final about = userData['about'] ?? userData['about_text'];
 
@@ -62,6 +68,7 @@ class PublicUser {
         fullName: fullName,
         headline: headline,
         avatarUrl: avatarUrl,
+        coverImageUrl: coverImageUrl,
         location: location,
         about: about,
         experiences: experiences,

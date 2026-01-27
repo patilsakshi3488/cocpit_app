@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cocpit_app/config/api_config.dart';
 import 'package:cocpit_app/services/api_client.dart';
 import 'package:cocpit_app/services/secure_storage.dart';
+import 'package:cocpit_app/services/socket_service.dart';
 
 class AuthService {
   /// ================= REGISTER =================
@@ -54,6 +55,9 @@ class AuthService {
     if (body["user"] != null) {
       await AppSecureStorage.saveUser(jsonEncode(body["user"]));
     }
+
+    // 🔌 Connect Socket
+    SocketService().connect(body["accessToken"]);
 
     return body;
   }
@@ -119,5 +123,6 @@ class AuthService {
     }
 
     await AppSecureStorage.clearAll();
+    SocketService().disconnect(); // 🔌 Disconnect socket
   }
 }

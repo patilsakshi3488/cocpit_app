@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/theme_service.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
+import 'services/socket_service.dart';
 
 import 'views/feed/home_screen.dart';
 import 'views/jobs/jobs_screen.dart';
@@ -23,8 +24,46 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.inactive) {
+      // App is in an inactive state and is not receiving user input.
+    } else if (state == AppLifecycleState.paused) {
+      // 🔌 Disconnect on Background (or keep alive, here we keep alive but could pause)
+    } else if (state == AppLifecycleState.resumed) {
+      // 🔌 Reconnect if needed
+      _reconnectSocket();
+    }
+  }
+
+  Future<void> _reconnectSocket() async {
+    final token = await AppSecureStorage.getAccessToken();
+    if (token != null) {
+      SocketService().connect(token);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +123,8 @@ class _AuthGateState extends State<AuthGate> {
       final me = await _authService.getMe();
 
       if (me != null) {
+        // 🔌 Connect Socket (with token we just validated)
+        SocketService().connect(accessToken);
         _goToHome();
         return;
       }
@@ -91,6 +132,8 @@ class _AuthGateState extends State<AuthGate> {
       final refreshed = await _authService.refreshAccessToken();
 
       if (refreshed != null) {
+        // 🔌 Connect Socket (with new token)
+        SocketService().connect(refreshed);
         _goToHome();
       } else {
         _goToLogin();

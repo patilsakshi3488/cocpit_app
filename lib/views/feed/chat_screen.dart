@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../bottom_navigation.dart';
-import '../../widgets/app_top_bar.dart';
+// import '../../widgets/app_top_bar.dart'; // Removed
+import '../../services/social_service.dart';
+import '../../services/socket_service.dart';
+import '../../services/chat_service.dart';
+import '../../services/secure_storage.dart'; // Helpful for user ID
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -11,10 +16,77 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final SocialService _socialService = SocialService();
+  final SocketService _socketService = SocketService();
+  StreamSubscription? _msgSub;
+  // final String _currentUserId = "";
+
+  List<Map<String, dynamic>> _conversations = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConversations();
+    _setupSocketListeners();
+  }
+
+  Future<void> _loadConversations() async {
+    final data = await _socialService.getConversations();
+    if (mounted) {
+      setState(() {
+        _conversations = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _setupSocketListeners() {
+    // 📨 Listen for new messages globally to update the list
+    _msgSub = _socketService.onNewMessage.listen((data) {
+      if (!mounted) return;
+      _handleNewMessage(data);
+    });
+  }
+
+  void _handleNewMessage(Map<String, dynamic> messageData) {
+    // messageData: { conversation_id, text_content, created_at, ... }
+    final convId = messageData['conversation_id'];
+
+    if (convId == null) return;
+
+    setState(() {
+      final index = _conversations.indexWhere(
+        (c) => c['conversation_id'] == convId,
+      );
+
+      if (index != -1) {
+        // Update existing conversation
+        final conv = _conversations.removeAt(index);
+        conv['last_message_text'] = messageData['text_content'];
+        conv['timeAgo'] = "Just now";
+
+        // Only increment unread if we are NOT currently in this chat
+        final isActive = ChatService().activeConversationId == convId;
+        if (!isActive) {
+          conv['unread_count'] = (conv['unread_count'] ?? 0) + 1;
+        } else {
+          conv['unread_count'] = 0; // Ensure it's cleared if active
+        }
+
+        // Move to top
+        _conversations.insert(0, conv);
+      } else {
+        // New conversation? We might need to refresh list or fetch details
+        _loadConversations();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _msgSub?.cancel();
     super.dispose();
   }
 
@@ -25,62 +97,121 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppTopBar(
-        searchType: SearchType.chat,
-        controller: _searchController,
-        onChanged: (v) => setState(() {}),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 💬 Messages List
-          Expanded(
-            child: ListView(
-              children: [
-                _ChatTile(
-                  name: "Michael Chen",
-                  role: "Recruiter",
-                  message: "Thanks for connecting! Looking forwar...",
-                  time: "2m ago",
-                  unreadCount: 2,
-                  color: Colors.blueAccent,
-                  isOnline: true,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalChatScreen(name: "Michael Chen", role: "Recruiter", color: Colors.blueAccent))),
-                ),
-                _ChatTile(
-                  name: "Emily Rodriguez",
-                  role: "Hiring Manager",
-                  message: "That sounds great! When would be a good ...",
-                  time: "1h ago",
-                  unreadCount: 0,
-                  color: Colors.pinkAccent,
-                  isOnline: true,
-                  onTap: () {},
-                ),
-                _ChatTile(
-                  name: "David Park",
-                  role: "Connection",
-                  message: "I saw your recent post about AI trends...",
-                  time: "3h ago",
-                  unreadCount: 1,
-                  color: Colors.deepPurpleAccent,
-                  isOnline: false,
-                  onTap: () {},
-                ),
-                _ChatTile(
-                  name: "Jessica Williams",
-                  role: "Talent Acquisition",
-                  message: "Happy to help with that project!",
-                  time: "1d ago",
-                  unreadCount: 0,
-                  color: Colors.greenAccent,
-                  isOnline: false,
-                  onTap: () {},
-                ),
-              ],
+      // Removed AppTopBar to match custom design
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 🏷️ Custom Header & Search
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Messages",
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withOpacity(
+                        0.3,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      style: theme.textTheme.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: "Search messages...",
+                        hintStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onChanged: (v) => setState(() {}),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _loadConversations,
+                      child: _conversations.isEmpty
+                          ? Center(
+                              child: Text(
+                                "No conversations yet",
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: _conversations.length,
+                              itemBuilder: (context, index) {
+                                final conv = _conversations[index];
+                                final otherUser = {
+                                  'id': conv['other_user_id'],
+                                  'name': conv['other_user_name'] ?? 'Unknown',
+                                  'avatar': conv['other_user_avatar'],
+                                  'headline': conv['other_user_headline'] ?? '',
+                                };
+
+                                return _ChatTile(
+                                  name: otherUser['name'],
+                                  avatarUrl: otherUser['avatar'],
+                                  role: otherUser['headline'],
+                                  message: conv['last_message_text'] ?? 'Draft',
+                                  time: conv['timeAgo'] ?? '',
+                                  unreadCount: conv['unread_count'] ?? 0,
+                                  color:
+                                      Colors.primaries[index %
+                                          Colors.primaries.length],
+                                  isOnline:
+                                      false, // TODO: Connect PresenceService
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => PersonalChatScreen(
+                                          conversationId:
+                                              conv['conversation_id'],
+                                          otherUser: otherUser,
+                                        ),
+                                      ),
+                                    );
+                                    // Reset unread count locally since user just read it
+                                    if (mounted) {
+                                      setState(() {
+                                        _conversations[index]['unread_count'] =
+                                            0;
+                                      });
+                                    }
+                                    _loadConversations(); // Refresh from server to sync
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 0),
     );
@@ -89,6 +220,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
 class _ChatTile extends StatelessWidget {
   final String name;
+  final String? avatarUrl;
   final String role;
   final String message;
   final String time;
@@ -99,6 +231,7 @@ class _ChatTile extends StatelessWidget {
 
   const _ChatTile({
     required this.name,
+    this.avatarUrl,
     required this.role,
     required this.message,
     required this.time,
@@ -115,66 +248,109 @@ class _ChatTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.dividerColor, width: 0.5)),
-        ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Avatar
             Stack(
               children: [
                 CircleAvatar(
-                  radius: 30,
-                  backgroundColor: color,
+                  radius: 28,
+                  backgroundColor: color.withOpacity(0.2),
+                  backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                      ? NetworkImage(avatarUrl!)
+                      : null,
+                  child: avatarUrl == null || avatarUrl!.isEmpty
+                      ? Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        )
+                      : null,
                 ),
                 if (isOnline)
                   Positioned(
-                    bottom: 2,
-                    right: 2,
+                    bottom: 0,
+                    right: 0,
                     child: Container(
-                      width: 12,
-                      height: 12,
+                      width: 10,
+                      height: 10,
                       decoration: BoxDecoration(
                         color: Colors.green,
                         shape: BoxShape.circle,
-                        border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
+                        border: Border.all(
+                          color: theme.scaffoldBackgroundColor,
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
+
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header Row: Name + Badge + Time
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        name,
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      Flexible(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
                       ),
+
+                      if (role.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            role,
+                            style: TextStyle(
+                              color: theme.primaryColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const Spacer(),
+
                       Text(
                         time,
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      role,
-                      style: TextStyle(color: theme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+
+                  // Message Row
                   Row(
                     children: [
                       Expanded(
@@ -182,16 +358,31 @@ class _ChatTile extends StatelessWidget {
                           message,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: unreadCount > 0
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurfaceVariant,
+                            fontWeight: unreadCount > 0
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
                         ),
                       ),
                       if (unreadCount > 0)
                         Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: theme.primaryColor, shape: BoxShape.circle),
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
                           child: Text(
                             unreadCount.toString(),
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                     ],
@@ -207,11 +398,14 @@ class _ChatTile extends StatelessWidget {
 }
 
 class PersonalChatScreen extends StatefulWidget {
-  final String name;
-  final String role;
-  final Color color;
+  final String conversationId;
+  final Map<String, dynamic> otherUser; // {id, name, avatar, headline}
 
-  const PersonalChatScreen({super.key, required this.name, required this.role, required this.color});
+  const PersonalChatScreen({
+    super.key,
+    required this.conversationId,
+    required this.otherUser,
+  });
 
   @override
   State<PersonalChatScreen> createState() => _PersonalChatScreenState();
@@ -219,31 +413,44 @@ class PersonalChatScreen extends StatefulWidget {
 
 class _PersonalChatScreenState extends State<PersonalChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, dynamic>> _messages = [
-    {'text': 'Hi! Thanks for accepting my connection request!', 'isMe': false, 'time': '10:30 AM'},
-    {'text': 'I\'m reaching out regarding the Senior React role.', 'isMe': false, 'time': '10:31 AM'},
-    {'text': 'Hi Michael! Thanks for reaching out.', 'isMe': true, 'time': '10:32 AM'},
-    {'text': 'I\'d love to hear more about the team.', 'isMe': true, 'time': '10:32 AM'},
-    {'text': 'Great! Do you have time for a quick call this week?', 'isMe': false, 'time': '10:33 AM'},
-  ];
+  final ChatService _chatService = ChatService();
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isNotEmpty) {
-      setState(() {
-        _messages.add({
-          'text': _messageController.text.trim(),
-          'isMe': true,
-          'time': TimeOfDay.now().format(context),
-        });
-        _messageController.clear();
-      });
-    }
+  String? _myUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initChat();
+  }
+
+  Future<void> _initChat() async {
+    _myUserId = await AppSecureStorage.getCurrentUserId();
+    _chatService.enterChat(widget.conversationId);
+  }
+
+  @override
+  void dispose() {
+    _chatService.leaveChat();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    _messageController.clear();
+
+    // Delegate to ChatService (Optimistic + API)
+    await _chatService.sendMessage(widget.otherUser['id'], text);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final otherName = widget.otherUser['name'];
+    final otherRole = widget.otherUser['headline'];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -255,14 +462,27 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           children: [
             Stack(
               children: [
-                CircleAvatar(radius: 18, backgroundColor: widget.color),
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.grey,
+                  backgroundImage: widget.otherUser['avatar'] != null
+                      ? NetworkImage(widget.otherUser['avatar'])
+                      : null,
+                ),
                 Positioned(
                   bottom: 0,
                   right: 0,
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle, border: Border.all(color: theme.scaffoldBackgroundColor, width: 1.5)),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.scaffoldBackgroundColor,
+                        width: 1.5,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -271,65 +491,125 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.name, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                Text(widget.role, style: TextStyle(color: theme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text(
+                  otherName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (otherRole != null)
+                  Text(
+                    otherRole,
+                    style: TextStyle(
+                      color: theme.primaryColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
               ],
             ),
           ],
         ),
         actions: [
-          IconButton(icon: Icon(Icons.call_outlined, color: colorScheme.onSurface), onPressed: () {}),
-          IconButton(icon: Icon(Icons.more_vert, color: colorScheme.onSurface), onPressed: () {}),
+          IconButton(
+            icon: Icon(Icons.call_outlined, color: colorScheme.onSurface),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
+            onPressed: () {},
+          ),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            color: theme.primaryColor.withValues(alpha: 0.05),
-            child: Text(
-              "Context: Senior React Developer Role",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: theme.primaryColor, fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-          ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                bool showTime = index == _messages.length - 1 || _messages[index + 1]['isMe'] != msg['isMe'];
-                return Column(
-                  crossAxisAlignment: msg['isMe'] ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: msg['isMe'] ? theme.primaryColor : colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: msg['isMe'] ? null : Border.all(color: theme.dividerColor),
-                      ),
-                      child: Text(
-                        msg['text'],
-                        style: TextStyle(
-                          color: msg['isMe'] ? Colors.white : colorScheme.onSurface,
-                          fontSize: 15,
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _chatService.activeMessages,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final messages = snapshot.data ?? [];
+
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Text("Say hi!", style: theme.textTheme.bodyMedium),
+                  );
+                }
+
+                // Show latest at bottom: Reverse the list for the ListView
+                final reversedMessages = messages.reversed.toList();
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  reverse: true, // Start from bottom
+                  itemCount: reversedMessages.length,
+                  itemBuilder: (context, index) {
+                    final msg = reversedMessages[index];
+                    // Determine if 'Me' based on sender_id == _myUserId
+                    final bool isMe =
+                        msg['sender_id'] == _myUserId ||
+                        msg['sender_id'] == 'me';
+
+                    // Format time correctly (Convert UTC to Local)
+                    String time = '';
+                    if (msg['created_at'] != null) {
+                      try {
+                        final dt = DateTime.parse(msg['created_at']).toLocal();
+                        final timeOfDay = TimeOfDay.fromDateTime(dt);
+                        time = timeOfDay.format(context);
+                      } catch (e) {
+                        // Fallback
+                      }
+                    }
+
+                    return Column(
+                      crossAxisAlignment: isMe
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.7,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isMe
+                                ? theme.primaryColor
+                                : colorScheme.surfaceContainer,
+                            borderRadius: BorderRadius.circular(16),
+                            border: isMe
+                                ? null
+                                : Border.all(color: theme.dividerColor),
+                          ),
+                          child: Text(
+                            msg['text_content'] ?? '',
+                            style: TextStyle(
+                              color: isMe
+                                  ? Colors.white
+                                  : colorScheme.onSurface,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    if (showTime)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
-                        child: Text(
-                          msg['time'],
-                          style: theme.textTheme.bodySmall,
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 12,
+                            left: 4,
+                            right: 4,
+                          ),
+                          child: Text(time, style: theme.textTheme.bodySmall),
                         ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -350,7 +630,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       ),
       child: Row(
         children: [
-          IconButton(icon: Icon(Icons.add, color: theme.primaryColor), onPressed: () {}),
+          IconButton(
+            icon: Icon(Icons.add, color: theme.primaryColor),
+            onPressed: () {},
+          ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -364,9 +647,12 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                 style: theme.textTheme.bodyLarge,
                 decoration: InputDecoration(
                   hintText: "Write a message...",
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
                   border: InputBorder.none,
                 ),
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
           ),

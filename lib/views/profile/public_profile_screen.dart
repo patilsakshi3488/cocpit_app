@@ -222,9 +222,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => PersonalChatScreen(
-                      name: user!.fullName,
-                      role: user!.headline ?? "Connection",
-                      color: theme.primaryColor,
+                      conversationId:
+                          "new_${widget.userId}", // TODO: Check conversation
+                      otherUser: {
+                        'id': widget.userId,
+                        'name': user!.fullName,
+                        'headline': user!.headline,
+                        'avatar': user!.avatarUrl,
+                      },
                     ),
                   ),
                 );

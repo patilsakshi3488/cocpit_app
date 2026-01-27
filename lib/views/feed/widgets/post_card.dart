@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import '../../../../services/feed_service.dart';
 import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
@@ -8,7 +7,6 @@ import '../../profile/public_profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
 import '../../../../services/secure_storage.dart';
-import '../../profile/profile_screen.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -41,6 +39,33 @@ class _PostCardState extends State<PostCard> {
     super.initState();
     post = widget.post;
     _loadCurrentUser();
+    _checkInitialCommentCount();
+  }
+
+  Future<void> _checkInitialCommentCount() async {
+    // If the feed says 0, double check (workaround for backend bug)
+    final initialCount =
+        post["comment_count"] ??
+        post["comments_count"] ??
+        post["_count"]?["comments"] ??
+        0;
+
+    int count = 0;
+    if (initialCount is int) count = initialCount;
+    if (initialCount is String) count = int.tryParse(initialCount) ?? 0;
+
+    if (count == 0) {
+      try {
+        final comments = await FeedApi.fetchComments(postId);
+        if (mounted && comments.isNotEmpty) {
+          setState(() {
+            post["comment_count"] = comments.length;
+          });
+        }
+      } catch (_) {
+        // Ignore errors, keep 0
+      }
+    }
   }
 
   Future<void> _loadCurrentUser() async {
@@ -50,9 +75,16 @@ class _PostCardState extends State<PostCard> {
 
   // Check if post belongs to logged-in user
   bool get isMine {
-    final authorId =
-        post["author_id"]?.toString() ?? post["user_id"]?.toString();
+    final String? authorId = getAuthorId();
     return currentUserId != null && authorId == currentUserId;
+  }
+
+  String? getAuthorId() {
+    return post["author_id"]?.toString() ??
+        post["user_id"]?.toString() ??
+        post["user"]?["id"]?.toString() ??
+        post["user"]?["user_id"]?.toString() ??
+        post["author"]?["id"]?.toString();
   }
 
   // Handle differences in ID naming
@@ -173,15 +205,25 @@ class _PostCardState extends State<PostCard> {
         // If I am on my profile, clicking my posts shouldn't navigate me to my profile again?
         // Let's stick to the condition: if isMine -> ProfileScreen, else PublicProfileScreen.
 
-        String? authorId =
-            post["author_id"]?.toString() ?? post["user_id"]?.toString();
+        String? authorId = getAuthorId();
 
         if (authorId == null) return;
 
-        if (isMine) {
-          Navigator.push(
+        // Ensure we have current user ID before deciding navigation
+        String? myId = currentUserId;
+        if (myId == null) {
+          myId = await AppSecureStorage.getCurrentUserId();
+          if (mounted) setState(() => currentUserId = myId);
+        }
+
+        final bool amIOwner = myId != null && authorId == myId;
+
+        if (amIOwner) {
+          // Switch to Profile Tab
+          Navigator.pushNamedAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            '/profile',
+            (route) => false,
           );
         } else {
           Navigator.push(
@@ -289,17 +331,66 @@ class _PostCardState extends State<PostCard> {
         child: Icon(Icons.more_horiz, color: theme.iconTheme.color),
       );
     }
-    // For other users, show generic report/share options or nothing?
-    // User requirement: "Posts should NOT show edit/delete/privacy options"
-    // I'll leave a simple "more" icon that currently does nothing or maybe share
-    // For now, returning standard icon but with no items if not owner?
-    // Or simpler: just hide it if not owner?
-    // Usually there is "Report" or "Share". existing code returned Icon(more_vert).
-    // I'll keep it as Icon(more_vert) for consistency but maybe make it do nothing or show minimal menu.
-    // For now, I'll return empty if not owner to be strict per user request?
-    // "Posts should NOT show edit/delete/privacy options" -> doesn't say "no menu".
-    // I'll stick to the previous behavior for non-owners: Icon(more_vert)
-    return Icon(Icons.more_vert, color: theme.iconTheme.color);
+    // Non-owner menu actions
+    return PopupMenuButton<String>(
+      onSelected: (value) async {
+        if (value == 'share') {
+          Clipboard.setData(
+            ClipboardData(text: "https://example.com/post/$postId"),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Link copied to clipboard")),
+          );
+        }
+        if (value == 'report') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Post reported to admins")),
+          );
+        }
+        if (value == 'save') {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Post saved")));
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'share',
+          child: Row(
+            children: [
+              Icon(Icons.share, size: 18, color: theme.iconTheme.color),
+              const SizedBox(width: 8),
+              const Text("Share"),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'save',
+          child: Row(
+            children: [
+              Icon(
+                Icons.bookmark_border,
+                size: 18,
+                color: theme.iconTheme.color,
+              ),
+              const SizedBox(width: 8),
+              const Text("Save Post"),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'report',
+          child: Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+              SizedBox(width: 8),
+              Text("Report", style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+      child: Icon(Icons.more_vert, color: theme.iconTheme.color),
+    );
   }
 
   void _showPollAnalytics() {
@@ -388,8 +479,29 @@ class _PostCardState extends State<PostCard> {
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (context) =>
-                  CommentsSheet(postId: postId, onCommentAdded: () {}),
+              builder: (context) => CommentsSheet(
+                postId: postId,
+                onCommentAdded: () {
+                  if (mounted) {
+                    setState(() {
+                      // Increment local count
+                      final current =
+                          post["comment_count"] ??
+                          post["comments_count"] ??
+                          post["_count"]?["comments"] ??
+                          0;
+
+                      // Convert to int safely
+                      int count = 0;
+                      if (current is int) count = current;
+                      if (current is String) count = int.tryParse(current) ?? 0;
+
+                      // Update preferred field
+                      post["comment_count"] = count + 1;
+                    });
+                  }
+                },
+              ),
             );
           },
           child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'signin_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,7 +14,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final nameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
-  
+
   final authService = AuthService();
 
   String selectedRole = 'Select your role';
@@ -58,9 +59,15 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    if (!isEmailVerified) {
+      _showMsg("Please verify your email address first");
+      return;
+    }
+
     try {
       setState(() => isLoading = true);
 
+      // 1. Register
       final success = await authService.register(
         fullName: nameCtrl.text.trim(),
         email: emailCtrl.text.trim().toLowerCase(),
@@ -68,19 +75,36 @@ class _SignupScreenState extends State<SignupScreen> {
         accountType: _mapAccountType(selectedRole),
       );
 
-      if (mounted) setState(() => isLoading = false);
-
       if (success) {
-        _showMsg("Account created successfully. Please login.");
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SignInScreen()),
+        // 2. Auto Login to get token for Onboarding
+        final loginSuccess = await authService.login(
+          email: emailCtrl.text.trim().toLowerCase(),
+          password: passCtrl.text.trim(),
         );
+
+        if (mounted) setState(() => isLoading = false);
+
+        if (loginSuccess != null) {
+          // 3. Navigate to Onboarding
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+          );
+        } else {
+          _showMsg("Account created, but login failed. Please sign in.");
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const SignInScreen()),
+            );
+          }
+        }
         return;
       }
+
+      if (mounted) setState(() => isLoading = false);
+      _showMsg("Signup failed");
 
       _showMsg("Signup failed");
     } catch (e) {
@@ -121,7 +145,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 36),
-              
+
               _fieldLabel(theme, "Full Name"),
               _customTextField(
                 theme: theme,
@@ -130,7 +154,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 icon: Icons.person_outline,
               ),
               const SizedBox(height: 24),
-              
+
               _fieldLabel(theme, "Email"),
               Row(
                 children: [
@@ -147,7 +171,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              
+
               _fieldLabel(theme, "Password"),
               _customTextField(
                 theme: theme,
@@ -157,27 +181,30 @@ class _SignupScreenState extends State<SignupScreen> {
                 obscureText: !isPasswordVisible,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    isPasswordVisible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     color: theme.textTheme.bodySmall?.color,
                     size: 20,
                   ),
-                  onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+                  onPressed: () =>
+                      setState(() => isPasswordVisible = !isPasswordVisible),
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               _fieldLabel(theme, "I am a"),
               _roleDropdown(theme),
-              
+
               const SizedBox(height: 48),
               _buildSubmitButton(theme),
-              
+
               const SizedBox(height: 32),
               _buildOrDivider(theme),
-              
+
               const SizedBox(height: 24),
               _buildSocialButtons(theme),
-              
+
               const SizedBox(height: 32),
               _buildLoginFooter(theme),
             ],
@@ -197,7 +224,11 @@ class _SignupScreenState extends State<SignupScreen> {
             color: theme.primaryColor,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Icon(Icons.business_center_rounded, color: Colors.white, size: 28),
+          child: const Icon(
+            Icons.business_center_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
         const SizedBox(width: 14),
         Text(
@@ -250,7 +281,11 @@ class _SignupScreenState extends State<SignupScreen> {
           hintStyle: theme.textTheme.bodyMedium?.copyWith(
             color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
           ),
-          prefixIcon: Icon(icon, color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6), size: 20),
+          prefixIcon: Icon(
+            icon,
+            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+            size: 20,
+          ),
           border: InputBorder.none,
           isDense: true,
           suffixIcon: suffixIcon,
@@ -259,11 +294,83 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  bool isEmailVerified = false;
+
+  void _onVerifyPressed() {
+    final email = emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showMsg("Please enter a valid email address");
+      return;
+    }
+    _showVerifyDialog();
+  }
+
+  void _showVerifyDialog() {
+    final otpCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Verify Email"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Enter any 6-digit OTP to verify your email."),
+            const SizedBox(height: 16),
+            TextField(
+              controller: otpCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: const InputDecoration(
+                hintText: "123456",
+                border: OutlineInputBorder(),
+                counterText: "",
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (otpCtrl.text.length == 6) {
+                Navigator.pop(ctx);
+                setState(() => isEmailVerified = true);
+                _showMsg("Email verified successfully!");
+              } else {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text("Please enter 6 digits")),
+                );
+              }
+            },
+            child: const Text("Verify"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _verifyButton(ThemeData theme) {
+    if (isEmailVerified) {
+      return Container(
+        height: 54,
+        width: 54,
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green),
+        ),
+        child: const Icon(Icons.check_circle, color: Colors.green),
+      );
+    }
+
     return SizedBox(
       height: 54,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: _onVerifyPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: theme.colorScheme.surfaceContainer,
           foregroundColor: theme.textTheme.bodyLarge?.color,
@@ -274,7 +381,10 @@ class _SignupScreenState extends State<SignupScreen> {
             side: BorderSide(color: theme.dividerColor),
           ),
         ),
-        child: const Text("Verify", style: TextStyle(fontWeight: FontWeight.w600)),
+        child: const Text(
+          "Verify",
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
@@ -293,11 +403,18 @@ class _SignupScreenState extends State<SignupScreen> {
           value: selectedRole,
           isExpanded: true,
           dropdownColor: theme.cardColor,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: theme.textTheme.bodySmall?.color),
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: selectedRole == 'Select your role' ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5) : theme.textTheme.bodyLarge?.color,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: theme.textTheme.bodySmall?.color,
           ),
-          items: roles.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: selectedRole == 'Select your role'
+                ? theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5)
+                : theme.textTheme.bodyLarge?.color,
+          ),
+          items: roles
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
           onChanged: (v) => setState(() => selectedRole = v!),
         ),
       ),
@@ -319,8 +436,12 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
         child: isLoading
             ? const SizedBox(
-                height: 24, width: 24, 
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               )
             : const Text(
                 "Create Account",
@@ -340,7 +461,12 @@ class _SignupScreenState extends State<SignupScreen> {
         Expanded(child: Divider(color: theme.dividerColor)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text("OR", style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+          child: Text(
+            "OR",
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         Expanded(child: Divider(color: theme.dividerColor)),
       ],
@@ -352,7 +478,9 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         Expanded(child: _socialBtn(theme, "GitHub", Icons.code_rounded)),
         const SizedBox(width: 16),
-        Expanded(child: _socialBtn(theme, "Google", Icons.g_mobiledata_rounded)),
+        Expanded(
+          child: _socialBtn(theme, "Google", Icons.g_mobiledata_rounded),
+        ),
       ],
     );
   }
@@ -375,10 +503,7 @@ class _SignupScreenState extends State<SignupScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            "Already have an account? ",
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text("Already have an account? ", style: theme.textTheme.bodyMedium),
           GestureDetector(
             onTap: () {
               Navigator.pushReplacement(

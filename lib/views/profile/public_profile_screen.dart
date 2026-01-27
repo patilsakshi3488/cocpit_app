@@ -158,8 +158,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ProfileHeader(
-              user: {'avatar_url': user!.avatarUrl},
-              profileImage: 'lib/images/profile.jpg',
+              user: {
+                'avatar_url': user!.avatarUrl,
+                'cover_image_url': user!.coverImageUrl,
+              },
+              profileImage: user!.avatarUrl ?? '',
+              coverImage: user!.coverImageUrl,
               onMenuPressed: () {},
               onAvatarTap: () {
                 // Open viewer for public profile (read-only)

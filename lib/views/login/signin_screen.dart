@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import '../feed/home_screen.dart';
+import '../onboarding/onboarding_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -37,32 +38,42 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => isLoading = true);
 
     try {
-      final success = await authService.login(
+      final loginResult = await authService.login(
         email: emailCtrl.text,
         password: passCtrl.text,
       );
 
-      if (!success) {
+      if (loginResult == null) {
         _showSnack("Invalid email or password");
         return;
       }
 
-      // 🔥 VERIFY SESSION FROM BACKEND
-      final me = await authService.getMe();
+      // Check onboarding status
+      final user = loginResult['user'];
+      final bool onboardingComplete =
+          user?['onboarding_complete'] == true ||
+          user?['is_onboarding_complete'] == true;
 
-      if (me == null) {
-        _showSnack("Session error. Please login again.");
-        return;
-      }
-
+      // Ensure widget is mounted before navigating
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (_) => false,
-      );
+
+      if (onboardingComplete) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (_) => false,
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const OnboardingScreen(),
+          ), // Redirect to Onboarding
+          (_) => false,
+        );
+      }
     } catch (e) {
-      print("Login error: $e"); // Debug print
+      debugPrint("Login error: $e"); // Debug print
       _showSnack("Server error. Try again. Error: $e");
     } finally {
       if (mounted) setState(() => isLoading = false);

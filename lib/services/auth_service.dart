@@ -5,7 +5,6 @@ import 'package:cocpit_app/services/api_client.dart';
 import 'package:cocpit_app/services/secure_storage.dart';
 
 class AuthService {
-
   /// ================= REGISTER =================
   /// Website behavior:
   /// - Creates user
@@ -35,19 +34,16 @@ class AuthService {
   /// - Creates session
   /// - Stores refresh token in DB
   /// - Returns access + refresh tokens
-  Future<bool> login({
+  Future<Map<String, dynamic>?> login({
     required String email,
     required String password,
   }) async {
     final response = await ApiClient.post(
       ApiConfig.login,
-      body: {
-        "email": email.toLowerCase().trim(),
-        "password": password,
-      },
+      body: {"email": email.toLowerCase().trim(), "password": password},
     );
 
-    if (response.statusCode != 200) return false;
+    if (response.statusCode != 200) return null;
 
     final body = jsonDecode(response.body);
 
@@ -59,7 +55,7 @@ class AuthService {
       await AppSecureStorage.saveUser(jsonEncode(body["user"]));
     }
 
-    return true;
+    return body;
   }
 
   /// ================= GET CURRENT USER =================
@@ -91,9 +87,7 @@ class AuthService {
 
     final response = await ApiClient.post(
       ApiConfig.refresh,
-      body: {
-        "refreshToken": refreshToken,
-      },
+      body: {"refreshToken": refreshToken},
     );
 
     if (response.statusCode == 200) {

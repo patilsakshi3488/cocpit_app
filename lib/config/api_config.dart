@@ -6,7 +6,7 @@ class ApiConfig {
   // ======================
 
   static String get baseUrl =>
-      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.2:5000/api";
+      dotenv.env['API_BASE_URL'] ?? "http://192.168.1.2:500/api";
 
   // ======================
   // AUTH ENDPOINTS (PATHS)
@@ -20,6 +20,12 @@ class ApiConfig {
   static String get me => "/auth/me";
   static String get searchUsers => "/users/search";
   static String get getPublicProfile => "/users";
+
+  // ======================
+  // ONBOARDING ENDPOINTS
+  // ======================
+  static String get checkAccountName => "/onboarding/check-account-name";
+  static String get completeOnboarding => "/onboarding/complete";
 
   // ======================
   // EVENT ENDPOINTS

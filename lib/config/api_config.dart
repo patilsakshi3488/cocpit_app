@@ -40,4 +40,14 @@ class ApiConfig {
   static String get storiesGrouped => "/stories/grouped";
   static String get story => "/story"; // For POST /story
   static String get stories => "/stories";
+
+  // ======================
+  // JOB ENDPOINTS
+  // ======================
+  static String get jobs => "/jobs";
+  static String get jobOffers => "/jobs/offers";
+  static String get jobStats => "/jobs/stats";
+  static String get myApplications => "/jobs/applications/me";
+  static String get mySavedJobs => "/jobs/saved/me";
+  static String get myPostedJobs => "/jobs/my";
 }

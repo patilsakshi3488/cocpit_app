@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'services/theme_service.dart';
+import 'services/job_provider.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
 
@@ -28,8 +29,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeService(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => JobProvider()),
+      ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {
           return MaterialApp(

@@ -424,7 +424,7 @@ class _ApplyModalState extends State<_ApplyModal> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    final colorScheme = theme.colorScheme;
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
@@ -533,7 +533,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                         ),
                       ),
                       child: _isSubmitting
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ?  CircularProgressIndicator(color:theme.colorScheme.onPrimary,)
                         : Text(
                           "Submit Application",
                           style: TextStyle(

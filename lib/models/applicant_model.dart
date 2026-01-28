@@ -2,6 +2,7 @@ class Applicant {
   final String id;
   final String applicationId;
   final String name;
+  final String? avatarUrl;
   final String headline;
   final String location;
   final String email;
@@ -21,6 +22,7 @@ class Applicant {
     required this.id,
     required this.applicationId,
     required this.name,
+    required this.avatarUrl,
     required this.headline,
     required this.location,
     required this.email,
@@ -42,6 +44,7 @@ class Applicant {
       id: json['id']?.toString() ?? '',
       applicationId: json['applicationId']?.toString() ?? '',
       name: json['name'] ?? '',
+      avatarUrl:json['avatarUrl'],
       headline: json['headline'] ?? '',
       location: json['location'] ?? '',
       email: json['email'] ?? '',

@@ -453,7 +453,9 @@ class _JobsScreenState extends State<JobsScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.1),
+                              // color: theme.primaryColor,
+                              // shape: BoxShape.circle,
+                              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -587,7 +589,7 @@ class _JobsScreenState extends State<JobsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: BorderSide(color: theme.dividerColor),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(14),
               ),
             ),
             child: Text(
@@ -735,32 +737,7 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  // void _showPostJobModal(BuildContext context) {
-  //   final theme = Theme.of(context);
-  //   debugPrint("post job api called");
-  //
-  //   showModalBottomSheet(
-  //     context: context,
-  //     isScrollControlled: true,
-  //     backgroundColor: Colors.transparent,
-  //     builder: (context) => _PostJobModal(
-  //       theme: theme,
-  //       onJobPosted: (newJob) {
-  //         Provider.of<JobProvider>(context, listen: false).createJob(newJob).then((_) {
-  //            ScaffoldMessenger.of(context).showSnackBar(
-  //              const SnackBar(content: Text("Job posted successfully!")),
-  //            );
-  //         }).catchError((e) {
-  //            ScaffoldMessenger.of(context).showSnackBar(
-  //              SnackBar(content: Text("Failed to post job: $e")),
-  //            );
-  //         });
-  //       },
-  //     ),
-  //   );
-  // }
-
-  void _showPostJobModal(BuildContext context) {
+    void _showPostJobModal(BuildContext context) {
     final theme = Theme.of(context);
     debugPrint("post job api called");
 
@@ -1224,6 +1201,9 @@ class _PostJobModalState extends State<_PostJobModal> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
@@ -1463,7 +1443,16 @@ class _PostJobModalState extends State<_PostJobModal> {
                             ),
                           ),
                           child: _isPosting
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            ? SizedBox(
+    height: 20,
+    width: 20,
+    child: CircularProgressIndicator(
+    // Use onPrimary so it contrasts with the primary button color
+    color: theme.colorScheme.onPrimary,
+    strokeWidth: 2,
+    ),
+    )
+
                             : Text(
                             "Post Job",
                             style: TextStyle(

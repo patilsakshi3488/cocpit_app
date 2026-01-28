@@ -236,17 +236,31 @@ class _ApplyJobScreenState extends State<ApplyJobScreen> {
 
     setState(() => isSubmitting = true);
 
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      await Future.delayed(const Duration(seconds: 2));
 
-    setState(() => isSubmitting = false);
+      setState(() => isSubmitting = false);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Application submitted successfully')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application submitted successfully')),
+      );
 
-    Navigator.pop(context);
+      Navigator.pop(context);
+    }catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to submit application: $e"),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
+    }
   }
 
   /* ================= UI HELPERS ================= */

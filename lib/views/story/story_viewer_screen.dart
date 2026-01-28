@@ -677,6 +677,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         children: [
           // 💬 Chat / Reply
           IconButton(
+            iconSize: 40,
             icon: Icon(
               Icons.chat_bubble_outline,
               color: colorScheme.onSurface,

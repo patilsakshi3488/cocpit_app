@@ -87,55 +87,69 @@ class ProfilePostSummaryWidget extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisAlignment:
+                    MainAxisAlignment.center, // Center content vertically
                 children: [
-                  if (bgImage == null) // Show text prominently if no image
-                    Expanded(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isPoll)
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 8.0),
-                                child: Icon(
-                                  Icons.poll,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            Text(
-                              content,
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: isPoll ? Colors.white : null,
-                              ),
-                              textAlign: TextAlign.center,
+                  // MEDIA POSTS (Image/Video) -> Minimal Text
+                  if (bgImage != null) ...[
+                    const Spacer(),
+                    if (content.isNotEmpty)
+                      Text(
+                        content,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              offset: Offset(0, 1),
+                              blurRadius: 2,
                             ),
                           ],
                         ),
                       ),
+                  ] else if (isPoll) ...[
+                    // POLL POSTS -> Icon + Question
+                    const Center(
+                      child: Icon(Icons.poll, color: Colors.white, size: 32),
                     ),
-                  if (bgImage != null && content.isNotEmpty)
-                    Text(
-                      content,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black,
-                            offset: Offset(0, 1),
-                            blurRadius: 2,
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          content.isNotEmpty ? content : "Poll",
+                          maxLines: 4,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
-                        ],
+                        ),
                       ),
                     ),
+                  ] else ...[
+                    // TEXT POSTS -> Styled like a note/quote
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          content.isNotEmpty ? content : "...",
+                          maxLines: 6,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

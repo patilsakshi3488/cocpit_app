@@ -74,4 +74,31 @@ class SocialService {
       return false;
     }
   }
+
+  /// 🛎️ Get Notifications
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    try {
+      final response = await ApiClient.get("/notifications");
+      debugPrint("Notifications Response: ${response.statusCode}");
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching notifications: $e");
+    }
+    return [];
+  }
+
+  /// ✅ Mark Notification as Read
+  Future<bool> markNotificationRead(String notificationId) async {
+    try {
+      final response = await ApiClient.patch(
+        "/notifications/$notificationId/read",
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("❌ Error marking notification read: $e");
+      return false;
+    }
+  }
 }

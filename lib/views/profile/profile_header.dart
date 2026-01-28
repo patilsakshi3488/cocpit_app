@@ -104,26 +104,48 @@ class ProfileHeader extends StatelessWidget {
                     : null,
               ),
               child: SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8, top: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isReadOnly)
-                          const BackButton(color: Colors.white)
-                        else
-                          IconButton(
+                child: Stack(
+                  children: [
+                    // Menu Button (Top Right)
+                    if (!isReadOnly)
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: IconButton(
                             icon: Icon(
                               Icons.menu,
-                              color: colorScheme.onPrimary,
+                              color: Colors.white,
+                              shadows: [
+                                Shadow(blurRadius: 4, color: Colors.black45),
+                              ],
                             ),
                             onPressed: onMenuPressed,
                           ),
-                      ],
-                    ),
-                  ),
+                        ),
+                      ),
+
+                    // Camera Icon (Bottom Right of Cover)
+                    if (!isReadOnly)
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

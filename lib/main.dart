@@ -6,6 +6,9 @@ import 'services/theme_service.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
 import 'services/socket_service.dart';
+import 'services/chat_service.dart';
+import 'services/notification_service.dart';
+import 'services/presence_service.dart';
 
 import 'views/feed/home_screen.dart';
 import 'views/jobs/jobs_screen.dart';
@@ -48,12 +51,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (state == AppLifecycleState.inactive) {
-      // App is in an inactive state and is not receiving user input.
-    } else if (state == AppLifecycleState.paused) {
-      // 🔌 Disconnect on Background (or keep alive, here we keep alive but could pause)
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // 🔌 Disconnect on Background to show "Offline" status
+      debugPrint("⏸️ App Paused/Detached - Disconnecting Socket");
+      SocketService().disconnect();
     } else if (state == AppLifecycleState.resumed) {
-      // 🔌 Reconnect if needed
+      // 🔌 Reconnect to show "Online" status
+      debugPrint("▶️ App Resumed - Reconnecting Socket");
       _reconnectSocket();
     }
   }
@@ -123,7 +128,10 @@ class _AuthGateState extends State<AuthGate> {
       final me = await _authService.getMe();
 
       if (me != null) {
-        // 🔌 Connect Socket (with token we just validated)
+        // 🔥 First, init services (Notification, Chat, Presence) so they are listening
+        _initServices();
+
+        // 🔌 Then, connect Socket (events will now be captured by listeners)
         SocketService().connect(accessToken);
         _goToHome();
         return;
@@ -132,7 +140,7 @@ class _AuthGateState extends State<AuthGate> {
       final refreshed = await _authService.refreshAccessToken();
 
       if (refreshed != null) {
-        // 🔌 Connect Socket (with new token)
+        _initServices();
         SocketService().connect(refreshed);
         _goToHome();
       } else {
@@ -143,6 +151,13 @@ class _AuthGateState extends State<AuthGate> {
       // Fallback to login on error (e.g. storage corruption)
       _goToLogin();
     }
+  }
+
+  /// Ensure services are listening to sockets even if UI isn't open
+  void _initServices() {
+    NotificationService();
+    ChatService();
+    PresenceService();
   }
 
   void _goToHome() {

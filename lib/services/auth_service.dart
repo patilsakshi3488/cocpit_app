@@ -99,6 +99,10 @@ class AuthService {
       final newAccessToken = body["accessToken"];
 
       await AppSecureStorage.saveAccessToken(newAccessToken);
+
+      // 🔥 RE-CONNECT SOCKET with NEW token
+      SocketService().connect(newAccessToken, forceReconnect: true);
+
       return newAccessToken;
     }
 

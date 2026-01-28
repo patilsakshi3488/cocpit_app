@@ -12,16 +12,33 @@ class EventService {
     String? location,
     String? type,
     String? date,
+    String? title,
+    String? description,
+    String? category,
+    String? virtualLink,
+    String? startTime,
+    String? endTime,
+    int? maxAttendees,
+    String? registrationDeadline,
+    bool? waitlist,
   }) async {
-    String query = "";
-    List<String> params = [];
-    if (location != null && location.isNotEmpty) params.add(
-        "location=$location");
-    if (type != null && type.isNotEmpty) params.add("type=$type");
-    if (date != null && date.isNotEmpty) params.add("date=$date");
+    final Map<String, String> queryParams = {};
+    if (location != null && location.isNotEmpty) queryParams['location'] = location;
+    if (type != null && type.isNotEmpty) queryParams['type'] = type;
+    if (date != null && date.isNotEmpty) queryParams['date'] = date;
+    if (title != null && title.isNotEmpty) queryParams['title'] = title;
+    if (description != null && description.isNotEmpty) queryParams['description'] = description;
+    if (category != null && category.isNotEmpty) queryParams['category'] = category;
+    if (virtualLink != null && virtualLink.isNotEmpty) queryParams['virtualLink'] = virtualLink;
+    if (startTime != null && startTime.isNotEmpty) queryParams['startTime'] = startTime;
+    if (endTime != null && endTime.isNotEmpty) queryParams['endTime'] = endTime;
+    if (maxAttendees != null) queryParams['maxAttendees'] = maxAttendees.toString();
+    if (registrationDeadline != null && registrationDeadline.isNotEmpty) queryParams['registrationDeadline'] = registrationDeadline;
+    if (waitlist != null) queryParams['waitlist'] = waitlist.toString();
 
-    if (params.isNotEmpty) {
-      query = "?${params.join("&")}";
+    String query = "";
+    if (queryParams.isNotEmpty) {
+      query = "?" + queryParams.entries.map((e) => "${e.key}=${Uri.encodeComponent(e.value)}").join("&");
     }
 
     final response = await ApiClient.get("${ApiConfig.events}$query");

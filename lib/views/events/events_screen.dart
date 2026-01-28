@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
@@ -18,6 +19,7 @@ class _EventsScreenState extends State<EventsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _debounce;
 
   // State
   // We use futures for each tab to manage loading states independently
@@ -29,9 +31,13 @@ class _EventsScreenState extends State<EventsScreen>
   // Filters
   bool fOnline = false;
   bool fInPerson = false;
-  // bool fFree = false; // Backend doesn't support yet
-  // bool fPaid = false; // Backend doesn't support yet
-  // Map<String, bool> fCategories = ... // Backend doesn't support yet
+  String? fCategory;
+  String? fLocation;
+  DateTime? fStartTime;
+  DateTime? fEndTime;
+  DateTime? fRegistrationDeadline;
+  bool fWaitlist = false;
+  int? fMaxAttendees;
 
   @override
   void initState() {
@@ -60,8 +66,15 @@ class _EventsScreenState extends State<EventsScreen>
       switch (_tabController.index) {
         case 0:
           _discoverEvents = EventService.getEvents(
+            title: _searchCtrl.text,
             type: fOnline ? 'Online' : (fInPerson ? 'InPerson' : null),
-            // Pass other filters if backend supported them
+            category: fCategory,
+            location: fLocation,
+            startTime: fStartTime?.toIso8601String(),
+            endTime: fEndTime?.toIso8601String(),
+            registrationDeadline: fRegistrationDeadline?.toIso8601String(),
+            waitlist: fWaitlist ? true : null,
+            maxAttendees: fMaxAttendees,
           );
           break;
         case 1:
@@ -81,6 +94,7 @@ class _EventsScreenState extends State<EventsScreen>
   void dispose() {
     _tabController.dispose();
     _searchCtrl.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -110,6 +124,15 @@ class _EventsScreenState extends State<EventsScreen>
   void _openFilterSheet() {
     bool tOnline = fOnline;
     bool tInPerson = fInPerson;
+    String? tCategory = fCategory;
+    String? tLocation = fLocation;
+    DateTime? tStartTime = fStartTime;
+    DateTime? tEndTime = fEndTime;
+    DateTime? tRegistrationDeadline = fRegistrationDeadline;
+    bool tWaitlist = fWaitlist;
+    int? tMaxAttendees = fMaxAttendees;
+    final TextEditingController locCtrl = TextEditingController(text: fLocation);
+    final TextEditingController maxAttCtrl = TextEditingController(text: fMaxAttendees?.toString() ?? "");
 
     final theme = Theme.of(context);
 
@@ -119,9 +142,9 @@ class _EventsScreenState extends State<EventsScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSS) => DraggableScrollableSheet(
-          initialChildSize: 0.4, // Reduced size since fewer filters
-          maxChildSize: 0.6,
-          minChildSize: 0.3,
+          initialChildSize: 0.8,
+          maxChildSize: 0.9,
+          minChildSize: 0.5,
           builder: (_, controller) => Container(
             decoration: BoxDecoration(
               color: theme.scaffoldBackgroundColor,
@@ -154,19 +177,91 @@ class _EventsScreenState extends State<EventsScreen>
                       ),
                       const SizedBox(height: 30),
                       _fSection(theme, 'Event Type'),
-                      _fItem(
-                        theme,
-                        'Online',
-                        tOnline,
-                        (v) => setSS(() => tOnline = v),
+                      _fItem(theme, 'Online', tOnline, (v) => setSS(() => tOnline = v)),
+                      _fItem(theme, 'In-person', tInPerson, (v) => setSS(() => tInPerson = v)),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Category'),
+                      Wrap(
+                         spacing: 10,
+                         children: ['Technology', 'Business', 'Music', 'Health', 'Education'].map((c) {
+                           bool selected = tCategory == c;
+                           return ChoiceChip(
+                             label: Text(c),
+                             selected: selected,
+                             onSelected: (s) => setSS(() => tCategory = s ? c : null),
+                             selectedColor: theme.primaryColor,
+                             labelStyle: TextStyle(color: selected ? theme.colorScheme.onPrimary : null),
+                           );
+                         }).toList(),
                       ),
-                      _fItem(
-                        theme,
-                        'In-person',
-                        tInPerson,
-                        (v) => setSS(() => tInPerson = v),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Location'),
+                      TextField(
+                        controller: locCtrl,
+                        onChanged: (v) => tLocation = v,
+                        decoration: InputDecoration(
+                           hintText: "Enter city",
+                           filled: true,
+                           fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
                       ),
-                      // Backend doesn't support Price/Category filters yet
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Waitlist Available'),
+                      SwitchListTile(
+                        value: tWaitlist,
+                        onChanged: (v) => setSS(() => tWaitlist = v),
+                        title: Text("Has Waitlist", style: theme.textTheme.bodyLarge),
+                        activeColor: theme.primaryColor,
+                      ),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Max Attendees'),
+                      TextField(
+                        controller: maxAttCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) => tMaxAttendees = int.tryParse(v),
+                        decoration: InputDecoration(
+                           hintText: "e.g. 100",
+                           filled: true,
+                           fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Dates'),
+                      ListTile(
+                        title: Text(tStartTime == null ? "Select Start Date" : "Start: ${tStartTime!.toLocal().toString().split(' ')[0]}"),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final d = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: tStartTime ?? DateTime.now());
+                          if (d != null) setSS(() => tStartTime = d);
+                        },
+                      ),
+                      ListTile(
+                        title: Text(tEndTime == null ? "Select End Date" : "End: ${tEndTime!.toLocal().toString().split(' ')[0]}"),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final d = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: tEndTime ?? DateTime.now());
+                          if (d != null) setSS(() => tEndTime = d);
+                        },
+                      ),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Registration Deadline'),
+                      ListTile(
+                        title: Text(tRegistrationDeadline == null ? "Select Deadline" : "Deadline: ${tRegistrationDeadline!.toLocal().toString().split(' ')[0]}"),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final d = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime(2100), initialDate: tRegistrationDeadline ?? DateTime.now());
+                          if (d != null) setSS(() => tRegistrationDeadline = d);
+                        },
+                      ),
+
                     ],
                   ),
                 ),
@@ -180,6 +275,15 @@ class _EventsScreenState extends State<EventsScreen>
                             setSS(() {
                               tOnline = false;
                               tInPerson = false;
+                              tCategory = null;
+                              tLocation = null;
+                              locCtrl.clear();
+                              tStartTime = null;
+                              tEndTime = null;
+                              tRegistrationDeadline = null;
+                              tWaitlist = false;
+                              tMaxAttendees = null;
+                              maxAttCtrl.clear();
                             });
                           },
                           style: OutlinedButton.styleFrom(
@@ -204,14 +308,16 @@ class _EventsScreenState extends State<EventsScreen>
                             setState(() {
                               fOnline = tOnline;
                               fInPerson = tInPerson;
+                              fCategory = tCategory;
+                              fLocation = tLocation;
+                              fStartTime = tStartTime;
+                              fEndTime = tEndTime;
+                              fRegistrationDeadline = tRegistrationDeadline;
+                              fWaitlist = tWaitlist;
+                              fMaxAttendees = tMaxAttendees;
                             });
                             Navigator.pop(context);
-                            // Apply filters
-                            _discoverEvents = EventService.getEvents(
-                              type: fOnline
-                                  ? 'Online'
-                                  : (fInPerson ? 'InPerson' : null),
-                            );
+                            _refreshCurrentTab();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.primaryColor,
@@ -289,11 +395,12 @@ class _EventsScreenState extends State<EventsScreen>
       appBar: AppTopBar(
         searchType: SearchType.events,
         controller: _searchCtrl,
-        onChanged: (v) => setState(
-          () {},
-        ), // Local search filtering on top of fetched results? Or API search?
-        // Backend doesn't have search query param, only filters.
-        // We will filter client-side for now on the fetched list.
+        onChanged: (v) {
+          if (_debounce?.isActive ?? false) _debounce!.cancel();
+          _debounce = Timer(const Duration(milliseconds: 500), () {
+            _refreshCurrentTab();
+          });
+        },
         onFilterTap: _openFilterSheet,
       ),
       body: Column(
@@ -423,17 +530,7 @@ class _EventsScreenState extends State<EventsScreen>
 
         List<EventModel> events = snapshot.data ?? [];
 
-        // Client side filtering for search text
-        if (_searchCtrl.text.isNotEmpty) {
-          final query = _searchCtrl.text.toLowerCase();
-          events = events
-              .where(
-                (e) =>
-                    e.title.toLowerCase().contains(query) ||
-                    e.description.toLowerCase().contains(query),
-              )
-              .toList();
-        }
+        // Search is now handled server-side
 
         return SingleChildScrollView(
           child: Column(

@@ -22,9 +22,9 @@ import 'profile_posts_section.dart';
 import 'profile_suggested_section.dart';
 import '../feed/widgets/edit_post_modal.dart';
 import 'profile_modals.dart';
-import 'photo_action_helper.dart';
-import 'package:image_picker/image_picker.dart';
+
 import 'dart:io';
+import 'profile_photo_viewer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -143,6 +143,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         location = user['location'] ?? '';
         about = user['about'] ?? '';
         profileImage = user['avatar_url'] ?? user['avatar'] ?? '';
+        coverImage =
+            user['cover_image_url'] ??
+            user['cover_image'] ??
+            user['cover_url'] ??
+            '';
 
         experiences = fetchedExperiences;
         educations = fetchedEducations;
@@ -166,12 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _handleAvatarUpdate() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image == null) return;
-
+  Future<void> _handleAvatarUpdate(File image) async {
     if (!mounted) return;
 
     // Show loading indicator or toast?
@@ -179,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text("Uploading avatar...")));
 
-    final success = await profileService.uploadAvatar(File(image.path));
+    final success = await profileService.uploadAvatar(image);
 
     if (success) {
       if (mounted) {
@@ -197,26 +197,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _handleCoverUpdate() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+  Future<void> _handleAvatarDelete() async {
+    final success = await profileService.deleteAvatar();
+    if (success) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Profile photo removed")));
+        await _loadProfile();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to remove profile photo")),
+        );
+      }
+    }
+  }
 
-    if (image == null) return;
+  Future<void> _handleCoverDelete() async {
+    final success = await profileService.deleteCover();
+    if (success) {
+      if (mounted) {
+        setState(() => coverImage = null);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Cover photo removed")));
+        await _loadProfile();
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to remove cover photo")),
+        );
+      }
+    }
+  }
 
+  Future<void> _handleCoverUpdate(File image) async {
     if (!mounted) return;
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("Uploading cover photo...")));
 
-    final success = await profileService.uploadCover(File(image.path));
-    debugPrint("✅ uploadCover returned: $success");
-    if (success) {
+    final uploadResult = await profileService.uploadCover(
+      image,
+    ); // image from viewer is File
+
+    if (uploadResult != null) {
       if (mounted) {
+        setState(() {
+          coverImage = (uploadResult.isNotEmpty) ? uploadResult : image.path;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Cover photo updated successfully")),
         );
-        await _loadProfile();
+
+        // Background refresh to sync state
+        _loadProfile();
       }
     } else {
       if (mounted) {
@@ -470,36 +510,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   coverImage: coverImage,
                   onMenuPressed: () =>
                       _scaffoldKey.currentState?.openEndDrawer(),
-                  onCameraPressed: () {
-                    PhotoActionHelper.showPhotoActions(
-                      context: context,
-                      title: "Profile Photo",
-                      imagePath: profileImage,
-                      heroTag: 'profile_hero',
-                      onUpdate: _handleAvatarUpdate,
-                      onDelete: () async {
-                        final success = await profileService.deleteAvatar();
-                        if (success) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Profile photo removed"),
-                              ),
-                            );
-                            _loadProfile();
-                          }
-                        }
-                      },
+                  onAvatarTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePhotoViewer(
+                          imagePath: profileImage,
+                          heroTag: 'profile_hero',
+                          isCurrentUser:
+                              true, // Since this is ProfileScreen (my profile)
+                          onUpdate: _handleAvatarUpdate,
+                          onDelete: _handleAvatarDelete,
+                        ),
+                      ),
                     );
                   },
-                  onCoverCameraPressed: () {
-                    PhotoActionHelper.showPhotoActions(
-                      context: context,
-                      title: "Cover Photo",
-                      imagePath: coverImage,
-                      heroTag: 'cover_hero',
-                      onUpdate: _handleCoverUpdate,
-                      onDelete: () {}, // Implement delete if API supports it
+                  onCoverTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePhotoViewer(
+                          imagePath: coverImage,
+                          heroTag: 'cover_hero',
+                          isCurrentUser: true,
+                          isCover: true,
+                          onUpdate: _handleCoverUpdate,
+                          onDelete: _handleCoverDelete,
+                        ),
+                      ),
                     );
                   },
                   backgroundColor: theme.scaffoldBackgroundColor,
@@ -560,6 +598,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onDeletePost: _handleDeletePost,
                 onEditPost: _handleEditPost,
                 onTogglePrivacy: _handleTogglePrivacy,
+                userId: "me", // Logged-in user
+                isOwner: true,
               ),
               _divider(theme),
               const ProfileSuggestedSection(suggestedUsers: []),

@@ -9,6 +9,8 @@ class ProfileLatestPostsSection extends StatelessWidget {
   final Function(String) onDeletePost;
   final Function(String) onEditPost;
   final Function(String, bool) onTogglePrivacy;
+  final String userId;
+  final bool isOwner;
 
   const ProfileLatestPostsSection({
     super.key,
@@ -18,6 +20,8 @@ class ProfileLatestPostsSection extends StatelessWidget {
     required this.onDeletePost,
     required this.onEditPost,
     required this.onTogglePrivacy,
+    required this.userId,
+    this.isOwner = false,
   });
 
   @override
@@ -49,8 +53,9 @@ class ProfileLatestPostsSection extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => UserPostsFeedScreen(
-                        userId: "me", // Or actual ID if available
+                        userId: userId,
                         userName: userName,
+                        isOwner: isOwner,
                       ),
                     ),
                   );
@@ -86,11 +91,12 @@ class ProfileLatestPostsSection extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => UserPostsFeedScreen(
-                        userId: "me",
+                        userId: userId,
                         userName: userName,
                         initialPostId:
                             post["post_id"]?.toString() ??
                             post["id"]?.toString(),
+                        isOwner: isOwner,
                       ),
                     ),
                   );
@@ -98,6 +104,7 @@ class ProfileLatestPostsSection extends StatelessWidget {
                 onDelete: onDeletePost,
                 onEdit: onEditPost,
                 onTogglePrivacy: onTogglePrivacy,
+                isOwner: isOwner,
               );
             },
           ),

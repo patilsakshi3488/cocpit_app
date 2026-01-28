@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cocpit_app/services/api_client.dart';
+import 'package:flutter/foundation.dart';
 
 class ProfileService {
   /// 🔐 GET LOGGED-IN PROFILE
@@ -147,13 +148,36 @@ class ProfileService {
   /// =========================
   /// 🖼️ UPLOAD / REPLACE COVER IMAGE
   /// =========================
-  Future<bool> uploadCover(File image) async {
+  Future<String?> uploadCover(File image) async {
     final response = await ApiClient.multipart(
-      "/profile/avatar",
-      fileField: "avatar",
+      "/profile/cover",
+      fileField: "cover",
       file: image,
     );
 
+    if (response.statusCode == 200) {
+      try {
+        final decoded = jsonDecode(response.body);
+        // Backend returns "coverUrl" specifically
+        return decoded['coverUrl'] ??
+            decoded['url'] ??
+            decoded['cover_url'] ??
+            decoded['secure_url'] ??
+            decoded['data']?['url'];
+      } catch (_) {}
+      return ""; // Success but no URL returned
+    }
+
+    // Debug log on failure
+    debugPrint(
+      "❌ uploadCover failed: ${response.statusCode} - ${response.body}",
+    );
+
+    return null; // Failure
+  }
+
+  Future<bool> deleteCover() async {
+    final response = await ApiClient.delete("/profile/cover");
     return response.statusCode == 200;
   }
 

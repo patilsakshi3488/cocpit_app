@@ -8,12 +8,14 @@ class UserPostsFeedScreen extends StatefulWidget {
   final String userId;
   final String userName;
   final String? initialPostId;
+  final bool isOwner;
 
   const UserPostsFeedScreen({
     super.key,
     required this.userId,
     required this.userName,
     this.initialPostId,
+    this.isOwner = false,
   });
 
   @override
@@ -21,6 +23,7 @@ class UserPostsFeedScreen extends StatefulWidget {
 }
 
 class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
+  // ... (existing state vars)
   List<Map<String, dynamic>> posts = [];
   bool isLoading = true;
   String? cursorCreatedAt;
@@ -40,10 +43,19 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
     if (!hasMore && cursorCreatedAt != null) return;
 
     try {
-      final response = await FeedApi.fetchMyPosts(
-        cursorCreatedAt: cursorCreatedAt,
-        cursorPostId: cursorPostId,
-      );
+      final Map<String, dynamic> response;
+      if (widget.userId == 'me') {
+        response = await FeedApi.fetchMyPosts(
+          cursorCreatedAt: cursorCreatedAt,
+          cursorPostId: cursorPostId,
+        );
+      } else {
+        response = await FeedApi.fetchUserPosts(
+          userId: widget.userId,
+          cursorCreatedAt: cursorCreatedAt,
+          cursorPostId: cursorPostId,
+        );
+      }
 
       final List<Map<String, dynamic>> newPosts = [];
       if (response['posts'] != null) {
@@ -66,32 +78,6 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
               widget.initialPostId!,
             );
             if (singlePost != null) {
-              // We need to insert it where it belongs chronologically ideally,
-              // but for now, we can just insert it at the top or append.
-              // However, if we want to maintain STRICT order, we might just have to accept it wasn't found.
-              // But user wants to SEE IT.
-              // If we insert at 0, it changes order.
-              // If we strictly want chronological, we might need to fetch OLDER posts until we find it?
-              // That could be expensive.
-              // Compromise: Add it to the list, perhaps at the top if it's new, or we just rely on "Show it".
-              // The user complaint was "post will change their place... can't understand timing".
-              // If we fetch a very old post and put it at the top, that breaks timing.
-              // BUT if we don't have it, we can't show it.
-
-              // Let's assume pagination usually finds it, or we just prepend for visibility.
-              // Given the user constraint, maybe we should NOT auto-prepend if it breaks order?
-              // But if it's missing, the scrolling won't work.
-              // Let's stick to prepending BUT maybe we should try to fetch the page containing it? Complexity high.
-              // For now, let's just add it to ensuring it exists.
-
-              // Actually, if it's not in the first page, it's likely older.
-              newPosts.add(singlePost);
-              // Or sort?
-              // Let's just append for now if not found, or prepend. Users usually tap recent stuff.
-              // Let's keep the prepend logic for safety but use scrolling.
-              // Wait, if I prepend, index is 0.
-              // If I append, index is last.
-              // I'll prepend so it's loaded.
               newPosts.insert(0, singlePost);
             }
           } catch (e) {
@@ -141,6 +127,9 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
   }
 
   Future<void> _handleDeletePost(String postId) async {
+    // Prevent delete if not owner
+    if (!widget.isOwner) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -179,6 +168,7 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
   }
 
   Future<void> _handlePrivacy(String postId, bool isPrivate) async {
+    if (!widget.isOwner) return;
     try {
       await FeedApi.setPostVisibility(postId, isPrivate);
       setState(() {
@@ -217,36 +207,37 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
                 return PostCard(
                   post: posts[index],
                   simpleView: true,
-                  isOwner: true,
-                  onDelete: _handleDeletePost,
-                  onPrivacyChange: _handlePrivacy,
-                  onEdit: (id) async {
-                    // Find actual post object
-                    final postIndex = posts.indexWhere(
-                      (p) =>
-                          p['post_id']?.toString() == id ||
-                          p['id']?.toString() == id,
-                    );
-                    if (postIndex == -1) return;
+                  isOwner: widget.isOwner, // ✅ Pass correct owner flag
+                  onDelete: widget.isOwner ? _handleDeletePost : null,
+                  onPrivacyChange: widget.isOwner ? _handlePrivacy : null,
+                  onEdit: widget.isOwner
+                      ? (id) async {
+                          // Find actual post object
+                          final postIndex = posts.indexWhere(
+                            (p) =>
+                                p['post_id']?.toString() == id ||
+                                p['id']?.toString() == id,
+                          );
+                          if (postIndex == -1) return;
 
-                    final result = await showModalBottomSheet<bool>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (ctx) => EditPostModal(post: posts[postIndex]),
-                    );
+                          final result = await showModalBottomSheet<bool>(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (ctx) =>
+                                EditPostModal(post: posts[postIndex]),
+                          );
 
-                    if (result == true) {
-                      // Reload posts or update locally if we returned the new data
-                      // Simple way: re-fetch or just trigger reload
-                      _fetchPosts();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Post updated successfully"),
-                        ),
-                      );
-                    }
-                  },
+                          if (result == true) {
+                            _fetchPosts();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Post updated successfully"),
+                              ),
+                            );
+                          }
+                        }
+                      : null,
                 );
               },
             ),

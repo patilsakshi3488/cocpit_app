@@ -6,6 +6,7 @@ class ProfilePostSummaryWidget extends StatelessWidget {
   final Function(String) onDelete;
   final Function(String) onEdit;
   final Function(String, bool) onTogglePrivacy;
+  final bool isOwner;
 
   const ProfilePostSummaryWidget({
     super.key,
@@ -14,6 +15,7 @@ class ProfilePostSummaryWidget extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onTogglePrivacy,
+    this.isOwner = false,
   });
 
   @override
@@ -139,53 +141,58 @@ class ProfilePostSummaryWidget extends StatelessWidget {
             ),
 
             // 3-Dots Menu
-            Positioned(
-              top: 4,
-              right: 4,
-              child: PopupMenuButton<String>(
-                icon: const Icon(Icons.more_horiz, color: Colors.white),
-                onSelected: (value) {
-                  if (value == 'edit') onEdit(postId);
-                  if (value == 'privacy') onTogglePrivacy(postId, !isPrivate);
-                  if (value == 'delete') onDelete(postId);
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 18),
-                        SizedBox(width: 8),
-                        Text("Edit Post"),
-                      ],
+            if (isOwner)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz, color: Colors.white),
+                  onSelected: (value) {
+                    if (value == 'edit') onEdit(postId);
+                    if (value == 'privacy') onTogglePrivacy(postId, !isPrivate);
+                    if (value == 'delete') onDelete(postId);
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit, size: 18),
+                          SizedBox(width: 8),
+                          Text("Edit Post"),
+                        ],
+                      ),
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: 'privacy',
-                    child: Row(
-                      children: [
-                        Icon(
-                          isPrivate ? Icons.public : Icons.lock_outline,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(isPrivate ? "Make Public" : "Make Private"),
-                      ],
+                    PopupMenuItem(
+                      value: 'privacy',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isPrivate ? Icons.public : Icons.lock_outline,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(isPrivate ? "Make Public" : "Make Private"),
+                        ],
+                      ),
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text("Delete", style: TextStyle(color: Colors.red)),
-                      ],
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 8),
+                          Text("Delete", style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
             // Privacy Indicator
             if (isPrivate)

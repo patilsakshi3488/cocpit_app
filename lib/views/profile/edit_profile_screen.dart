@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class EditProfileScreen extends StatefulWidget {
   final Map<String, String> initialData;
 
-  const EditProfileScreen({
-    super.key,
-    required this.initialData,
-  });
+  const EditProfileScreen({super.key, required this.initialData});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -29,22 +26,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
 
     // ✅ SAFE INITIALIZATION (null-proof)
-    _nameController =
-        TextEditingController(text: widget.initialData['name'] ?? '');
-    _headlineController =
-        TextEditingController(text: widget.initialData['headline'] ?? '');
-    _jobTitleController =
-        TextEditingController(text: widget.initialData['jobTitle'] ?? '');
-    _companyController =
-        TextEditingController(text: widget.initialData['company'] ?? '');
-    _schoolController =
-        TextEditingController(text: widget.initialData['school'] ?? '');
-    _degreeController =
-        TextEditingController(text: widget.initialData['degree'] ?? '');
-    _locationController =
-        TextEditingController(text: widget.initialData['location'] ?? '');
-    _aboutController =
-        TextEditingController(text: widget.initialData['about'] ?? '');
+    _nameController = TextEditingController(
+      text: widget.initialData['name'] ?? '',
+    );
+    _headlineController = TextEditingController(
+      text: widget.initialData['headline'] ?? '',
+    );
+    _jobTitleController = TextEditingController(
+      text: widget.initialData['jobTitle'] ?? '',
+    );
+    _companyController = TextEditingController(
+      text: widget.initialData['company'] ?? '',
+    );
+    _schoolController = TextEditingController(
+      text: widget.initialData['school'] ?? '',
+    );
+    _degreeController = TextEditingController(
+      text: widget.initialData['degree'] ?? '',
+    );
+    _locationController = TextEditingController(
+      text: widget.initialData['location'] ?? '',
+    );
+    _aboutController = TextEditingController(
+      text: widget.initialData['about'] ?? '',
+    );
   }
 
   @override
@@ -81,8 +86,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Expanded(
               child: Text(
                 "Edit Profile",
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -96,7 +102,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               style: TextButton.styleFrom(
                 backgroundColor: colorScheme.surfaceContainer,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
               child: Text(
@@ -113,18 +120,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
             child: ElevatedButton.icon(
               onPressed: _onSave,
-              icon: Icon(Icons.save_outlined,
-                  size: 18, color: colorScheme.onPrimary),
+              icon: Icon(
+                Icons.save_outlined,
+                size: 18,
+                color: colorScheme.onPrimary,
+              ),
               label: Text(
                 "Save Changes",
                 style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimary),
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onPrimary,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.primaryColor,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 elevation: 0,
               ),
@@ -140,12 +152,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainer.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.dividerColor),
-            ),
+            padding: const EdgeInsets.only(top: 10, bottom: 20),
+            // decoration: BoxDecoration(), // Removed outer border for cleaner look
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -153,9 +161,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _field(_nameController, "Enter your name", required: true),
 
                 _label("Headline"),
-                _field(_headlineController,
-                    "Enter your professional headline",
-                    required: true),
+                _field(
+                  _headlineController,
+                  "Enter your professional headline",
+                  required: true,
+                ),
 
                 _label("Job Title"),
                 _field(_jobTitleController, "Enter your job title"),
@@ -170,12 +180,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _field(_degreeController, "Enter your degree"),
 
                 _label("Location"),
-                _field(_locationController, "Enter your location",
-                    required: true),
+                _field(
+                  _locationController,
+                  "Enter your location",
+                  required: true,
+                ),
 
                 _label("About"),
-                _field(_aboutController, "Tell us about yourself",
-                    maxLines: 6),
+                _field(_aboutController, "Tell us about yourself", maxLines: 6),
               ],
             ),
           ),
@@ -188,18 +200,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // SAVE HANDLER
   // =========================
   void _onSave() {
-    if (_formKey.currentState!.validate()) {
-      Navigator.pop(context, {
-        'name': _nameController.text.trim(),
-        'headline': _headlineController.text.trim(),
-        'jobTitle': _jobTitleController.text.trim(),
-        'company': _companyController.text.trim(),
-        'school': _schoolController.text.trim(),
-        'degree': _degreeController.text.trim(),
-        'location': _locationController.text.trim(),
-        'about': _aboutController.text.trim(),
-      });
-    }
+    // Validation removed as per request
+    Navigator.pop(context, {
+      'name': _nameController.text.trim(),
+      'headline': _headlineController.text.trim(),
+      'jobTitle': _jobTitleController.text.trim(),
+      'company': _companyController.text.trim(),
+      'school': _schoolController.text.trim(),
+      'degree': _degreeController.text.trim(),
+      'location': _locationController.text.trim(),
+      'about': _aboutController.text.trim(),
+    });
   }
 
   // =========================
@@ -214,11 +225,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _field(
-      TextEditingController controller,
-      String hint, {
-        int maxLines = 1,
-        bool required = false,
-      }) {
+    TextEditingController controller,
+    String hint, {
+    int maxLines = 1,
+    bool required = false,
+  }) {
     final theme = Theme.of(context);
 
     return TextFormField(
@@ -228,24 +239,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
-        fillColor: theme.scaffoldBackgroundColor.withValues(alpha: 0.5),
+        fillColor: theme.cardColor, // Cleaner look
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: theme.dividerColor),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none, // Remove border for cleaner look
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: theme.dividerColor),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
-      validator: (value) {
-        if (required && (value == null || value.trim().isEmpty)) {
-          return 'This field is required';
-        }
-        return null;
-      },
+      // No validation logic
     );
   }
 }

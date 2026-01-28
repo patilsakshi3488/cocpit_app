@@ -7,6 +7,10 @@ import 'services/theme_service.dart';
 import 'services/job_provider.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
+import 'services/socket_service.dart';
+import 'services/chat_service.dart';
+import 'services/notification_service.dart';
+import 'services/presence_service.dart';
 
 import 'views/feed/home_screen.dart';
 import 'views/jobs/jobs_screen.dart';
@@ -25,29 +29,48 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class AppScrollBehavior extends MaterialScrollBehavior {
-  @override
-  Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-      };
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
 
   @override
-  Widget buildScrollbar(
-      BuildContext context, Widget child, ScrollableDetails details) {
-    return Scrollbar(
-      controller: details.controller,
-      thumbVisibility: true,
-      thickness: 8.0,
-      radius: const Radius.circular(8.0),
-      child: child,
-    );
-  }
+  State<MyApp> createState() => _MyAppState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // 🔌 Disconnect on Background to show "Offline" status
+      debugPrint("⏸️ App Paused/Detached - Disconnecting Socket");
+      SocketService().disconnect();
+    } else if (state == AppLifecycleState.resumed) {
+      // 🔌 Reconnect to show "Online" status
+      debugPrint("▶️ App Resumed - Reconnecting Socket");
+      _reconnectSocket();
+    }
+  }
+
+  Future<void> _reconnectSocket() async {
+    final token = await AppSecureStorage.getAccessToken();
+    if (token != null) {
+      SocketService().connect(token);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +83,6 @@ class MyApp extends StatelessWidget {
         builder: (context, themeService, _) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            scrollBehavior: AppScrollBehavior(), // Apply Custom Scroll Behavior
             themeMode: themeService.themeMode,
             theme: themeService.lightTheme,
             darkTheme: themeService.currentTheme == AppTheme.navy
@@ -111,6 +133,11 @@ class _AuthGateState extends State<AuthGate> {
       final me = await _authService.getMe();
 
       if (me != null) {
+        // 🔥 First, init services (Notification, Chat, Presence) so they are listening
+        _initServices();
+
+        // 🔌 Then, connect Socket (events will now be captured by listeners)
+        SocketService().connect(accessToken);
         _goToHome();
         return;
       }
@@ -118,6 +145,8 @@ class _AuthGateState extends State<AuthGate> {
       final refreshed = await _authService.refreshAccessToken();
 
       if (refreshed != null) {
+        _initServices();
+        SocketService().connect(refreshed);
         _goToHome();
       } else {
         _goToLogin();
@@ -127,6 +156,13 @@ class _AuthGateState extends State<AuthGate> {
       // Fallback to login on error (e.g. storage corruption)
       _goToLogin();
     }
+  }
+
+  /// Ensure services are listening to sockets even if UI isn't open
+  void _initServices() {
+    NotificationService();
+    ChatService();
+    PresenceService();
   }
 
   void _goToHome() {

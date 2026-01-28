@@ -16,12 +16,15 @@ import 'create_career_moment_screen.dart';
 import 'career_moment_viewer.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../widgets/poll_widget.dart';
+import '../../widgets/time_ago_widget.dart';
 import 'search_screen.dart';
 import '../post/create_post_screen.dart';
 import '../../services/secure_storage.dart';
 import '../profile/profile_screen.dart';
 import '../../main.dart'; // To access routeObserver
 import '../bottom_navigation.dart';
+import '../../services/notification_service.dart';
+import 'notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -58,8 +61,6 @@ class _HomeScreenState extends State<HomeScreen>
   String _lastQuery = "";
   Timer? _debounce;
 
-
-
   // =========================
   // 🔁 INIT
   // =========================
@@ -67,6 +68,31 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Initial Fetch
+    NotificationService().loadNotifications();
+
+    // Listen for Real-time Toasts
+    NotificationService().onNewNotification.listen((data) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['text'] ?? "New Notification"),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                );
+              },
+            ),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
 
     fetchAllFeeds();
 
@@ -373,9 +399,22 @@ class _HomeScreenState extends State<HomeScreen>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
-                    post["category_name"] ?? "",
-                    style: theme.textTheme.bodySmall,
+                  Row(
+                    children: [
+                      Text(
+                        post["category_name"] ?? "",
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      if (post["created_at"] != null) ...[
+                        Text(" • ", style: theme.textTheme.bodySmall),
+                        TimeAgoWidget(
+                          dateTime: DateTime.parse(
+                            post["created_at"].toString(),
+                          ),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -574,8 +613,6 @@ class _HomeScreenState extends State<HomeScreen>
       ],
     ),
   );
-
-
 
   @override
   void dispose() {

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../../services/feed_service.dart';
 import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
+import '../../../widgets/time_ago_widget.dart';
 import '../../profile/public_profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
@@ -258,8 +259,22 @@ class _PostCardState extends State<PostCard> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (category.isNotEmpty)
-                    Text(category, style: theme.textTheme.bodySmall),
+                  Row(
+                    children: [
+                      if (category.isNotEmpty)
+                        Text(category, style: theme.textTheme.bodySmall),
+                      if (post["created_at"] != null) ...[
+                        if (category.isNotEmpty)
+                          Text(" • ", style: theme.textTheme.bodySmall),
+                        TimeAgoWidget(
+                          dateTime: DateTime.parse(
+                            post["created_at"].toString(),
+                          ),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),

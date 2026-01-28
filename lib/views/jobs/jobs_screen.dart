@@ -6,6 +6,7 @@ import '../bottom_navigation.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../models/job_model.dart';
 import '../../services/job_provider.dart';
+import '../profile/profile_models.dart';
 import 'job_details_screen.dart';
 import 'job_applicants_screen.dart';
 
@@ -20,6 +21,7 @@ class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
   int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
 
+  Map<String, dynamic> _currentFilters = {};
   @override
   void initState() {
     super.initState();
@@ -704,17 +706,29 @@ class _JobsScreenState extends State<JobsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => _FilterModal(
         theme: theme,
+        initialFilters: _currentFilters,
         onApply: (filters) {
+          setState(() => _currentFilters = filters);
           Provider.of<JobProvider>(context, listen: false).fetchJobs(
-             easyApply: filters['easyApply'],
-             activelyHiring: filters['activelyHiring'],
-             workMode: filters['remoteOnly'] == true ? 'Remote' : null,
-             experienceLevel: filters['expLevel'] != 'All Levels' ? filters['expLevel'] : null,
-             jobType: filters['jobType'] != 'Full-time' ? filters['jobType'] : null,
-             minSalary: (filters['salaryRange'] as RangeValues).start.round() * 1000,
-             maxSalary: (filters['salaryRange'] as RangeValues).end.round() * 1000,
+            easyApply: filters['easyApply']!= true ?filters['easyApply']:null,
+            activelyHiring: filters['activelyHiring']!= true ?filters['activeHiring']:null,
+            location: filters['location'] != null && filters['location'].toString().isNotEmpty
+                ? filters['location']
+                : null,
+            workMode: filters['workMode'],
+            experienceLevel:
+            filters['expLevel'] != 'All Levels' ? filters['expLevel'] : null,
+            jobType:
+            filters['jobType'] != 'Full-time' ? filters['jobType'] : null,
+            companyType: filters['companyType'],
+            industry: filters['industryType'],
+            minSalary:
+            (filters['salaryRange'] as RangeValues).start.round() * 1000,
+            maxSalary:
+            (filters['salaryRange'] as RangeValues).end.round() * 1000,
           );
         },
+
       ),
     );
   }
@@ -747,20 +761,29 @@ class _JobsScreenState extends State<JobsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => _PostJobModal(
         theme: theme,
-        onJobPosted: (newJob) {
-          Provider.of<JobProvider>(context, listen: false).createJob(newJob).then((_){
-            if (context.mounted) {
-            Navigator.pop(context);
+        onJobPosted: (newJob) async {
+          try {
+            await Provider.of<JobProvider>(
+              context,
+              listen: false,
+            ).createJob(newJob);
+
+            if (!context.mounted) return;
+
+            Navigator.pop(context); // close modal ONLY on success
+
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Job posted successfully!")),
             );
-          }
-          }).catchError((e) {
+          } catch (e) {
+            if (!context.mounted) return;
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text("Failed to post job: $e")),
             );
-          });
+          }
         },
+
       ),
     );
   }
@@ -785,19 +808,50 @@ class _JobsScreenState extends State<JobsScreen> {
 
 class _FilterModal extends StatefulWidget {
   final ThemeData theme;
+  final Map<String, dynamic>? initialFilters;
   final Function(Map<String, dynamic>) onApply;
-  const _FilterModal({required this.theme, required this.onApply});
+  const _FilterModal({required this.theme, this.initialFilters, required this.onApply});
+
   @override
   State<_FilterModal> createState() => _FilterModalState();
 }
 
 class _FilterModalState extends State<_FilterModal> {
-  bool easyApply = false;
-  bool activelyHiring = false;
-  bool remoteOnly = false;
+  bool easyApply = true;
+  bool activelyHiring = true;
   String experienceLevel = "All Levels";
-  String jobType = "Full-time";
-  RangeValues salaryRange = const RangeValues(50, 200);
+  String location ="";
+  String workMode="";
+  String jobType = "";
+  String companyType = "";
+  String industryType = "";
+  List<Skill> Skills=[];
+  RangeValues salaryRange = const RangeValues(50, 500);
+
+  late TextEditingController _locationController;
+  String? _locationError;
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.initialFilters ?? {};
+    easyApply = f['easyApply'] ?? true;
+    activelyHiring = f['activelyHiring'] ?? true;
+    experienceLevel = f['expLevel'] ?? "All Levels";
+    jobType = f['jobType'] ?? "";
+    salaryRange = f['salaryRange'] ?? const RangeValues(50, 500);
+
+    _locationController = TextEditingController(text: f['location'] ?? "");
+    workMode = f['workMode'] ?? "";
+    companyType = f['companyType'] ?? "";
+    industryType = f['industryType'] ?? "";
+  }
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -836,12 +890,17 @@ class _FilterModalState extends State<_FilterModal> {
                       TextButton(
                         onPressed: () {
                           setState(() {
-                            easyApply = false;
-                            activelyHiring = false;
-                            remoteOnly = false;
+                            easyApply = true;
+                            activelyHiring = true;
                             experienceLevel = "All Levels";
-                            jobType = "Full-time";
-                            salaryRange = const RangeValues(50, 200);
+                            jobType = "";
+                            workMode = "";
+                            companyType = "";
+                            industryType = "";
+                            Skills = [];
+                            salaryRange = const RangeValues(50, 500);
+                            _locationController.clear();
+                            _locationError = null;
                           });
                         },
                         child: Text(
@@ -862,11 +921,6 @@ class _FilterModalState extends State<_FilterModal> {
                     activelyHiring,
                     (v) => setState(() => activelyHiring = v),
                   ),
-                  _switchOption(
-                    "Remote Only",
-                    remoteOnly,
-                    (v) => setState(() => remoteOnly = v),
-                  ),
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Location",
@@ -884,17 +938,24 @@ class _FilterModalState extends State<_FilterModal> {
                       border: Border.all(color: widget.theme.dividerColor),
                     ),
                     child: TextField(
+                      controller: _locationController,
                       style: widget.theme.textTheme.bodyLarge,
                       decoration: InputDecoration(
                         hintText: "Add city...",
                         hintStyle: widget.theme.textTheme.bodySmall,
                         border: InputBorder.none,
+                        errorText: _locationError,
                       ),
+                      onChanged: (v) {
+                        if (_locationError != null) {
+                          setState(() => _locationError = null);
+                        }
+                      },
                     ),
                   ),
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
-                    "Salary Range (k/year)",
+                    "Salary Range",
                     style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -954,7 +1015,52 @@ class _FilterModalState extends State<_FilterModal> {
                             )
                             .toList(),
                   ),
-                  const SizedBox(height: 100),
+                  // const SizedBox(height: 100),
+                  // Add this after the Job Type section in your Column
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Work Mode",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children: ["Onsite", "Remote", "Hybrid"].map((e) => _choiceChip(
+                      e,
+                      workMode == e,
+                          (s) => setState(() => workMode = e),
+                    )).toList(),
+                  ),
+
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Company Type",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children: ["MNC", "Startup", "Government", "NGO"].map((e) => _choiceChip(
+                      e,
+                      companyType == e,
+                          (s) => setState(() => companyType = e),
+                    )).toList(),
+                  ),
+
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Industry",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children: ["Technology", "Finance", "Healthcare", "Education"].map((e) => _choiceChip(
+                      e,
+                      industryType == e,
+                          (s) => setState(() => industryType = e),
+                    )).toList(),
+                  ),
                 ],
               ),
             ),
@@ -962,13 +1068,18 @@ class _FilterModalState extends State<_FilterModal> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: ElevatedButton(
+
               onPressed: () {
                 widget.onApply({
                   'easyApply': easyApply,
-                  'remoteOnly': remoteOnly,
+                  'activelyHiring': activelyHiring,
                   'expLevel': experienceLevel,
                   'jobType': jobType,
+                  'workMode': workMode,
+                  'companyType': companyType,
+                  'industryType': industryType,
                   'salaryRange': salaryRange,
+                  'location': _locationController.text.trim(),
                 });
                 Navigator.pop(context);
               },
@@ -1084,30 +1195,26 @@ class _SearchModalState extends State<_SearchModal> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   _searchInput(
                     Icons.search,
-                    "Job title, keywords, or company",
+                    "Type Job title ...",
                     keywordsController,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 22),
                   Text(
-                    "Locations",
+                    "Location",
                     style: widget.theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
                   _searchInput(
                     Icons.location_on_outlined,
                     "Type city & hit Enter...",
                     locationController,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Type a city name and press Enter to add it",
-                    style: widget.theme.textTheme.bodySmall,
-                  ),
+
                   const SizedBox(height: 40),
                   ElevatedButton(
                     onPressed: () {

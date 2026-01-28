@@ -121,16 +121,7 @@ class JobService {
     }
   }
 
-  // Future<String?> createJob(Map<String, dynamic> jobData) async {
-  //   final response = await ApiClient.post(ApiConfig.jobs, body: jobData);
-  //
-  //   if (response.statusCode == 201) {
-  //     final Map<String, dynamic> data = jsonDecode(response.body);
-  //     return JobModel.fromJson(data); // 🔥 return created job
-  //   } else {
-  //     throw Exception("Failed to create job: ${response.body}");
-  //   }
-  // }
+
 
   Future<String?> createJob(Map<String, dynamic> jobData) async {
     final response = await ApiClient.post(
@@ -141,10 +132,11 @@ class JobService {
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body);
 
-      return data.toString();
-
+      return data['job_id']?.toString();
     }
-    return null;
+    throw Exception(
+      jsonDecode(response.body)['message'] ?? "Failed to create job",
+    );
   }
 
   Future<bool> applyJob({
@@ -166,35 +158,12 @@ class JobService {
         if (coverNote != null) "cover_note": coverNote,
       },
     );
+    if (response.statusCode != 201) {
+      throw Exception("Failed to apply for job: ${response.body}");
+    }
+    return response.statusCode == 201 ;
 
-    return response.statusCode == 201 || response.statusCode == 200;
   }
-
-
-  // Future<void> applyJob({
-  //   required String jobId,
-  //   required String fullName,
-  //   required String email,
-  //   required String phone,
-  //   String? coverNote,
-  //   required File resumeFile,
-  // }) async {
-  //   final response = await ApiClient.multipart(
-  //     "${ApiConfig.jobs}/$jobId/apply",
-  //     fileField: "resume",
-  //     file: resumeFile,
-  //     fields: {
-  //       "full_name": fullName,
-  //       "email": email,
-  //       "phone": phone,
-  //       if (coverNote != null) "cover_note": coverNote,
-  //     },
-  //   );
-  //
-  //   if (response.statusCode != 201) {
-  //     throw Exception("Failed to apply for job: ${response.body}");
-  //   }
-  // }
 
   Future<void> saveJob(String jobId) async {
     final response = await ApiClient.post("${ApiConfig.jobs}/$jobId/save");

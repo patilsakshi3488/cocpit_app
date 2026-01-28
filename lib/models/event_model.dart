@@ -46,7 +46,7 @@ class EventModel {
     this.isRegistered = false,
     this.isSaved = false,
     this.createdByMe = false,
-    String category = 'General',
+    String category = 'Tech',
     bool isFree = true,
   }) : _category = category, _isFree = isFree;
 

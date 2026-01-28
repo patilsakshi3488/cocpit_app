@@ -223,7 +223,9 @@ class _SignInScreenState extends State<SignInScreen> {
         suffixIcon: suffixIcon,
         filled: true,
         contentPadding: const EdgeInsets.symmetric(vertical: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }
@@ -241,7 +243,8 @@ class _SignInScreenState extends State<SignInScreen> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+              MaterialPageRoute(
+                  builder: (_) => const ForgotPasswordScreen()),
             );
           },
           child: Text(

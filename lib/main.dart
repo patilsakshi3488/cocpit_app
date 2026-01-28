@@ -1,8 +1,10 @@
+import 'dart:ui'; // For PointerDeviceKind
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'services/theme_service.dart';
+import 'services/job_provider.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
 
@@ -23,17 +25,42 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
+
+  @override
+  Widget buildScrollbar(
+      BuildContext context, Widget child, ScrollableDetails details) {
+    return Scrollbar(
+      controller: details.controller,
+      thumbVisibility: true,
+      thickness: 8.0,
+      radius: const Radius.circular(8.0),
+      child: child,
+    );
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeService(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => JobProvider()),
+      ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
+            scrollBehavior: AppScrollBehavior(), // Apply Custom Scroll Behavior
             themeMode: themeService.themeMode,
             theme: themeService.lightTheme,
             darkTheme: themeService.currentTheme == AppTheme.navy

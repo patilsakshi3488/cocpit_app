@@ -52,6 +52,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     try {
       final data = await PublicUserService.getUserProfile(widget.userId);
 
+      debugPrint("load profile"+widget.userId);
       // Fetch Posts
       final postsData = await FeedApi.fetchUserPosts(userId: widget.userId);
       final fetchedPosts = List<Map<String, dynamic>>.from(

@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
+
 import '../config/api_config.dart';
 import '../models/event_model.dart';
 import 'api_client.dart';
@@ -13,7 +15,8 @@ class EventService {
   }) async {
     String query = "";
     List<String> params = [];
-    if (location != null && location.isNotEmpty) params.add("location=$location");
+    if (location != null && location.isNotEmpty) params.add(
+        "location=$location");
     if (type != null && type.isNotEmpty) params.add("type=$type");
     if (date != null && date.isNotEmpty) params.add("date=$date");
 
@@ -22,16 +25,24 @@ class EventService {
     }
 
     final response = await ApiClient.get("${ApiConfig.events}$query");
+    debugPrint("Status: ${response.statusCode}");
+    debugPrint("Body: ${response.body}");
+
 
     if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      return data.map((e) => EventModel.fromJson(e)).toList();
+      final Map<String, dynamic> body = jsonDecode(response.body);
+
+      final List items = body['items'] ?? [];
+
+      return items
+          .map((e) => EventModel.fromJson(e))
+          .toList();
     } else {
       throw Exception("Failed to load events");
     }
   }
 
-  /// Get event details by ID
+    /// Get event details by ID
   static Future<EventModel> getEventById(String id) async {
     final response = await ApiClient.get("${ApiConfig.events}/$id");
 

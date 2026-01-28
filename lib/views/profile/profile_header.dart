@@ -36,11 +36,8 @@ class ProfileHeader extends StatelessWidget {
     if (p.startsWith('http')) return path; // Return original if http
 
     if (p.startsWith('uploads/')) {
-      final base = ApiConfig.baseUrl; // e.g. http://192.168.1.13:5000/api
+      final base = ApiConfig.baseUrl;
       final root = base.replaceAll('/api', '');
-
-      // Ensure p doesn't have leading slash if root has trailing, or vice versa
-      // actually logic: root + / + p
 
       if (root.endsWith('/')) {
         return '$root$p';
@@ -107,20 +104,26 @@ class ProfileHeader extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.topRight,
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 8, top: 8),
+                    padding: const EdgeInsets.only(right: 8, top: 4),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (isReadOnly)
-                          const BackButton(color: Colors.white)
+                           BackButton(color:colorScheme.onPrimary)
                         else
-                          IconButton(
-                            icon: Icon(
-                              Icons.menu,
-                              color: colorScheme.onPrimary,
+                          Material(
+                            color: colorScheme.primary.withOpacity(0.1), // circle background
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              splashRadius: 12,
+                              icon: Icon(
+                                Icons.menu,
+                                color: colorScheme.surface,
+                              ),
+                              onPressed: onMenuPressed,
                             ),
-                            onPressed: onMenuPressed,
-                          ),
+                          )
+
                       ],
                     ),
                   ),

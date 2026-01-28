@@ -20,6 +20,8 @@ class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
   int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
 
+  Map<String, dynamic> _currentFilters = {};
+
   @override
   void initState() {
     super.initState();
@@ -704,15 +706,20 @@ class _JobsScreenState extends State<JobsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => _FilterModal(
         theme: theme,
+        initialFilters: _currentFilters,
         onApply: (filters) {
+          setState(() => _currentFilters = filters);
           Provider.of<JobProvider>(context, listen: false).fetchJobs(
              easyApply: filters['easyApply'],
              activelyHiring: filters['activelyHiring'],
-             workMode: filters['remoteOnly'] == true ? 'Remote' : null,
+             workMode: filters['workMode'],
              experienceLevel: filters['expLevel'] != 'All Levels' ? filters['expLevel'] : null,
              jobType: filters['jobType'] != 'Full-time' ? filters['jobType'] : null,
              minSalary: (filters['salaryRange'] as RangeValues).start.round() * 1000,
              maxSalary: (filters['salaryRange'] as RangeValues).end.round() * 1000,
+             location: filters['location'],
+             companyType: filters['companyType'],
+             industry: filters['industryType'],
           );
         },
       ),
@@ -785,8 +792,9 @@ class _JobsScreenState extends State<JobsScreen> {
 
 class _FilterModal extends StatefulWidget {
   final ThemeData theme;
+  final Map<String, dynamic>? initialFilters;
   final Function(Map<String, dynamic>) onApply;
-  const _FilterModal({required this.theme, required this.onApply});
+  const _FilterModal({required this.theme, this.initialFilters, required this.onApply});
   @override
   State<_FilterModal> createState() => _FilterModalState();
 }
@@ -794,10 +802,37 @@ class _FilterModal extends StatefulWidget {
 class _FilterModalState extends State<_FilterModal> {
   bool easyApply = false;
   bool activelyHiring = false;
-  bool remoteOnly = false;
   String experienceLevel = "All Levels";
   String jobType = "Full-time";
   RangeValues salaryRange = const RangeValues(50, 200);
+
+  late TextEditingController _locationController;
+  String workMode = "Onsite";
+  String companyType = "MNC";
+  String industryType = "Technology";
+  String? _locationError;
+
+  @override
+  void initState() {
+    super.initState();
+    final f = widget.initialFilters ?? {};
+    easyApply = f['easyApply'] ?? false;
+    activelyHiring = f['activelyHiring'] ?? false;
+    experienceLevel = f['expLevel'] ?? "All Levels";
+    jobType = f['jobType'] ?? "Full-time";
+    salaryRange = f['salaryRange'] ?? const RangeValues(50, 200);
+
+    _locationController = TextEditingController(text: f['location'] ?? "");
+    workMode = f['workMode'] ?? "Onsite";
+    companyType = f['companyType'] ?? "MNC";
+    industryType = f['industryType'] ?? "Technology";
+  }
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -838,10 +873,14 @@ class _FilterModalState extends State<_FilterModal> {
                           setState(() {
                             easyApply = false;
                             activelyHiring = false;
-                            remoteOnly = false;
                             experienceLevel = "All Levels";
                             jobType = "Full-time";
                             salaryRange = const RangeValues(50, 200);
+                            _locationController.clear();
+                            workMode = "Onsite";
+                            companyType = "MNC";
+                            industryType = "Technology";
+                            _locationError = null;
                           });
                         },
                         child: Text(
@@ -862,11 +901,6 @@ class _FilterModalState extends State<_FilterModal> {
                     activelyHiring,
                     (v) => setState(() => activelyHiring = v),
                   ),
-                  _switchOption(
-                    "Remote Only",
-                    remoteOnly,
-                    (v) => setState(() => remoteOnly = v),
-                  ),
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Location",
@@ -884,12 +918,19 @@ class _FilterModalState extends State<_FilterModal> {
                       border: Border.all(color: widget.theme.dividerColor),
                     ),
                     child: TextField(
+                      controller: _locationController,
                       style: widget.theme.textTheme.bodyLarge,
                       decoration: InputDecoration(
                         hintText: "Add city...",
                         hintStyle: widget.theme.textTheme.bodySmall,
                         border: InputBorder.none,
+                        errorText: _locationError,
                       ),
+                      onChanged: (v) {
+                        if (_locationError != null) {
+                          setState(() => _locationError = null);
+                        }
+                      },
                     ),
                   ),
                   Divider(color: widget.theme.dividerColor, height: 40),
@@ -954,6 +995,69 @@ class _FilterModalState extends State<_FilterModal> {
                             )
                             .toList(),
                   ),
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Work Mode",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children:
+                    ["Onsite", "Remote", "Hybrid"]
+                        .map(
+                          (e) => _choiceChip(
+                        e,
+                        workMode == e,
+                            (s) => setState(() => workMode = e),
+                      ),
+                    )
+                        .toList(),
+                  ),
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Company Type",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children:
+                    ["MNC", "Startup", "Product", "Service"]
+                        .map(
+                          (e) => _choiceChip(
+                        e,
+                        companyType == e,
+                            (s) => setState(() => companyType = e),
+                      ),
+                    )
+                        .toList(),
+                  ),
+                  Divider(color: widget.theme.dividerColor, height: 40),
+                  Text(
+                    "Industry",
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    children:
+                    ["Technology", "Healthcare", "Finance", "Education"]
+                        .map(
+                          (e) => _choiceChip(
+                        e,
+                        industryType == e,
+                            (s) => setState(() => industryType = e),
+                      ),
+                    )
+                        .toList(),
+                  ),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -963,12 +1067,20 @@ class _FilterModalState extends State<_FilterModal> {
             padding: const EdgeInsets.all(24),
             child: ElevatedButton(
               onPressed: () {
+                if (_locationController.text.trim().isEmpty) {
+                  setState(() => _locationError = "Location is required");
+                  return;
+                }
                 widget.onApply({
                   'easyApply': easyApply,
-                  'remoteOnly': remoteOnly,
+                  'activelyHiring': activelyHiring,
+                  'workMode': workMode,
                   'expLevel': experienceLevel,
                   'jobType': jobType,
                   'salaryRange': salaryRange,
+                  'location': _locationController.text.trim(),
+                  'companyType': companyType,
+                  'industryType': industryType,
                 });
                 Navigator.pop(context);
               },

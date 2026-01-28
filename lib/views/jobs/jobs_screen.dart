@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import '../bottom_navigation.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../models/job_model.dart';
 import '../../services/job_provider.dart';
+import '../../services/secure_storage.dart';
 import 'job_details_screen.dart';
 import 'job_applicants_screen.dart';
 
@@ -34,13 +36,31 @@ class _JobsScreenState extends State<JobsScreen> {
   String _datePosted = "Any time";
   String? _companyType;
   String _industry = "";
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
+    _checkAdminStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+  }
+
+  Future<void> _checkAdminStatus() async {
+    try {
+      final userJson = await AppSecureStorage.getUser();
+      if (userJson != null) {
+        final Map<String, dynamic> raw = jsonDecode(userJson);
+        final user = raw['user'] ?? raw;
+        final accountType = user['accountType']?.toString().toLowerCase();
+        if (accountType == 'admin') {
+          setState(() => _isAdmin = true);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking admin status: $e");
+    }
   }
 
   @override
@@ -121,7 +141,7 @@ class _JobsScreenState extends State<JobsScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _postJobHeader(theme)),
+            if (_isAdmin) SliverToBoxAdapter(child: _postJobHeader(theme)),
             SliverToBoxAdapter(child: _tabs(theme, provider)),
             _contentArea(theme, provider),
           ],
@@ -1388,22 +1408,39 @@ class _PostJobModalState extends State<_PostJobModal> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _isPosting ? null : () {
-                            if (titleController.text.isEmpty ||
-                                companyController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                   const SnackBar(content: Text("Title and Company are required")),
-                                );
+                            if (titleController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job title is required")));
                               return;
                             }
-                            setState(() => _isPosting = true);
+                            if (companyController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Company name is required")));
+                              return;
+                            }
+                            if (descriptionController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job description is required")));
+                              return;
+                            }
 
-                            // Simple parsing of salary for now
                             int minSal = 0;
                             int maxSal = 0;
-                            try {
-                              minSal = int.parse(minSalaryController.text);
-                              maxSal = int.parse(maxSalaryController.text); // Simplification
-                            } catch (_) {}
+                            if (minSalaryController.text.isNotEmpty) {
+                              final parsed = int.tryParse(minSalaryController.text);
+                              if (parsed == null || parsed < 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid minimum salary")));
+                                return;
+                              }
+                              minSal = parsed;
+                            }
+                            if (maxSalaryController.text.isNotEmpty) {
+                              final parsed = int.tryParse(maxSalaryController.text);
+                              if (parsed == null || parsed < 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid maximum salary")));
+                                return;
+                              }
+                              maxSal = parsed;
+                            }
+
+                            setState(() => _isPosting = true);
 
                             final newJob = {
                               'title': titleController.text,

@@ -186,10 +186,30 @@ class _ApplyJobScreenState extends State<ApplyJobScreen> {
             ),
             const SizedBox(height: 20),
             _input(theme, 'Full Name', nameCtrl),
-            _input(theme, 'Email Address', emailCtrl,
-                keyboard: TextInputType.emailAddress),
-            _input(theme, 'Phone Number', phoneCtrl,
-                keyboard: TextInputType.phone),
+            _input(
+              theme,
+              'Email Address',
+              emailCtrl,
+              keyboard: TextInputType.emailAddress,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Email is required';
+                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                if (!emailRegex.hasMatch(v.trim())) return 'Enter a valid email address';
+                return null;
+              },
+            ),
+            _input(
+              theme,
+              'Phone Number',
+              phoneCtrl,
+              keyboard: TextInputType.phone,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Phone number is required';
+                final phoneRegex = RegExp(r'^\+?[0-9]{10,15}$');
+                if (!phoneRegex.hasMatch(v.trim())) return 'Enter a valid phone number';
+                return null;
+              },
+            ),
             _input(theme, 'Resume Link (PDF / Drive URL)', resumeCtrl),
           ],
         ),
@@ -266,7 +286,7 @@ class _ApplyJobScreenState extends State<ApplyJobScreen> {
   /* ================= UI HELPERS ================= */
 
   Widget _input(ThemeData theme, String hint, TextEditingController ctrl,
-      {TextInputType keyboard = TextInputType.text}) {
+      {TextInputType keyboard = TextInputType.text, String? Function(String?)? validator}) {
     final colorScheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -274,8 +294,7 @@ class _ApplyJobScreenState extends State<ApplyJobScreen> {
         controller: ctrl,
         keyboardType: keyboard,
         style: theme.textTheme.bodyLarge,
-        validator: (v) =>
-        v == null || v.isEmpty ? 'This field is required' : null,
+        validator: validator ?? (v) => v == null || v.isEmpty ? 'This field is required' : null,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),

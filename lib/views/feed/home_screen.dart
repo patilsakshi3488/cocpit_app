@@ -19,12 +19,12 @@ import '../../widgets/poll_widget.dart';
 import '../../widgets/time_ago_widget.dart';
 import 'search_screen.dart';
 import '../post/create_post_screen.dart';
-import '../../services/secure_storage.dart';
 import '../profile/profile_screen.dart';
 import '../../main.dart'; // To access routeObserver
 import '../bottom_navigation.dart';
 import '../../services/notification_service.dart';
-import 'notification_screen.dart';
+import 'widgets/edit_post_modal.dart';
+import 'widgets/share_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -81,14 +81,11 @@ class _HomeScreenState extends State<HomeScreen>
             action: SnackBarAction(
               label: 'View',
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationScreen()),
-                );
+                NotificationService.navigateToNotificationTarget(context, data);
               },
             ),
-            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -198,6 +195,108 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       debugPrint("❌ Failed to refresh post: $e");
     }
+  }
+
+  Future<void> _handleDeletePost(String postId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Post"),
+        content: const Text("Are you sure you want to delete this post?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await FeedApi.deletePost(postId);
+        if (mounted) {
+          setState(() {
+            feedPosts.removeWhere(
+              (p) =>
+                  (p['post_id']?.toString() ?? p['id']?.toString()) == postId,
+            );
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Post deleted successfully")),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Failed to delete: $e")));
+        }
+      }
+    }
+  }
+
+  Future<void> _handleEditPost(String postId) async {
+    final postIndex = feedPosts.indexWhere(
+      (p) => (p['post_id']?.toString() ?? p['id']?.toString()) == postId,
+    );
+    if (postIndex == -1) return;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => EditPostModal(post: feedPosts[postIndex]),
+    );
+
+    if (result == true) {
+      _refreshPost(feedPosts[postIndex]);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Post updated successfully")),
+      );
+    }
+  }
+
+  Future<void> _handlePrivacyChange(String postId, bool isPrivate) async {
+    try {
+      await FeedApi.setPostVisibility(postId, isPrivate);
+      if (mounted) {
+        setState(() {
+          final index = feedPosts.indexWhere(
+            (p) => (p['post_id']?.toString() ?? p['id']?.toString()) == postId,
+          );
+          if (index != -1) {
+            feedPosts[index]['visibility'] = isPrivate ? 'private' : 'public';
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Post visibility updated to ${isPrivate ? 'private' : 'public'}",
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update visibility")),
+        );
+      }
+    }
+  }
+
+  void _onShareTap(Map<String, dynamic> post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ShareSheet(post: post),
+    );
   }
 
   // ... (Search Logic unchanged) ...
@@ -419,10 +518,94 @@ class _HomeScreenState extends State<HomeScreen>
                 ],
               ),
             ),
-            Icon(Icons.more_vert, color: theme.iconTheme.color),
+            _buildPostMenu(post, theme),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPostMenu(Map<String, dynamic> post, ThemeData theme) {
+    final postId = post['post_id']?.toString() ?? post['id']?.toString() ?? "";
+    final isPrivate = post['visibility'] == 'private';
+
+    // Check ownership
+    bool isMine = false;
+    // We can use a simple check or more robust one
+    final authorId = post["author_id"]?.toString();
+    // Assuming currentUserId logic exists or use a simple check
+
+    return FutureBuilder<String?>(
+      future: AppSecureStorage.getCurrentUserId(),
+      builder: (context, snapshot) {
+        final currentUserId = snapshot.data;
+        isMine = currentUserId != null && authorId == currentUserId;
+
+        if (isMine) {
+          return PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'edit') _handleEditPost(postId);
+              if (value == 'privacy') _handlePrivacyChange(postId, !isPrivate);
+              if (value == 'delete') _handleDeletePost(postId);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 18),
+                    SizedBox(width: 8),
+                    Text("Edit Post"),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'privacy',
+                child: Row(
+                  children: [
+                    Icon(
+                      isPrivate ? Icons.public : Icons.lock_outline,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(isPrivate ? "Make Public" : "Make Private"),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text("Delete", style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+            child: Icon(Icons.more_vert, color: theme.iconTheme.color),
+          );
+        }
+
+        return PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'share') _onShareTap(post);
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'share',
+              child: Row(
+                children: [
+                  Icon(Icons.share, size: 18),
+                  SizedBox(width: 8),
+                  Text("Share"),
+                ],
+              ),
+            ),
+          ],
+          child: Icon(Icons.more_vert, color: theme.iconTheme.color),
+        );
+      },
     );
   }
 
@@ -555,14 +738,7 @@ class _HomeScreenState extends State<HomeScreen>
 
         // SHARE
         InkWell(
-          onTap: () {
-            Clipboard.setData(
-              ClipboardData(text: "https://example.com/post/$postId"),
-            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Link copied to clipboard")),
-            );
-          },
+          onTap: () => _onShareTap(post),
           child: _action(Icons.share_outlined, "Share", theme: theme),
         ),
       ],

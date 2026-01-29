@@ -128,7 +128,17 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             const SizedBox(width: 12),
-            Expanded(child: searchField),
+            if (searchType == SearchType.notifications)
+              Expanded(
+                child: Text(
+                  "Notifications",
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            else
+              Expanded(child: searchField),
             const SizedBox(width: 8),
             if (searchType != SearchType.notifications)
               StreamBuilder<int>(
@@ -181,7 +191,8 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                   );
                 },
               ),
-            if (searchType != SearchType.chat)
+            if (searchType != SearchType.chat &&
+                searchType != SearchType.notifications)
               IconButton(
                 icon: Icon(
                   Icons.chat_bubble_outline,

@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/time_ago_widget.dart';
-import '../../services/feed_service.dart';
-import '../profile/public_profile_screen.dart';
-import '../feed/post_detail_screen.dart';
-import '../feed/chat_screen.dart'; // For PersonalChatScreen
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -35,16 +31,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(
-                    "Notifications",
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                   TextButton(
                     onPressed: () {
                       _notificationService.markAllAsRead();
@@ -63,6 +53,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
                 stream: _notificationService.notificationsStream,
+                initialData: _notificationService.currentNotifications,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
@@ -104,90 +95,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _handleNotificationTap(Map<String, dynamic> n) async {
-    // 1. Mark as read
-    if (n['is_read'] != true) {
-      _notificationService.markAsRead(n['notification_id']);
-    }
-
-    // 2. Extract Data
-    final String type = n['type'] ?? '';
-    final String? actorId = n['actor_id'] ?? n['sender_id'];
-    final String? actorName = n['actor_name'] ?? n['sender_name'] ?? 'User';
-    final String? actorAvatar = n['actor_avatar'] ?? n['sender_avatar'];
-
-    // Reference ID usually holds the target (Post ID, Comment ID, etc.)
-    final String? referenceId =
-        n['reference_id']?.toString() ?? n['post_id']?.toString();
-
-    debugPrint(
-      "🔔 Tapped Notification: Type=$type, Ref=$referenceId, Actor=$actorId",
-    );
-
-    // 3. Navigation Logic
-    try {
-      if (type == 'follow') {
-        if (actorId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PublicProfileScreen(userId: actorId),
-            ),
-          );
-        }
-      } else if (type == 'like' || type == 'comment') {
-        if (referenceId != null) {
-          // Show loading
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => const Center(child: CircularProgressIndicator()),
-          );
-
-          // Fetch Post
-          final post = await FeedApi.fetchSinglePost(referenceId);
-
-          // Hide loading
-          if (mounted) Navigator.pop(context);
-
-          if (post != null && mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-            );
-          } else if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Post not found or deleted")),
-            );
-          }
-        }
-      } else if (type == 'message') {
-        final conversationId = n['conversation_id']?.toString();
-
-        if (conversationId != null && actorId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PersonalChatScreen(
-                conversationId: conversationId,
-                otherUser: {
-                  'id': actorId,
-                  'name': actorName,
-                  'avatar': actorAvatar,
-                  'headline': '', // Optional
-                },
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint("❌ Navigation Error: $e");
-      if (mounted) {
-        // Ensure loading dialog is closed if error occurred
-        // checking route stack might be complex, simplified check:
-        // Navigator.pop(context); // Risky if dialog wasn't open
-      }
-    }
+    if (!mounted) return;
+    await NotificationService.navigateToNotificationTarget(context, n);
   }
 }
 
@@ -222,7 +131,10 @@ class _NotificationItem extends StatelessWidget {
     } else if (type == 'comment') {
       icon = Icons.comment;
       iconColor = Colors.purple;
-    } else if (type == 'message') {
+    } else if (type == 'share') {
+      icon = Icons.share;
+      iconColor = Colors.orange;
+    } else if (type == 'message' || type == 'chat') {
       icon = Icons.message;
       iconColor = Colors.green;
     }
@@ -247,18 +159,33 @@ class _NotificationItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar or Icon
-            if (avatarUrl != null && avatarUrl.isNotEmpty)
-              CircleAvatar(backgroundImage: NetworkImage(avatarUrl), radius: 20)
-            else
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
+            // Avatar or Icon (Target: Profile)
+            GestureDetector(
+              onTap: () {
+                final actorId =
+                    (notification['actor_id'] ?? notification['sender_id'])
+                        ?.toString();
+                if (actorId != null) {
+                  NotificationService.navigateToNotificationTarget(context, {
+                    'type': 'follow',
+                    'actor_id': actorId,
+                  });
+                }
+              },
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? CircleAvatar(
+                      backgroundImage: NetworkImage(avatarUrl),
+                      radius: 20,
+                    )
+                  : Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: iconColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: iconColor, size: 20),
+                    ),
+            ),
 
             const SizedBox(width: 16),
             Expanded(

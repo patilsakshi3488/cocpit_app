@@ -45,8 +45,8 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
   wechat_assets_picker: ^10.1.0
   file_picker: ^8.0.0
-#  socket_io_client: ^3.1.4
-  socket_io_client: ^2.0.3+1
+  socket_io_client: ^3.1.4
+  #socket_io_client: ^2.0.3+1
 
 dev_dependencies:
   flutter_test:

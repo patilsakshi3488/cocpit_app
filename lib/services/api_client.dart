@@ -44,6 +44,20 @@ class ApiClient {
     );
   }
 
+  // ===================== PATCH =====================
+  static Future<http.Response> patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    return _authorizedRequest(
+      (headers) => http.patch(
+        Uri.parse("${ApiConfig.baseUrl}$path"),
+        headers: headers,
+        body: body != null ? jsonEncode(body) : null,
+      ),
+    );
+  }
+
   // ===================== DELETE =====================
   static Future<http.Response> delete(String path) async {
     return _authorizedRequest(

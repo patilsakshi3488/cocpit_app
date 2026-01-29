@@ -614,7 +614,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _divider(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Divider(color: theme.dividerColor, thickness: 1, height: 80),
+      child: Divider(color: theme.dividerColor, thickness: 1, height: 32),
     );
   }
 

@@ -342,6 +342,7 @@ class ProfileService {
   Future<bool> followUser(String userId) async {
     try {
       final response = await ApiClient.post("/users/$userId/follow");
+      debugPrint("Follow Response: ${response.statusCode} | ${response.body}");
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       return false;
@@ -350,7 +351,10 @@ class ProfileService {
 
   Future<bool> unfollowUser(String userId) async {
     try {
-      final response = await ApiClient.delete("/users/$userId/follow");
+      final response = await ApiClient.delete("/users/$userId/unfollow");
+      debugPrint(
+        "Unfollow Response: ${response.statusCode} | ${response.body}",
+      );
       return response.statusCode == 200;
     } catch (e) {
       return false;

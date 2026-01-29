@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../services/feed_service.dart';
+import '../../widgets/time_ago_widget.dart';
 
 class CommentsSheet extends StatefulWidget {
   final String postId;
   final VoidCallback? onCommentAdded;
 
-  const CommentsSheet({
-    super.key,
-    required this.postId,
-    this.onCommentAdded,
-  });
+  const CommentsSheet({super.key, required this.postId, this.onCommentAdded});
 
   @override
   State<CommentsSheet> createState() => _CommentsSheetState();
@@ -72,9 +68,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
     } catch (e) {
       debugPrint("❌ Comment failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to post comment")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to post comment")));
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -242,8 +238,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     ),
                     const SizedBox(width: 8),
                     if (date != null)
-                      Text(
-                        _formatTimeAgo(date),
+                      TimeAgoWidget(
+                        dateTime: date,
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 10,
                         ),
@@ -258,20 +254,5 @@ class _CommentsSheetState extends State<CommentsSheet> {
         ],
       ),
     );
-  }
-
-  String _formatTimeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays > 7) {
-      return DateFormat.yMMMd().format(date);
-    } else if (diff.inDays > 0) {
-      return "${diff.inDays}d ago";
-    } else if (diff.inHours > 0) {
-      return "${diff.inHours}h ago";
-    } else if (diff.inMinutes > 0) {
-      return "${diff.inMinutes}m ago";
-    } else {
-      return "Just now";
-    }
   }
 }

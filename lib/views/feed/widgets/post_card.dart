@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../../../services/post_provider.dart';
 import '../../../../services/feed_service.dart';
 import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
@@ -40,6 +42,13 @@ class _PostCardState extends State<PostCard> {
   void initState() {
     super.initState();
     post = widget.post;
+    // Register the post with the provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<PostProvider>().updatePost(widget.post);
+      }
+    });
+
     _loadCurrentUser();
     _checkInitialCommentCount();
   }
@@ -48,6 +57,8 @@ class _PostCardState extends State<PostCard> {
   void didUpdateWidget(PostCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.post != oldWidget.post) {
+      // If widget updates, update provider too
+      context.read<PostProvider>().updatePost(widget.post);
       setState(() {
         post = widget.post;
       });
@@ -70,9 +81,11 @@ class _PostCardState extends State<PostCard> {
       try {
         final comments = await FeedApi.fetchComments(postId);
         if (mounted && comments.isNotEmpty) {
-          setState(() {
-            post["comment_count"] = comments.length;
-          });
+          // Instead of local setState, update provider if possible, but for now
+          // let's stick to local + provider sync
+           final newMap = Map<String, dynamic>.from(post);
+           newMap["comment_count"] = comments.length;
+           context.read<PostProvider>().updatePost(newMap);
         }
       } catch (_) {
         // Ignore errors, keep 0
@@ -153,6 +166,17 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Listen to changes for this post from the provider
+    final providerPost = context.select<PostProvider, Map<String, dynamic>?>(
+      (provider) => provider.getPost(postId),
+    );
+
+    // Use provider data if available, otherwise fallback to local/widget data
+    if (providerPost != null) {
+      post = providerPost;
+    }
+
     final List media = post["media"] ?? post["media_urls"] ?? [];
 
     final normalizedMedia = media.map((m) {
@@ -515,11 +539,11 @@ class _PostCardState extends State<PostCard> {
           onTap: () async {
             if (currentPostId.isEmpty) return;
             try {
-              setState(() {
-                post["is_liked"] = !post["is_liked"];
-              });
-              await FeedApi.toggleLike(currentPostId);
-            } catch (_) {}
+              // Use provider to toggle like
+              await context.read<PostProvider>().toggleLike(currentPostId);
+            } catch (_) {
+              // Error handling is done in provider (revert)
+            }
           },
           child: _action(
             isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
@@ -538,24 +562,7 @@ class _PostCardState extends State<PostCard> {
               builder: (context) => CommentsSheet(
                 postId: currentPostId,
                 onCommentAdded: () {
-                  if (mounted) {
-                    setState(() {
-                      // Increment local count
-                      final current =
-                          post["comment_count"] ??
-                          post["comments_count"] ??
-                          post["_count"]?["comments"] ??
-                          0;
-
-                      // Convert to int safely
-                      int count = 0;
-                      if (current is int) count = current;
-                      if (current is String) count = int.tryParse(current) ?? 0;
-
-                      // Update preferred field
-                      post["comment_count"] = count + 1;
-                    });
-                  }
+                   context.read<PostProvider>().incrementCommentCount(currentPostId);
                 },
               ),
             );

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import '../bottom_navigation.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../models/job_model.dart';
 import '../../services/job_provider.dart';
+import '../../services/secure_storage.dart';
 import '../profile/profile_models.dart';
 import 'job_details_screen.dart';
 import 'job_applicants_screen.dart';
@@ -20,6 +22,7 @@ class JobsScreen extends StatefulWidget {
 class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
   int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
+  bool _isAdmin = false;
 
   Map<String, dynamic> _currentFilters = {};
   @override
@@ -27,7 +30,26 @@ class _JobsScreenState extends State<JobsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
+      _checkAdminRole();
     });
+  }
+
+  Future<void> _checkAdminRole() async {
+    try {
+      final userJson = await AppSecureStorage.getUser();
+      if (userJson != null) {
+        final Map<String, dynamic> user = jsonDecode(userJson);
+        final accountType = user['accountType'] ?? user['account_type'];
+        if (accountType != null &&
+            accountType.toString().toLowerCase() == 'admin') {
+          setState(() {
+            _isAdmin = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking admin role: $e");
+    }
   }
 
   void _loadData() {
@@ -74,7 +96,7 @@ class _JobsScreenState extends State<JobsScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _postJobHeader(theme)),
+            if (_isAdmin) SliverToBoxAdapter(child: _postJobHeader(theme)),
             SliverToBoxAdapter(child: _tabs(theme, provider)),
             _contentArea(theme, provider),
           ],
@@ -1306,6 +1328,13 @@ class _PostJobModalState extends State<_PostJobModal> {
 
   bool _isPosting = false;
 
+  // Error states
+  String? _titleError;
+  String? _companyError;
+  String? _locationError;
+  String? _empTypeError;
+  String? _workModeError;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1351,23 +1380,41 @@ class _PostJobModalState extends State<_PostJobModal> {
                 children: [
                   _sectionHeader("Job Details"),
                   _inputLabel("Job Title *"),
-                  _textField(titleController, "e.g. Senior Frontend Engineer"),
+                  _textField(
+                    titleController,
+                    "e.g. Senior Frontend Engineer",
+                    errorText: _titleError,
+                  ),
                   _inputLabel("Employment Type *"),
-                  _dropdown(empType, [
-                    "Full-time",
-                    "Part-time",
-                    "Contract",
-                    "Freelancer",
-                    "Internship",
-                  ], (v) => setState(() => empType = v!)),
+                  _dropdown(
+                    empType,
+                    [
+                      "Full-time",
+                      "Part-time",
+                      "Contract",
+                      "Freelancer",
+                      "Internship",
+                    ],
+                    (v) => setState(() => empType = v!),
+                    errorText: _empTypeError,
+                  ),
                   _inputLabel("Location *"),
-                  _textField(locationController, "e.g. San Francisco, CA"),
+                  _textField(
+                    locationController,
+                    "e.g. San Francisco, CA",
+                    errorText: _locationError,
+                  ),
                   _inputLabel("Work Mode *"),
-                  _dropdown(workMode, [
-                    "Onsite",
-                    "Hybrid",
-                    "Remote",
-                  ], (v) => setState(() => workMode = v!)),
+                  _dropdown(
+                    workMode,
+                    [
+                      "Onsite",
+                      "Hybrid",
+                      "Remote",
+                    ],
+                    (v) => setState(() => workMode = v!),
+                    errorText: _workModeError,
+                  ),
                   _inputLabel("Salary Range"),
                   Row(
                     children: [
@@ -1419,7 +1466,11 @@ class _PostJobModalState extends State<_PostJobModal> {
                   const SizedBox(height: 32),
                   _sectionHeader("Company Information"),
                   _inputLabel("Company Name *"),
-                  _textField(companyController, "e.g. Google"),
+                  _textField(
+                    companyController,
+                    "e.g. Google",
+                    errorText: _companyError,
+                  ),
                   _inputLabel("Company Type"),
                   Wrap(
                     spacing: 10,
@@ -1504,13 +1555,22 @@ class _PostJobModalState extends State<_PostJobModal> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _isPosting ? null : () {
-                            if (titleController.text.isEmpty ||
-                                companyController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                   const SnackBar(content: Text("Title and Company are required")),
-                                );
-                              return;
+                            // Validation
+                            bool isValid = true;
+                            setState(() {
+                              _titleError = titleController.text.isEmpty ? "Title is required" : null;
+                              _companyError = companyController.text.isEmpty ? "Company is required" : null;
+                              _locationError = locationController.text.isEmpty ? "Location is required" : null;
+                              _empTypeError = empType.isEmpty ? "Employment Type is required" : null;
+                              _workModeError = workMode.isEmpty ? "Work Mode is required" : null;
+                            });
+
+                            if (_titleError != null || _companyError != null || _locationError != null || _empTypeError != null || _workModeError != null) {
+                              isValid = false;
                             }
+
+                            if (!isValid) return;
+
                             setState(() => _isPosting = true);
 
                             // Simple parsing of salary for now
@@ -1615,6 +1675,7 @@ class _PostJobModalState extends State<_PostJobModal> {
     TextEditingController controller,
     String hint, {
     int maxLines = 1,
+    String? errorText,
   }) {
     return TextField(
       controller: controller,
@@ -1639,6 +1700,7 @@ class _PostJobModalState extends State<_PostJobModal> {
           horizontal: 16,
           vertical: 14,
         ),
+        errorText: errorText,
       ),
     );
   }
@@ -1646,35 +1708,51 @@ class _PostJobModalState extends State<_PostJobModal> {
   Widget _dropdown(
     String value,
     List<String> items,
-    Function(String?) onChanged,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.theme.dividerColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          items: items
-              .map(
-                (e) => DropdownMenuItem(
-                  value: e,
-                  child: Text(e, style: widget.theme.textTheme.bodyLarge),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
-          dropdownColor: widget.theme.cardColor,
-          icon: Icon(
-            Icons.keyboard_arrow_down,
-            color: widget.theme.textTheme.bodySmall?.color,
+    Function(String?) onChanged, {
+    String? errorText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: errorText != null ? Colors.red : widget.theme.dividerColor,
+            ),
           ),
-          isExpanded: true,
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              items: items
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e, style: widget.theme.textTheme.bodyLarge),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
+              dropdownColor: widget.theme.cardColor,
+              icon: Icon(
+                Icons.keyboard_arrow_down,
+                color: widget.theme.textTheme.bodySmall?.color,
+              ),
+              isExpanded: true,
+            ),
+          ),
         ),
-      ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 12),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'services/theme_service.dart';
 import 'services/job_provider.dart';
+import 'services/post_provider.dart';
 import 'services/auth_service.dart';
 import 'services/secure_storage.dart';
 import 'services/socket_service.dart';
@@ -83,6 +84,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeService()),
         ChangeNotifierProvider(create: (_) => JobProvider()),
+        ChangeNotifierProvider(create: (_) => PostProvider()),
       ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {

@@ -42,24 +42,41 @@ class SocialService {
   /// Returns the created message object or null on failure
   Future<Map<String, dynamic>?> sendMessage({
     required String targetUserId,
-    required String content,
+    String? content,
+    String? sharedPostId,
+    Map<String, dynamic>? sharedPostData,
   }) async {
     try {
-      final response = await ApiClient.post(
-        "/messages",
-        body: {"targetUserId": targetUserId, "text_content": content},
-      );
+      final Map<String, dynamic> body = {"targetUserId": targetUserId};
+      if (content != null) body["text_content"] = content;
+      if (sharedPostId != null) body["shared_post_id"] = sharedPostId;
+      if (sharedPostData != null) body["shared_post_data"] = sharedPostData;
+
+      final response = await ApiClient.post("/messages", body: body);
 
       debugPrint("SendMsg Response: ${response.statusCode} | ${response.body}");
 
       if (response.statusCode == 201) {
-        final body = jsonDecode(response.body);
-        return body['data']; // The message object is in 'data'
+        final bodyJson = jsonDecode(response.body);
+        return bodyJson['data']; // The message object is in 'data'
       }
     } catch (e) {
       debugPrint("❌ Error sending message: $e");
     }
     return null;
+  }
+
+  /// 👥 Get My Connections (Following) for sharing
+  Future<List<Map<String, dynamic>>> getMyConnections() async {
+    try {
+      final response = await ApiClient.get("/connections/my");
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint("❌ Error fetching connections: $e");
+    }
+    return [];
   }
 
   /// 👀 Mark Conversation as Read

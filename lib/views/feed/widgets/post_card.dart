@@ -8,6 +8,7 @@ import '../../profile/public_profile_screen.dart';
 import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
 import '../../../../services/secure_storage.dart';
+import 'share_sheet.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -41,6 +42,16 @@ class _PostCardState extends State<PostCard> {
     post = widget.post;
     _loadCurrentUser();
     _checkInitialCommentCount();
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.post != oldWidget.post) {
+      setState(() {
+        post = widget.post;
+      });
+    }
   }
 
   Future<void> _checkInitialCommentCount() async {
@@ -81,16 +92,35 @@ class _PostCardState extends State<PostCard> {
   }
 
   String? getAuthorId() {
-    return post["author_id"]?.toString() ??
+    // 1. Check nested objects
+    final author = post["author"] ?? post["user"] ?? {};
+    String? id =
+        author["_id"]?.toString() ??
+        author["id"]?.toString() ??
+        author["user_id"]?.toString();
+
+    // 2. Check flat share payload keys
+    id ??=
+        post["post_owner_id"]?.toString() ??
+        post["post_author_id"]?.toString() ??
+        post["owner_id"]?.toString() ??
+        post["author_id"]?.toString() ??
         post["user_id"]?.toString() ??
-        post["user"]?["id"]?.toString() ??
-        post["user"]?["user_id"]?.toString() ??
-        post["author"]?["id"]?.toString();
+        post["_id"]?.toString(); // Last resort check
+
+    if (id == null) {
+      debugPrint(
+        "⚠️ [PostCard] No Author ID found in post: ${post.keys.toList()}",
+      );
+    }
+    return id;
   }
 
   // Handle differences in ID naming
-  String get postId =>
-      post["post_id"]?.toString() ?? post["id"]?.toString() ?? "";
+  String get postId {
+    final id = post["post_id"] ?? post["id"] ?? post["_id"] ?? post["_id"];
+    return id?.toString() ?? "";
+  }
 
   int asInt(dynamic value, {int defaultValue = 0}) {
     if (value == null) return defaultValue;
@@ -195,22 +225,26 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _postHeader(ThemeData theme) {
-    String authorName = post["author_name"] ?? post["user"]?["name"] ?? "User";
-    String? authorAvatar = post["author_avatar"] ?? post["user"]?["avatar"];
-    String category = post["category"] ?? post["category_name"] ?? "";
+    final author = post["author"] ?? post["user"] ?? {};
+    final String authorName =
+        author["full_name"] ??
+        author["name"] ??
+        post["author_name"] ??
+        post["authorName"] ??
+        post["user_name"] ??
+        "User";
+    final String? authorAvatar =
+        author["avatar_url"] ??
+        author["avatar"] ??
+        post["author_avatar"] ??
+        post["authorAvatar"];
+    final String category = post["category"] ?? post["category_name"] ?? "";
 
-    return GestureDetector(
+    return InkWell(
       onTap: () async {
-        // If explicitly set as owner (e.g. on profile page), maybe do nothing?
-        // But user requirement says: "If viewing own profile ... show editable profile UI"
-        // If I am on my profile, clicking my posts shouldn't navigate me to my profile again?
-        // Let's stick to the condition: if isMine -> ProfileScreen, else PublicProfileScreen.
-
         String? authorId = getAuthorId();
+        if (authorId == null || authorId.isEmpty) return;
 
-        if (authorId == null) return;
-
-        // Ensure we have current user ID before deciding navigation
         String? myId = currentUserId;
         if (myId == null) {
           myId = await AppSecureStorage.getCurrentUserId();
@@ -220,7 +254,6 @@ class _PostCardState extends State<PostCard> {
         final bool amIOwner = myId != null && authorId == myId;
 
         if (amIOwner) {
-          // Switch to Profile Tab
           Navigator.pushNamedAndRemoveUntil(
             context,
             '/profile',
@@ -282,6 +315,15 @@ class _PostCardState extends State<PostCard> {
           ],
         ),
       ),
+    );
+  }
+
+  void _onShareTap() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ShareSheet(post: post),
     );
   }
 
@@ -350,12 +392,7 @@ class _PostCardState extends State<PostCard> {
     return PopupMenuButton<String>(
       onSelected: (value) async {
         if (value == 'share') {
-          Clipboard.setData(
-            ClipboardData(text: "https://example.com/post/$postId"),
-          );
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Link copied to clipboard")),
-          );
+          _onShareTap();
         }
         if (value == 'report') {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -469,16 +506,19 @@ class _PostCardState extends State<PostCard> {
 
   Widget _postActions(ThemeData theme) {
     final isLiked = post["is_liked"] == true;
+    final String currentPostId = postId; // Use robust getter
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
         InkWell(
           onTap: () async {
+            if (currentPostId.isEmpty) return;
             try {
               setState(() {
                 post["is_liked"] = !post["is_liked"];
               });
-              await FeedApi.toggleLike(postId);
+              await FeedApi.toggleLike(currentPostId);
             } catch (_) {}
           },
           child: _action(
@@ -490,12 +530,13 @@ class _PostCardState extends State<PostCard> {
         ),
         InkWell(
           onTap: () async {
+            if (currentPostId.isEmpty) return;
             await showModalBottomSheet(
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
               builder: (context) => CommentsSheet(
-                postId: postId,
+                postId: currentPostId,
                 onCommentAdded: () {
                   if (mounted) {
                     setState(() {
@@ -522,14 +563,7 @@ class _PostCardState extends State<PostCard> {
           child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
         ),
         InkWell(
-          onTap: () {
-            Clipboard.setData(
-              ClipboardData(text: "https://example.com/post/$postId"),
-            );
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Link copied to clipboard")),
-            );
-          },
+          onTap: _onShareTap,
           child: _action(Icons.share_outlined, "Share", theme: theme),
         ),
       ],

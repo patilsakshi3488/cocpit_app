@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
 import 'social_service.dart';
+import 'notification_service.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -172,8 +173,11 @@ class ChatService {
       _currentMessages = messages;
       _activeMessagesController.add(List.from(_currentMessages));
 
-      // 3. Mark as Read
+      // 3. Mark as Read (Backend)
       await _socialService.markAsRead(conversationId);
+
+      // 4. Clear local notifications if any
+      NotificationService().clearNotificationsForConversation(conversationId);
     }
   }
 

@@ -9,6 +9,7 @@ import '../../services/presence_service.dart'; // Import PresenceService
 import '../../services/secure_storage.dart'; // Helpful for user ID
 import '../../widgets/time_ago_widget.dart';
 import '../profile/public_profile_screen.dart';
+import 'widgets/shared_post_preview.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -800,32 +801,46 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                                 ? null
                                 : Border.all(color: theme.dividerColor),
                           ),
-                          child: Row(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                            crossAxisAlignment: isMe
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
                             children: [
-                              Flexible(
-                                child: Text(
-                                  msg['text_content'] ?? '',
-                                  style: TextStyle(
-                                    color: isMe
-                                        ? Colors.white
-                                        : colorScheme.onSurface,
-                                    fontSize: 15,
-                                  ),
+                              if (msg['shared_post'] != null)
+                                SharedPostPreview(
+                                  sharedPost: msg['shared_post'],
+                                  isMe: isMe,
+                                  messageText: msg['text_content'],
                                 ),
-                              ),
-                              if (isMe) ...[
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.done_all,
-                                  size: 16,
-                                  color: msg['read_at'] != null
-                                      ? Colors
-                                            .white // Blue doesn't look good on primary color, usually white or light blue
-                                      : Colors.white.withOpacity(0.5),
+                              if (msg['shared_post'] == null)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        msg['text_content'] ?? '',
+                                        style: TextStyle(
+                                          color: isMe
+                                              ? Colors.white
+                                              : colorScheme.onSurface,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isMe) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.done_all,
+                                        size: 16,
+                                        color: msg['read_at'] != null
+                                            ? Colors.white
+                                            : Colors.white.withOpacity(0.5),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ],
                             ],
                           ),
                         ),

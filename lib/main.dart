@@ -19,9 +19,13 @@ import 'views/events/events_screen.dart';
 import 'views/profile/profile_screen.dart';
 import 'views/feed/notification_screen.dart';
 import 'views/login/signin_screen.dart';
+import 'views/notification_wrapper.dart';
 
 // 🔥 GLOBAL ROUTE OBSERVER
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
+// 🔑 GLOBAL NAVIGATOR KEY
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,7 +71,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _reconnectSocket() async {
     final token = await AppSecureStorage.getAccessToken();
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
+      // Explicitly connect (idempotent inside service)
       SocketService().connect(token);
     }
   }
@@ -88,7 +93,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             darkTheme: themeService.currentTheme == AppTheme.navy
                 ? themeService.navyTheme
                 : themeService.darkTheme,
+            navigatorKey: navigatorKey, // 🔑 Attach Global Key
             navigatorObservers: [routeObserver], // 🔥 ATTACH OBSERVER
+            builder: (context, child) {
+              return NotificationWrapper(child: child);
+            },
             home: const AuthGate(),
             routes: {
               '/feed': (_) => const HomeScreen(),
@@ -136,7 +145,7 @@ class _AuthGateState extends State<AuthGate> {
         // 🔥 First, init services (Notification, Chat, Presence) so they are listening
         _initServices();
 
-        // 🔌 Then, connect Socket (events will now be captured by listeners)
+        // 🔌 Connect Socket explicitly (it will handle single instance)
         SocketService().connect(accessToken);
         _goToHome();
         return;

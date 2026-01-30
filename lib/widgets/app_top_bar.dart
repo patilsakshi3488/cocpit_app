@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../views/feed/chat_screen.dart';
 import '../views/feed/notification_screen.dart';
 import '../services/notification_service.dart';
+import '../services/socket_service.dart';
+import '../services/chat_service.dart';
 
 enum SearchType { feed, jobs, events, chat, notifications }
 
@@ -140,7 +142,33 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             else
               Expanded(child: searchField),
             const SizedBox(width: 8),
-            if (searchType != SearchType.notifications)
+            if (searchType != SearchType.notifications) ...[
+              // Connection Status Indicator
+              StreamBuilder<bool>(
+                stream: SocketService().connectionStatus,
+                initialData: SocketService().isConnected,
+                builder: (context, snapshot) {
+                  final isConnected = snapshot.data ?? false;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: Tooltip(
+                      message: isConnected ? 'Connected' : 'Disconnected',
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: isConnected ? Colors.green : Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.scaffoldBackgroundColor,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
               StreamBuilder<int>(
                 stream: NotificationService().unreadCountStream,
                 initialData: NotificationService().unreadCount,
@@ -191,18 +219,56 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                   );
                 },
               ),
+            ],
             if (searchType != SearchType.chat &&
                 searchType != SearchType.notifications)
-              IconButton(
-                icon: Icon(
-                  Icons.chat_bubble_outline,
-                  color: theme.iconTheme.color,
-                ),
-                onPressed: () {
-                  Navigator.of(
-                    context,
-                    rootNavigator: true,
-                  ).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
+              StreamBuilder<int>(
+                stream: ChatService().unreadCountStream,
+                initialData: ChatService().totalUnreadCount,
+                builder: (context, snapshot) {
+                  final count = snapshot.data ?? 0;
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.chat_bubble_outline,
+                          color: theme.iconTheme.color,
+                        ),
+                        onPressed: () {
+                          Navigator.of(context, rootNavigator: true).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ChatScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
                 },
               ),
           ],

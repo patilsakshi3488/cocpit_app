@@ -11,6 +11,7 @@ class ChatService {
 
   ChatService._internal() {
     _listenToSocket();
+    fetchTotalUnreadCount();
   }
 
   final SocketService _socketService = SocketService();
@@ -27,6 +28,14 @@ class ChatService {
   Stream<Set<String>> get typingUsers => _typingUsersController.stream;
   final Set<String> _currentTypingUsers = {};
 
+  // 🔴 Unread Badge Count (Conversations)
+  final _unreadCountController = StreamController<int>.broadcast();
+  Stream<int> get unreadCountStream => _unreadCountController.stream;
+
+  // Track IDs of conversations with unread messages
+  final Set<String> _unreadConversationIds = {};
+  int get totalUnreadCount => _unreadConversationIds.length;
+
   // Internal state
   List<Map<String, dynamic>> _currentMessages = [];
   String? _activeConversationId;
@@ -37,10 +46,21 @@ class ChatService {
     // 1. New Message
     _socketService.onNewMessage.listen((data) {
       // payload normalization (handle both snake_case and camelCase)
-      final incomingConvId = (data['conversation_id'] ?? data['conversationId'])
-          ?.toString()
-          .trim()
-          .toLowerCase();
+      String? incomingConvId =
+          (data['conversation_id'] ?? data['conversationId'])
+              ?.toString()
+              .trim()
+              .toLowerCase();
+
+      // Fallback: Check if message is nested
+      if (incomingConvId == null && data['message'] is Map) {
+        incomingConvId =
+            (data['message']['conversation_id'] ??
+                    data['message']['conversationId'])
+                ?.toString()
+                .trim()
+                .toLowerCase();
+      }
       final activeId = _activeConversationId?.toString().trim().toLowerCase();
 
       // Debug to see WHY it fails if it does
@@ -81,7 +101,13 @@ class ChatService {
         // Mark as read immediately since user is watching
         _socialService.markAsRead(activeId);
       } else {
-        debugPrint("❌ NO MATCH: Active Chat Not Updated");
+        if (incomingConvId != null) {
+          debugPrint(
+            "❌ NO MATCH: Active Chat Not Updated. Marking conversation $incomingConvId as unread.",
+          );
+          _unreadConversationIds.add(incomingConvId);
+          _unreadCountController.add(_unreadConversationIds.length);
+        }
       }
     });
 
@@ -178,6 +204,36 @@ class ChatService {
 
       // 4. Clear local notifications if any
       NotificationService().clearNotificationsForConversation(conversationId);
+
+      // 5. Update global unread count (Remove this conversation from unread set)
+      _unreadConversationIds.remove(conversationId.trim().toLowerCase());
+      _unreadCountController.add(_unreadConversationIds.length);
+
+      // Also fetch fresh from server to be sure
+      fetchTotalUnreadCount();
+    }
+  }
+
+  /// Fetch and update total unread messages count
+  Future<void> fetchTotalUnreadCount() async {
+    try {
+      final conversations = await _socialService.getConversations();
+      _unreadConversationIds.clear();
+
+      for (var c in conversations) {
+        final unread = c['unread_count'] as int? ?? 0;
+        final id = (c['conversation_id'] ?? c['id'])
+            ?.toString()
+            .trim()
+            .toLowerCase();
+
+        if (unread > 0 && id != null) {
+          _unreadConversationIds.add(id);
+        }
+      }
+      _unreadCountController.add(_unreadConversationIds.length);
+    } catch (e) {
+      debugPrint("❌ Error fetching unread count: $e");
     }
   }
 

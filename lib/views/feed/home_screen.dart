@@ -73,23 +73,10 @@ class _HomeScreenState extends State<HomeScreen>
     NotificationService().loadNotifications();
 
     // Listen for Real-time Toasts
-    NotificationService().onNewNotification.listen((data) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['text'] ?? "New Notification"),
-            action: SnackBarAction(
-              label: 'View',
-              onPressed: () {
-                NotificationService.navigateToNotificationTarget(context, data);
-              },
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    });
+    // Initial Fetch
+    NotificationService().loadNotifications();
+
+    // Listeners handled globally now by NotificationWrapper
 
     fetchAllFeeds();
 

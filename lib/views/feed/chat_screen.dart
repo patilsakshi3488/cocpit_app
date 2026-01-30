@@ -164,26 +164,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            // 🔌 Connection Status Banner
-            StreamBuilder<bool>(
-              stream: _socketService.connectionStatus,
-              builder: (context, snapshot) {
-                final isConnected = snapshot.data ?? _socketService.isConnected;
-                if (isConnected) return const SizedBox.shrink();
-                return Container(
-                  width: double.infinity,
-                  color: Colors.red.withOpacity(0.1),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: const Center(
-                    child: Text(
-                      "Connecting to real-time server...",
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-                );
-              },
-            ),
-
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())

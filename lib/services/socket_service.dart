@@ -14,6 +14,8 @@ class SocketService {
 
   SocketService._internal();
 
+  // ⚠️ Remove any auto-initialization. Connection must be explicit.
+
   IO.Socket? _socket;
   String? _currentToken;
   final List<VoidCallback> _onConnectQueue = [];
@@ -88,25 +90,31 @@ class SocketService {
 
     try {
       _currentToken = token;
+      _currentToken = token;
       _socket = IO.io(
         baseUrl,
         IO.OptionBuilder()
             .setTransports([
               'websocket',
-              'polling',
-            ]) // Restore polling for handshake
-            .setAuth({'token': token}) // Primary Auth (Handshake)
-            .setQuery({'token': token}) // Fallback Query Auth
-            .setExtraHeaders({
-              'Authorization': 'Bearer $token',
-            }) // Fallback Auth (Headers)
-            .enableAutoConnect()
-            .enableForceNew() // Ensure fresh connection
-            .setPath('/socket.io') // Explicit path
-            .setReconnectionAttempts(10)
-            .setReconnectionDelay(1000)
+            ]) // ⚡ FORCE WEBSOCKET (Mobile Best Practice)
+            .disableAutoConnect() // 🛑 MANUAL CONNECT ONLY
+            .enableForceNew()
+            .setAuth({'token': token})
+            .setQuery({'token': token})
+            .setExtraHeaders({'Authorization': 'Bearer $token'})
+            .setPath('/socket.io')
+            .setReconnectionAttempts(double.infinity) // ♾️ TRY FOREVER
+            .setReconnectionDelay(2000) // Start with 2s delay
+            .setReconnectionDelayMax(10000) // Cap at 10s
+            .setTimeout(60000) // 60s Connection Timeout
             .build(),
       );
+
+      // 🐛 DEBUG: Mobile network fix
+      _socket!.io.options?['pingTimeout'] = 60000;
+      _socket!.io.options?['pingInterval'] = 25000;
+
+      _setupListeners();
 
       _setupListeners();
 
@@ -234,12 +242,15 @@ class SocketService {
   }
 
   /// Disconnect the socket
+  /// Disconnect the socket
   void disconnect() {
     if (_socket != null) {
       debugPrint('🔌 [Socket] Disconnecting...');
       _socket!.disconnect();
-      _socket!.close(); // Dispose underlying resources
-      _socket = null;
+      // Do NOT close/nullify the socket immediately if you want to keep listeners?
+      // Actually, for a clean slate, let's keep the object but clear the token.
+      // But _socket.close() destroys it.
+      // Better to just disconnect.
       _currentToken = null;
       _connectionStatusController.add(false);
     }

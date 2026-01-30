@@ -127,6 +127,6 @@ class AuthService {
     }
 
     await AppSecureStorage.clearAll();
-    SocketService().disconnect(); // 🔌 Disconnect socket
+    SocketService().disconnect(); // 🔌 Disconnect socket explicitly
   }
 }

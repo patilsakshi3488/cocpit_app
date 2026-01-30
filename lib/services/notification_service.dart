@@ -8,6 +8,7 @@ import '../views/feed/post_detail_screen.dart';
 import '../views/feed/chat_screen.dart';
 import '../views/profile/public_profile_screen.dart';
 import 'feed_service.dart';
+import '../main.dart'; // for navigatorKey
 
 enum NotificationCategory { chat, post, system }
 
@@ -291,58 +292,73 @@ class NotificationService {
     try {
       final category = NotificationService()._getCategory(type);
 
-      if (category == NotificationCategory.post) {
-        if (type == 'follow' && actorId != null) {
-          Navigator.push(
-            context,
+      // Handle Follow uniquely first
+      if (type == 'follow') {
+        if (actorId != null) {
+          navigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (_) => PublicProfileScreen(userId: actorId),
             ),
           );
-        } else if (referenceId != null) {
-          // Like, Comment, Share
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => const Center(child: CircularProgressIndicator()),
-          );
-          final post = await FeedApi.fetchSinglePost(referenceId);
-          if (context.mounted) Navigator.pop(context);
+        } else {
+          debugPrint("⚠️ Follow notification invalid: missing actorId");
+        }
+        return; // STOP here, do not fall through to post fetching
+      }
 
-          if (post != null && context.mounted) {
-            Navigator.push(
-              context,
+      if (category == NotificationCategory.post) {
+        if (referenceId != null) {
+          // Like, Comment, Share -> View Post
+          // Show dialog using navigatorKey context if possible, or just skip dialog
+          // Better to just fetch silently or show a global loader if needed.
+          // For now, let's just await.
+
+          final post = await FeedApi.fetchSinglePost(referenceId);
+
+          if (post != null) {
+            navigatorKey.currentState?.push(
               MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
             );
           }
         }
       } else if (category == NotificationCategory.chat) {
-        final convId =
+        String? convId =
             (n['conversation_id'] ??
                     n['conversationId'] ??
                     n['chat_id'] ??
                     n['message']?['conversation_id'])
                 ?.toString();
+
+        // Robust fallback for nested conversation ID
+        if (convId == null && n['message'] is Map) {
+          convId =
+              (n['message']['conversation_id'] ??
+                      n['message']['conversationId'])
+                  ?.toString();
+        }
         // If it's a direct message object from socket, pull IDs from it
         final effectiveActorId =
             actorId ??
             (n['message']?['sender_id'] ?? n['message']?['sender']?['id'])
                 ?.toString();
 
-        if (convId != null && effectiveActorId != null) {
-          Navigator.push(
-            context,
+        if (convId != null) {
+          navigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (_) => PersonalChatScreen(
-                conversationId: convId,
+                conversationId: convId!,
                 otherUser: {
-                  'id': effectiveActorId,
+                  'id': effectiveActorId ?? '',
                   'name': actorName,
                   'avatar': actorAvatar,
                   'headline': '',
                 },
               ),
             ),
+          );
+        } else {
+          debugPrint(
+            "❌ Navigation Failed: Custom Conversation ID missing in payload: $n",
           );
         }
       }
@@ -353,6 +369,6 @@ class NotificationService {
 
   /// 🧮 Helper: Count Unread
   void _countUnread() {
-    _unreadCount = _notifications.where((n) => n['is_read'] == false).length;
+    _unreadCount = _notifications.where((n) => n['is_read'] != true).length;
   }
 }

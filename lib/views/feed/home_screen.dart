@@ -628,10 +628,9 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _postStats(Map<String, dynamic> post, ThemeData theme) {
     final commentCount =
-        post["comment_count"] ??
-        post["comments_count"] ??
-        post["_count"]?["comments"] ??
-        0;
+        post["comment_count"] ?? // Exact match for your API response
+            post["rowCount"] ??      // Fallback for your detail view
+            0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -641,7 +640,8 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(width: 4),
           Text("${post["like_count"] ?? 0}", style: theme.textTheme.bodySmall),
           const SizedBox(width: 12),
-          Text("$commentCount comments", style: theme.textTheme.bodySmall),
+          Text("$commentCount ${commentCount == 1 ? 'comment' : 'comments'}",
+              style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -701,6 +701,7 @@ class _HomeScreenState extends State<HomeScreen>
         // COMMENT
         InkWell(
           onTap: () async {
+
             await showModalBottomSheet(
               context: context,
               isScrollControlled: true,
@@ -708,14 +709,26 @@ class _HomeScreenState extends State<HomeScreen>
               builder: (context) => CommentsSheet(
                 postId: postId,
                 onCommentAdded: () {
-                  // Optimistic Increment
+
                   if (mounted) {
                     setState(() {
-                      post["comment_count"] = (post["comment_count"] ?? 0) + 1;
+                      // Increment local count
+                      int currentCount() {
+                        final c =
+                            post["comment_count"] ?? // Matches "comment_count": 7 in your JSON
+                                post["rowCount"] ??
+                                post["comments_count"];
+
+                        if (c is int) return c;
+                        if (c is String) return int.tryParse(c) ?? 0;
+                        return 0;
+                      }
+
+                      // Update preferred field
+                      post["comment_count"] = currentCount() + 1;
+                      debugPrint("count : "+currentCount().toString());
                     });
                   }
-                  // Fetch fresh data from DB to get correct comment count
-                  _refreshPost(post);
                 },
               ),
             );

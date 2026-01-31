@@ -494,121 +494,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       endDrawer: _buildMenuDrawer(theme),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 1),
+      // 1. RefreshIndicator must wrap the scrollable area
       body: RefreshIndicator(
         onRefresh: _loadProfile,
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ✅ RepaintBoundary for heavy components
-              RepaintBoundary(
-                child: ProfileHeader(
-                  user: profile!['user'],
-                  profileImage: profileImage,
-                  coverImage: coverImage,
-                  onMenuPressed: () =>
-                      _scaffoldKey.currentState?.openEndDrawer(),
-                  onAvatarTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilePhotoViewer(
-                          imagePath: profileImage,
-                          heroTag: 'profile_hero',
-                          isCurrentUser:
-                              true, // Since this is ProfileScreen (my profile)
-                          onUpdate: _handleAvatarUpdate,
-                          onDelete: _handleAvatarDelete,
+        child: Builder(
+          builder: (context) {
+            final topInset = MediaQuery.of(context).padding.top;
+
+            return Stack(
+              children: [
+                /// 🔽 SCROLLABLE CONTENT
+                SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RepaintBoundary(
+
+                        child: ProfileHeader(
+
+                          user: profile!['user'],
+                          profileImage: profileImage,
+                          coverImage: coverImage,
+                          onMenuPressed: () =>
+                              _scaffoldKey.currentState?.openEndDrawer(),
+                          onAvatarTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProfilePhotoViewer(
+                                  imagePath: profileImage,
+                                  heroTag: 'profile_hero',
+                                  isCurrentUser:
+                                  true, // Since this is ProfileScreen (my profile)
+                                  onUpdate: _handleAvatarUpdate,
+                                  onDelete: _handleAvatarDelete,
+                                ),
+                              ),
+                            );
+                          },
+                          onCoverTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProfilePhotoViewer(
+                                  imagePath: coverImage,
+                                  heroTag: 'cover_hero',
+                                  isCurrentUser: true,
+                                  isCover: true,
+                                  onUpdate: _handleCoverUpdate,
+                                  onDelete: _handleCoverDelete,
+                                ),
+                              ),
+                            );
+                          },
+                          backgroundColor: theme.scaffoldBackgroundColor,
                         ),
                       ),
-                    );
-                  },
-                  onCoverTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilePhotoViewer(
-                          imagePath: coverImage,
-                          heroTag: 'cover_hero',
-                          isCurrentUser: true,
-                          isCover: true,
-                          onUpdate: _handleCoverUpdate,
-                          onDelete: _handleCoverDelete,
-                        ),
+                      const SizedBox(height: 80),
+                      ProfileInfoIdentity(
+                        name: name,
+                        headline: headline,
+                        location: location,
+                        openTo: openTo,
+                        availability: availability,
+                        preference: preference,
+                        onEditProfile: _navigateToEditProfile,
+                        onEditIdentity: _showEditIdentityModal,
+                        connectionCount: connectionCount,
+                        latestEducation: latestEducation,
                       ),
-                    );
-                  },
-                  backgroundColor: theme.scaffoldBackgroundColor,
+                      _divider(theme),
+
+                      RepaintBoundary(
+                        child: ProfileStats(connectionCount: connectionCount),
+                      ),
+
+                      _divider(theme),
+                      ProfileLivingResume(
+                        isOverviewSelected: isOverviewSelected,
+                        onTabChanged: (v) => setState(() => isOverviewSelected = v),
+                        onUploadResume: () {},
+                        onDownloadPDF: () {},
+                      ),
+                      _divider(theme),
+                      ProfileAboutSection(about: about),
+                      _divider(theme),
+                      ProfileExperienceSection(
+                        experiences: experiences,
+                        onAddEditExperience: _showExperienceModal,
+                      ),
+
+                      ProfileEducationSection(
+                        educations: educations,
+                        onAddEditEducation: _showEducationModal,
+                      ),
+
+                      _divider(theme),
+                      ProfileSkillsSection(
+                        skills: skills,
+                        onAddSkill: _showSkillsModal,
+                      ),
+                      _divider(theme),
+                      // LATEST POSTS SECTION
+                      ProfileLatestPostsSection(
+                        posts: myPosts,
+                        userName: name,
+                        onSeeAllPosts: () {
+                          // Navigate to all posts (optional)
+                        },
+                        onDeletePost: _handleDeletePost,
+                        onEditPost: _handleEditPost,
+                        onTogglePrivacy: _handleTogglePrivacy,
+                        userId: "me", // Logged-in user
+                        isOwner: true,
+                      ),
+                      _divider(theme),
+                      const ProfileSuggestedSection(suggestedUsers: []),
+                      const SizedBox(height: 80),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 80),
-              ProfileInfoIdentity(
-                name: name,
-                headline: headline,
-                location: location,
-                openTo: openTo,
-                availability: availability,
-                preference: preference,
-                onEditProfile: _navigateToEditProfile,
-                onEditIdentity: _showEditIdentityModal,
-                connectionCount: connectionCount,
-                latestEducation: latestEducation,
-              ),
-              _divider(theme),
 
-              RepaintBoundary(
-                child: ProfileStats(connectionCount: connectionCount),
-              ),
-
-              _divider(theme),
-              ProfileLivingResume(
-                isOverviewSelected: isOverviewSelected,
-                onTabChanged: (v) => setState(() => isOverviewSelected = v),
-                onUploadResume: () {},
-                onDownloadPDF: () {},
-              ),
-              _divider(theme),
-              ProfileAboutSection(about: about),
-              _divider(theme),
-              ProfileExperienceSection(
-                experiences: experiences,
-                onAddEditExperience: _showExperienceModal,
-              ),
-
-              ProfileEducationSection(
-                educations: educations,
-                onAddEditEducation: _showEducationModal,
-              ),
-
-              _divider(theme),
-              ProfileSkillsSection(
-                skills: skills,
-                onAddSkill: _showSkillsModal,
-              ),
-              _divider(theme),
-              // LATEST POSTS SECTION
-              ProfileLatestPostsSection(
-                posts: myPosts,
-                userName: name,
-                onSeeAllPosts: () {
-                  // Navigate to all posts (optional)
-                },
-                onDeletePost: _handleDeletePost,
-                onEditPost: _handleEditPost,
-                onTogglePrivacy: _handleTogglePrivacy,
-                userId: "me", // Logged-in user
-                isOwner: true,
-              ),
-              _divider(theme),
-              const ProfileSuggestedSection(suggestedUsers: []),
-              const SizedBox(height: 80),
-            ],
-          ),
+                /// 🔒 FIXED TOP BAR
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer( // 3. Allow touches to pass through if necessary
+                    ignoring: true,
+                    child: Container(
+                      height: topInset,
+                      // Use primaryColor if you want icons to be visible over white photos
+                      color: theme.scaffoldBackgroundColor,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
+
   }
 
   Widget _divider(ThemeData theme) {

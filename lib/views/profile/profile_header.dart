@@ -72,76 +72,229 @@ class ProfileHeader extends StatelessWidget {
       return AssetImage(cleanPath) as ImageProvider;
     }
 
+    // return Stack(
+    //   children: [
+    //     Container(
+    //       width: double.infinity,
+    //       color: Colors.white, // ✅ correct
+    //       child: Container(
+    //         height: 40,
+    //         alignment: Alignment.centerLeft,
+    //         padding: const EdgeInsets.symmetric(horizontal: 16),
+    //         child: Text(
+    //           "Section Header",
+    //           style: theme.textTheme.bodyMedium,
+    //         ),
+    //       ),
+    //     ),
+    //   Stack(
+    //   clipBehavior: Clip.none,
+    //
+    //   children: [
+    //
+    //     // ================= COVER PHOTO =================
+    //     GestureDetector(
+    //       onTap: onCoverTap, // Use the callback
+    //       child: Hero(
+    //         tag: 'cover_hero',
+    //         child: Container(
+    //           height: 160,
+    //           decoration: BoxDecoration(
+    //             gradient:
+    //                 resolvedCoverImage == null || resolvedCoverImage.isEmpty
+    //                 ? LinearGradient(
+    //                     colors: [
+    //                       theme.primaryColor,
+    //                       theme.primaryColor.withValues(alpha: 0.7),
+    //                     ],
+    //                   )
+    //                 : null,
+    //             image:
+    //                 resolvedCoverImage != null && resolvedCoverImage.isNotEmpty
+    //                 ? DecorationImage(
+    //                     image: imageProvider(resolvedCoverImage)!,
+    //                     fit: BoxFit.cover,
+    //                   )
+    //                 : null,
+    //           ),
+    //           child: SafeArea(
+    //             child: Stack(
+    //               children: [
+    //                 // Menu Button (Top Right)
+    //                 if (!isReadOnly)
+    //                   Align(
+    //                     alignment: Alignment.topRight,
+    //                     child: Padding(
+    //                       padding: const EdgeInsets.all(8.0),child: Container(
+    //                       padding: const EdgeInsets.all(0),
+    //                       height: 40,
+    //                       width: 40,
+    //                       decoration: BoxDecoration(
+    //                         color: Colors.black.withOpacity(0.5),
+    //                         shape: BoxShape.circle,
+    //                       ),                          child: IconButton(
+    //                         icon: Icon(
+    //                           Icons.menu,
+    //                           color: Colors.white,
+    //                           size: 20,
+    //                         ),
+    //                         onPressed: onMenuPressed,
+    //                       ),
+    //                     ),
+    //                     ),
+    //                   ),
+    //
+    //                 // Camera Icon (Bottom Right of Cover)
+    //                 if (!isReadOnly)
+    //                   Align(
+    //                     alignment: Alignment.bottomRight,
+    //                     child: Padding(
+    //                       padding: const EdgeInsets.all(8.0),
+    //                       child: Container(
+    //                         padding: const EdgeInsets.all(8),
+    //                         decoration: BoxDecoration(
+    //                           color: Colors.black.withOpacity(0.5),
+    //                           shape: BoxShape.circle,
+    //                         ),
+    //                         child: const Icon(
+    //                           Icons.camera_alt,
+    //                           color: Colors.white,
+    //                           size: 20,
+    //                         ),
+    //                       ),
+    //                     ),
+    //                   ),
+    //               ],
+    //             ),
+    //           ),
+    //         ),
+    //       ),
+    //     ),
+    //
+    //     // ================= PROFILE PHOTO =================
+    //     Positioned(
+    //       bottom: -50,
+    //       left: 20,
+    //       child: Stack(
+    //         children: [
+    //           GestureDetector(
+    //             onTap: onAvatarTap, // Always tap to view/edit
+    //             child: Hero(
+    //               tag: heroTag,
+    //               child: Container(
+    //                 padding: const EdgeInsets.all(4),
+    //                 decoration: BoxDecoration(
+    //                   color: backgroundColor,
+    //                   shape: BoxShape.circle,
+    //                 ),
+    //                 child: CircleAvatar(
+    //                   radius: 65,
+    //                   backgroundImage: imageProvider(resolvedProfileImage),
+    //                   backgroundColor: resolvedProfileImage.isEmpty
+    //                       ? Colors.grey[300]
+    //                       : colorScheme.surfaceContainerHighest,
+    //                   child: resolvedProfileImage.isEmpty
+    //                       ? const Icon(
+    //                           Icons.person,
+    //                           size: 80, // Larger icon
+    //                           color: Colors.white,
+    //                         )
+    //                       : null,
+    //                 ),
+    //               ),
+    //             ),
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //   ],
+    //
+    // ),
+    //   ],
+    // );
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // ================= COVER PHOTO =================
+        /// 🔹 BACKGROUND STRIP (theme aware)
+        // Container(
+        //   width: double.infinity,
+        //   height: 200, // must cover cover image height
+        //   color: Colors.black, // ✅ theme safe
+        // ),
+
+        /// ================= COVER PHOTO =================
         GestureDetector(
-          onTap: onCoverTap, // Use the callback
+          onTap: onCoverTap,
           child: Hero(
             tag: 'cover_hero',
             child: Container(
+              // padding: const EdgeInsets.all(1),
               height: 160,
               decoration: BoxDecoration(
-                gradient:
-                    resolvedCoverImage == null || resolvedCoverImage.isEmpty
+                gradient: resolvedCoverImage == null || resolvedCoverImage.isEmpty
                     ? LinearGradient(
-                        colors: [
-                          theme.primaryColor,
-                          theme.primaryColor.withValues(alpha: 0.7),
-                        ],
-                      )
+                  colors: [
+                    theme.primaryColor,
+                    theme.primaryColor.withOpacity(0.7),
+                  ],
+                )
                     : null,
-                image:
-                    resolvedCoverImage != null && resolvedCoverImage.isNotEmpty
+                image: resolvedCoverImage != null &&
+                    resolvedCoverImage.isNotEmpty
                     ? DecorationImage(
-                        image: imageProvider(resolvedCoverImage)!,
-                        fit: BoxFit.cover,
-                      )
+                  image: imageProvider(resolvedCoverImage)!,
+                  fit: BoxFit.cover,
+                )
                     : null,
               ),
               child: SafeArea(
                 child: Stack(
                   children: [
-                    // Menu Button (Top Right)
+                    /// ☰ MENU
                     if (!isReadOnly)
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.menu,
-                              color: Colors.white,
-                              shadows: [
-                                Shadow(blurRadius: 4, color: Colors.black45),
-                              ],
-                            ),
-                            onPressed: onMenuPressed,
-                          ),
-                        ),
-                      ),
+                                      Align(
+                                        alignment: Alignment.topRight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),child: Container(
+                                          padding: const EdgeInsets.all(0),
+                                          height: 40,
+                                          width: 40,
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.5),
+                                            shape: BoxShape.circle,
+                                          ),                          child: IconButton(
+                                            icon: Icon(
+                                              Icons.menu,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                            onPressed: onMenuPressed,
+                                          ),
+                                        ),
+                                        ),
+                                      ),
 
-                    // Camera Icon (Bottom Right of Cover)
-                    if (!isReadOnly)
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ),
+                                    // Camera Icon (Bottom Right of Cover)
+                                    if (!isReadOnly)
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(0.5),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.camera_alt,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                   ],
                 ),
               ),
@@ -149,43 +302,40 @@ class ProfileHeader extends StatelessWidget {
           ),
         ),
 
-        // ================= PROFILE PHOTO =================
+        /// ================= PROFILE PHOTO =================
         Positioned(
           bottom: -50,
           left: 20,
-          child: Stack(
-            children: [
-              GestureDetector(
-                onTap: onAvatarTap, // Always tap to view/edit
-                child: Hero(
-                  tag: heroTag,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: CircleAvatar(
-                      radius: 65,
-                      backgroundImage: imageProvider(resolvedProfileImage),
-                      backgroundColor: resolvedProfileImage.isEmpty
-                          ? Colors.grey[300]
-                          : colorScheme.surfaceContainerHighest,
-                      child: resolvedProfileImage.isEmpty
-                          ? const Icon(
-                              Icons.person,
-                              size: 80, // Larger icon
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
-                  ),
+          child: GestureDetector(
+            onTap: onAvatarTap,
+            child: Hero(
+              tag: heroTag,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: theme.scaffoldBackgroundColor, // ✅ blends perfectly
+                  shape: BoxShape.circle,
+                ),
+                child: CircleAvatar(
+                  radius: 65,
+                  backgroundImage: resolvedProfileImage.isNotEmpty
+                      ? imageProvider(resolvedProfileImage)
+                      : null,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  child: resolvedProfileImage.isEmpty
+                      ? const Icon(
+                    Icons.person,
+                    size: 80,
+                    color: Colors.white,
+                  )
+                      : null,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ],
     );
+
   }
 }

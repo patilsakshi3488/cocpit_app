@@ -368,6 +368,12 @@ class _ApplyModalState extends State<_ApplyModal> {
   String? _resumeName;
   bool _isSubmitting = false;
 
+  String? _fullNameError;
+  String? _emailError;
+  String? _phoneError;
+  String? _resumeError;
+
+
   Future<void> _pickResume() async {
     fp.FilePickerResult? result =
     await fp.FilePicker.platform.pickFiles(
@@ -383,14 +389,25 @@ class _ApplyModalState extends State<_ApplyModal> {
       });
     }
   }
+  bool _validateForm() {
+    setState(() {
+      _fullNameError = _fullNameController.text.isEmpty ? "Name is required" : null;
+      _emailError = !_emailController.text.contains("@") ? "Enter a valid email" : null;
+      _phoneError = _phoneController.text.length < 10 ? "Enter a valid phone number" : null;
+      _resumeError = _resumeFile == null ? "Please upload your resume" : null;
+    });
+
+    return _fullNameError == null && _emailError == null && _phoneError == null && _resumeError == null;
+  }
 
   Future<void> _submitApplication() async {
-    if (_resumeFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please upload a resume")),
-      );
-      return;
-    }
+    if (!_validateForm()) return;
+    // if (_resumeFile == null) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text("Please upload a resume")),
+    //   );
+    //   return;
+    // }
 
     setState(() => _isSubmitting = true);
 
@@ -462,15 +479,15 @@ class _ApplyModalState extends State<_ApplyModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _inputLabel(theme, "Full Name"),
-                  _field(theme, _fullNameController, "John Doe"),
+                  _field(theme, _fullNameController, "John Doe", _fullNameError), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Email"),
-                  _field(theme, _emailController, "john@example.com"),
+                  _field(theme, _emailController, "john@example.com", _emailError), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Phone"),
-                  _field(theme, _phoneController, "+1 123 456 7890"),
+                  _field(theme, _phoneController, "+1 123 456 7890", _phoneError), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Resume"),
@@ -488,7 +505,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                         children: [
                           Icon(
                             _resumeFile != null ? Icons.check_circle : Icons.upload_outlined,
-                            color: _resumeFile != null ? Colors.green : theme.textTheme.bodySmall?.color,
+                            color: _resumeFile != null ? Colors.green : (_resumeError != null ? Colors.red : theme.textTheme.bodySmall?.color),
                             size: 40,
                           ),
                           const SizedBox(height: 16),
@@ -517,7 +534,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Cover Note (Optional)"),
-                  _field(theme, _coverNoteController, "Tell us why you're a good fit...", maxLines: 4),
+                  _field(theme, _coverNoteController, "Tell us why you're a good fit...",null, 4),
 
                   const SizedBox(height: 40),
 
@@ -566,7 +583,7 @@ class _ApplyModalState extends State<_ApplyModal> {
     );
   }
 
-  Widget _field(ThemeData theme, TextEditingController controller, String hint, {int maxLines = 1}) {
+  Widget _field(ThemeData theme, TextEditingController controller, String hint, [String? errorText,int maxLines = 1]) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -574,6 +591,7 @@ class _ApplyModalState extends State<_ApplyModal> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: theme.textTheme.bodySmall,
+        errorText: errorText,
         filled: true,
         fillColor: theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
         border: OutlineInputBorder(

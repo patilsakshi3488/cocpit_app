@@ -36,10 +36,14 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Future<void> _checkAdminRole() async {
     try {
-      final userJson = await AppSecureStorage.getUser();
-      if (userJson != null) {
-        final Map<String, dynamic> user = jsonDecode(userJson);
-        final accountType = user['accountType'] ?? user['account_type'];
+      final currentUserJson = await AppSecureStorage.getUser();
+
+      if (currentUserJson != null) {
+        final Map<String, dynamic> user = jsonDecode(currentUserJson);
+        debugPrint("user : "+user.toString());
+
+        final accountType = user['profile']?['accountType'] ?? user['account_type'];
+        debugPrint("account type of user : "+accountType);
         if (accountType != null &&
             accountType.toString().toLowerCase() == 'admin') {
           setState(() {
@@ -773,9 +777,45 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-    void _showPostJobModal(BuildContext context) {
+  //   void _showPostJobModal(BuildContext context) {
+  //   final theme = Theme.of(context);
+  //   debugPrint("post job api called");
+  //
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     backgroundColor: Colors.transparent,
+  //     builder: (context) => _PostJobModal(
+  //       theme: theme,
+  //       onJobPosted: (newJob) async {
+  //         try {
+  //           await Provider.of<JobProvider>(
+  //             context,
+  //             listen: false,
+  //           ).createJob(newJob);
+  //
+  //           if (!context.mounted) return;
+  //
+  //           Navigator.pop(context); // close modal ONLY on success
+  //
+  //           ScaffoldMessenger.of(context).showSnackBar(
+  //             const SnackBar(content: Text("Job posted successfully!")),
+  //           );
+  //         } catch (e) {
+  //           if (!context.mounted) return;
+  //
+  //           ScaffoldMessenger.of(context).showSnackBar(
+  //             SnackBar(content: Text("Failed to post job: $e")),
+  //           );
+  //         }
+  //       },
+  //
+  //     ),
+  //   );
+  // }
+
+  void _showPostJobModal(BuildContext context) {
     final theme = Theme.of(context);
-    debugPrint("post job api called");
 
     showModalBottomSheet(
       context: context,
@@ -792,7 +832,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
             if (!context.mounted) return;
 
-            Navigator.pop(context); // close modal ONLY on success
+            Navigator.pop(context); // ✅ close ONLY on success
 
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Job posted successfully!")),
@@ -801,11 +841,10 @@ class _JobsScreenState extends State<JobsScreen> {
             if (!context.mounted) return;
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Failed to post job: $e")),
+              SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
             );
           }
         },
-
       ),
     );
   }
@@ -1334,6 +1373,7 @@ class _PostJobModalState extends State<_PostJobModal> {
   String? _locationError;
   String? _empTypeError;
   String? _workModeError;
+  String? _salaryError;
 
   @override
   Widget build(BuildContext context) {
@@ -1423,6 +1463,7 @@ class _PostJobModalState extends State<_PostJobModal> {
                           minSalaryController,
                           "Min",
                         ),
+
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1433,6 +1474,16 @@ class _PostJobModalState extends State<_PostJobModal> {
                       ),
                     ],
                   ),
+                  if (_salaryError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _salaryError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
 
 
                   _inputLabel("Experience Level"),
@@ -1563,13 +1614,29 @@ class _PostJobModalState extends State<_PostJobModal> {
                               _locationError = locationController.text.isEmpty ? "Location is required" : null;
                               _empTypeError = empType.isEmpty ? "Employment Type is required" : null;
                               _workModeError = workMode.isEmpty ? "Work Mode is required" : null;
+                              final min = int.tryParse(minSalaryController.text);
+                              final max = int.tryParse(maxSalaryController.text);
+
+                              if (min == null || max == null) {
+                                _salaryError = "Salary Range is required";
+                              } else{
+                              if (min > max) {
+                                _salaryError = "Minimum salary cannot be greater than maximum salary";
+                              } else {
+                                _salaryError = null;
+                              }
+                              }
                             });
 
-                            if (_titleError != null || _companyError != null || _locationError != null || _empTypeError != null || _workModeError != null) {
-                              isValid = false;
+                            if (_titleError != null ||
+                                _companyError != null ||
+                                _locationError != null ||
+                                _empTypeError != null ||
+                                _workModeError != null ||
+                                _salaryError != null) {
+                              return;
                             }
 
-                            if (!isValid) return;
 
                             setState(() => _isPosting = true);
 

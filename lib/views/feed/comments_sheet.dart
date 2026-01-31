@@ -53,6 +53,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
     try {
       await FeedApi.addComment(widget.postId, text);
 
+      debugPrint("✅ Comment API success");
       // ✅ notify feed
       widget.onCommentAdded?.call();
 

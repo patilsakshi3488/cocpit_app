@@ -14,22 +14,13 @@ class PostProvider extends ChangeNotifier {
     final postId = id.toString();
 
     if (_posts.containsKey(postId)) {
-      // Merge: only update keys that are present in the new map
-      // But for simplicity and to ensure we have the latest, we can just overwrite
-      // or selectively update.
-      // However, we want to PRESERVE local state if the new map is stale,
-      // but usually the new map is fresher (e.g. from API).
-      // A safe bet is to merge.
+
       final current = _posts[postId]!;
       _posts[postId] = {...current, ...post};
     } else {
       _posts[postId] = post;
     }
-    // We notify listeners only if we want general updates,
-    // but PostCard will select specific posts, so this might trigger rebuilds
-    // if we listened to the whole map.
-    // Since we use selector on specific keys/values, general notifyListeners()
-    // is needed for Selectors to re-evaluate.
+
     notifyListeners();
   }
 
@@ -44,12 +35,22 @@ class PostProvider extends ChangeNotifier {
 
     final post = _posts[postId]!;
     final bool isLiked = post["is_liked"] == true;
-    final int likeCount = post["like_count"] ?? post["likes"] ?? 0;
+
+    // Helper to handle mixed types safely
+    int getSafeInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value; // If it's already an int, return it
+      return int.tryParse(value.toString()) ?? 0; // Otherwise, convert to string then parse
+    }
+
+    final int likeCount = getSafeInt(post["like_count"] ?? post["likes"]);
 
     // Optimistic update
     final updatedPost = Map<String, dynamic>.from(post);
     updatedPost["is_liked"] = !isLiked;
-    updatedPost["like_count"] = isLiked ? (likeCount - 1) : (likeCount + 1);
+    updatedPost["like_count"] = isLiked
+        ? (likeCount - 1).clamp(0, 999999).toInt()
+        : (likeCount + 1);
 
     _posts[postId] = updatedPost;
     notifyListeners();
@@ -57,24 +58,30 @@ class PostProvider extends ChangeNotifier {
     try {
       await FeedApi.toggleLike(postId);
     } catch (e) {
-      // Revert on failure
       _posts[postId] = post;
       notifyListeners();
       rethrow;
     }
   }
 
-  /// Increment comment count.
-  void incrementCommentCount(String postId) {
-    if (!_posts.containsKey(postId)) return;
-
-    final post = _posts[postId]!;
-    final int commentCount = post["comment_count"] ?? post["comments_count"] ?? 0;
-
-    final updatedPost = Map<String, dynamic>.from(post);
-    updatedPost["comment_count"] = commentCount + 1;
-
-    _posts[postId] = updatedPost;
-    notifyListeners();
+  bool isPostLiked(String postId) {
+    final post = _posts[postId];
+    if (post == null) return false;
+    return post["is_liked"] == true;
   }
+
+  int getLikeCount(String postId) {
+    final post = _posts[postId];
+    if (post == null) return 0;
+
+    var val = post["like_count"] ?? post["likes"];
+
+    // Direct type check is the most efficient way to fix this
+    if (val is int) return val;
+    return int.tryParse(val.toString()) ?? 0;
+  }
+
+
+
+
 }

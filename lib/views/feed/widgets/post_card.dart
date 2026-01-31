@@ -44,14 +44,13 @@ class _PostCardState extends State<PostCard> {
     post = widget.post;
     // Register the post with the provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<PostProvider>().updatePost(widget.post);
-      }
+      context.read<PostProvider>().updatePost(widget.post);
     });
 
     _loadCurrentUser();
     _checkInitialCommentCount();
   }
+
 
   @override
   void didUpdateWidget(PostCard oldWidget) {
@@ -529,51 +528,75 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _postActions(ThemeData theme) {
-    final isLiked = post["is_liked"] == true;
-    final String currentPostId = postId; // Use robust getter
+    return Consumer<PostProvider>(
+      builder: (context, provider, _) {
+        final postData = provider.getPost(postId);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        InkWell(
-          onTap: () async {
-            if (currentPostId.isEmpty) return;
-            try {
-              // Use provider to toggle like
-              await context.read<PostProvider>().toggleLike(currentPostId);
-            } catch (_) {
-              // Error handling is done in provider (revert)
-            }
-          },
-          child: _action(
-            isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-            "Like",
-            color: isLiked ? theme.primaryColor : null,
-            theme: theme,
-          ),
-        ),
-        InkWell(
-          onTap: () async {
-            if (currentPostId.isEmpty) return;
-            await showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => CommentsSheet(
-                postId: currentPostId,
-                onCommentAdded: () {
-                   context.read<PostProvider>().incrementCommentCount(currentPostId);
-                },
+        // If post is not yet registered, render nothing (or skeleton)
+        if (postData == null) {
+          return const SizedBox.shrink();
+        }
+
+        final bool isLiked = postData["is_liked"] == true;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            /// ❤️ LIKE
+            InkWell(
+              onTap: () {
+                if (postId.isEmpty) return;
+                provider.toggleLike(postId);
+              },
+              child: _action(
+                isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                "Like",
+                color: isLiked ? theme.primaryColor : null,
+                theme: theme,
               ),
-            );
-          },
-          child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
-        ),
-        InkWell(
-          onTap: _onShareTap,
-          child: _action(Icons.share_outlined, "Share", theme: theme),
-        ),
-      ],
+            ),
+
+            /// 💬 COMMENT
+            InkWell(
+              onTap: () async {
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => CommentsSheet(
+                    postId: postId,
+                    onCommentAdded: () {
+                      if (mounted) {
+                        setState(() {
+                          // Increment local count
+                          final current =
+                              post["comment_count"] ??
+                                  post["comments_count"] ??
+                                  post["_count"]?["comments"] ??
+                                  0;
+
+                          // Convert to int safely
+                          int count = 0;
+                          if (current is int) count = current;
+                          if (current is String) count = int.tryParse(current) ?? 0;
+
+                          // Update preferred field
+                          post["comment_count"] = count + 1;
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+              child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
+            ),
+            InkWell(
+              onTap: () => _onShareTap(),
+              child: _action(Icons.share_outlined, "Share", theme: theme),
+            ),
+          ],
+        );
+      },
     );
   }
 

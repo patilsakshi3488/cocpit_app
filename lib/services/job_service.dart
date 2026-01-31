@@ -123,21 +123,25 @@ class JobService {
 
 
 
-  Future<String?> createJob(Map<String, dynamic> jobData) async {
+  Future<void> createJob(Map<String, dynamic> jobData) async {
     final response = await ApiClient.post(
       ApiConfig.jobs,
       body: jobData,
     );
-    debugPrint(response.body);
-    if (response.statusCode == 201) {
-      final data = jsonDecode(response.body);
 
-      return data['job_id']?.toString();
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return; // ✅ success
     }
-    throw Exception(
-      jsonDecode(response.body)['message'] ?? "Failed to create job",
-    );
+
+    // ❌ FAILURE — parse backend error
+    try {
+      final body = jsonDecode(response.body);
+      throw Exception(body['message'] ?? 'Failed to create job');
+    } catch (_) {
+      throw Exception('Failed to create job');
+    }
   }
+
 
   Future<bool> applyJob({
     required String jobId,

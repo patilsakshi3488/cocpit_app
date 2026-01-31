@@ -83,13 +83,9 @@ class _StoryTrayState extends State<StoryTray> {
   }
 
   void _onStoryViewed() {
-    // When returning from viewer, refresh logic (sorting might change)
-    if (mounted) {
-      setState(() {
-        _groups = _sortGroups(_groups);
-      });
-    }
-    _fetchStories();
+    // ✅ FIX 4: Refresh on Return
+    if (!mounted) return;
+    _fetchStories(); // Re-fetch to handle deletions/expirations
   }
 
   @override
@@ -120,12 +116,12 @@ class _StoryTrayState extends State<StoryTray> {
   }
 
   Widget _buildStoryItem(
-      StoryGroup group,
-      int index,
-      double width,
-      ThemeData theme,
-      ColorScheme colorScheme,
-      ) {
+    StoryGroup group,
+    int index,
+    double width,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final hasStories = group.stories.isNotEmpty;
 
     String? bgImage;
@@ -141,6 +137,7 @@ class _StoryTrayState extends State<StoryTray> {
 
     // Border logic
     final bool hasUnseen = group.stories.any((s) => !s.hasViewed);
+    // ignore: unused_local_variable
     final Border? border = hasStories
         ? Border.all(
             color: hasUnseen
@@ -174,10 +171,7 @@ class _StoryTrayState extends State<StoryTray> {
           borderRadius: BorderRadius.circular(16),
 
           image: bgImage != null
-              ? DecorationImage(
-                  image: NetworkImage(bgImage),
-                  fit: BoxFit.cover,
-                )
+              ? DecorationImage(image: NetworkImage(bgImage), fit: BoxFit.cover)
               : null,
           color: (group.isCurrentUser && !hasStories)
               ? colorScheme.primary
@@ -188,9 +182,7 @@ class _StoryTrayState extends State<StoryTray> {
           children: [
             // Video Thumbnail Layer
             if (videoUrl != null && bgImage == null)
-              Positioned.fill(
-                child: VideoStoryThumbnail(mediaUrl: videoUrl),
-              ),
+              Positioned.fill(child: VideoStoryThumbnail(mediaUrl: videoUrl)),
             // ======================
             // 1. Current User - No Story
             // ======================
@@ -246,11 +238,9 @@ class _StoryTrayState extends State<StoryTray> {
                             : null,
                         child: group.author.avatar == null
                             ? Text(
-                          group.author.name[0],
-                          style: TextStyle(
-                            color: colorScheme.onPrimary,
-                          ),
-                        )
+                                group.author.name[0],
+                                style: TextStyle(color: colorScheme.onPrimary),
+                              )
                             : null,
                       ),
                     ),
@@ -278,7 +268,9 @@ class _StoryTrayState extends State<StoryTray> {
                   onTap: () async {
                     final res = await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const CreateStoryScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const CreateStoryScreen(),
+                      ),
                     );
                     if (res == true) _handleRefresh();
                   },
@@ -311,7 +303,8 @@ class _StoryTrayState extends State<StoryTray> {
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: hasUnseen
-                          ? colorScheme.primary   // unseen → colored border
+                          ? colorScheme
+                                .primary // unseen → colored border
                           : colorScheme.outlineVariant,
                       child: CircleAvatar(
                         radius: 16,
@@ -320,11 +313,9 @@ class _StoryTrayState extends State<StoryTray> {
                             : null,
                         child: group.author.avatar == null
                             ? Text(
-                          group.author.name[0],
-                          style: TextStyle(
-                            color: colorScheme.onPrimary,
-                          ),
-                        )
+                                group.author.name[0],
+                                style: TextStyle(color: colorScheme.onPrimary),
+                              )
                             : null,
                       ),
                     ),
@@ -344,27 +335,20 @@ class _StoryTrayState extends State<StoryTray> {
                   ],
                 ),
               ),
-
           ],
         ),
       ),
     );
   }
 
-
-
   void _openViewer(int index) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StoryViewerScreen(
-          groups: _groups,
-          initialGroupIndex: index,
-        ),
+        builder: (_) =>
+            StoryViewerScreen(groups: _groups, initialGroupIndex: index),
       ),
     );
     _onStoryViewed();
   }
 }
-
-

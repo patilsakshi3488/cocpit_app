@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:cocpit_app/services/story_service.dart';
+import 'package:cocpit_app/views/story/story_viewer_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
 import 'social_service.dart';
@@ -10,7 +12,7 @@ import '../views/profile/public_profile_screen.dart';
 import 'feed_service.dart';
 import '../main.dart'; // for navigatorKey
 
-enum NotificationCategory { chat, post, system }
+enum NotificationCategory { chat, post, story, system }
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -100,6 +102,9 @@ class NotificationService {
         type == 'chat_message') {
       return NotificationCategory.chat;
     }
+    if (type.contains('story')) {
+      return NotificationCategory.story;
+    }
     if (type == 'like' ||
         type == 'comment' ||
         type == 'share' ||
@@ -128,6 +133,7 @@ class NotificationService {
         case NotificationCategory.chat:
           // Chat is transient: don't save to list
           break;
+        case NotificationCategory.story:
         case NotificationCategory.post:
         case NotificationCategory.system:
           _persistNotification(data);
@@ -280,6 +286,7 @@ class NotificationService {
     final String? referenceId =
         (n['reference_id'] ??
                 n['post_id'] ??
+                n['story_id'] ??
                 n['target_id'] ??
                 n['referenceId'])
             ?.toString();
@@ -303,16 +310,53 @@ class NotificationService {
         } else {
           debugPrint("⚠️ Follow notification invalid: missing actorId");
         }
-        return; // STOP here, do not fall through to post fetching
+        return; // STOP here
       }
 
-      if (category == NotificationCategory.post) {
-        if (referenceId != null) {
-          // Like, Comment, Share -> View Post
-          // Show dialog using navigatorKey context if possible, or just skip dialog
-          // Better to just fetch silently or show a global loader if needed.
-          // For now, let's just await.
+      if (category == NotificationCategory.story) {
+        // Handle Story Navigation
+        try {
+          final groups = await StoryService.getGroupedStories();
+          int targetIndex = 0;
 
+          // If we have a story ID, try to find the group containing it
+          if (referenceId != null) {
+            for (int i = 0; i < groups.length; i++) {
+              if (groups[i].stories.any((s) => s.storyId == referenceId)) {
+                targetIndex = i;
+                break;
+              }
+            }
+          }
+          // If not found by story ID, maybe by actorId?
+          else if (actorId != null) {
+            for (int i = 0; i < groups.length; i++) {
+              if (groups[i].author.id == actorId) {
+                targetIndex = i;
+                break;
+              }
+            }
+          }
+
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => StoryViewerScreen(
+                groups: groups,
+                initialGroupIndex: targetIndex,
+                initialStoryId: referenceId,
+                autoShowComments: type.contains(
+                  'comment',
+                ), // 'comment' or 'reply'
+                // Pass true if it's a LIKE notification
+                autoShowLikes: type.contains('like'),
+              ),
+            ),
+          );
+        } catch (e) {
+          debugPrint("Failed to load stories for notification: $e");
+        }
+      } else if (category == NotificationCategory.post) {
+        if (referenceId != null) {
           final post = await FeedApi.fetchSinglePost(referenceId);
 
           if (post != null) {

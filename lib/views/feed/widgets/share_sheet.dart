@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/share_service.dart';
+import '../../story/share_to_story_screen.dart';
 
 class ShareSheet extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -179,6 +180,21 @@ class _ShareSheetState extends State<ShareSheet> {
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Link copied to clipboard")),
+                    );
+                  },
+                ),
+                const SizedBox(width: 16),
+                _optionButton(
+                  icon: Icons.add_circle_outline,
+                  label: "Add to Story",
+                  onTap: () {
+                    // Navigate to ShareToStoryScreen
+                    Navigator.pop(context); // Close share sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ShareToStoryScreen(post: widget.post),
+                      ),
                     );
                   },
                 ),

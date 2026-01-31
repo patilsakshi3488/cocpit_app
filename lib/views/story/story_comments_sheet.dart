@@ -11,6 +11,7 @@ class StoryCommentsSheet extends StatefulWidget {
   final int initialCount;
   final bool isStoryAuthor;
   final Function(int count)? onCommentCountChanged;
+  final bool embedInSheet;
 
   const StoryCommentsSheet({
     super.key,
@@ -18,6 +19,7 @@ class StoryCommentsSheet extends StatefulWidget {
     this.initialCount = 0,
     required this.isStoryAuthor,
     this.onCommentCountChanged,
+    this.embedInSheet = false,
   });
 
   @override
@@ -195,6 +197,82 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     // Based on provided image design
     final sheetBg = Color(0xFF1E1E2C);
     final textColor = Colors.white;
+
+    if (widget.embedInSheet) {
+      return Column(
+        children: [
+          // List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _comments.isEmpty
+                ? Center(
+                    child: Text(
+                      "No comments yet.",
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _comments.length,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemBuilder: (context, index) {
+                      final c = _comments[index];
+                      return _buildCommentItem(c);
+                    },
+                  ),
+          ),
+
+          // Input
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.white10)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: "Add a comment...",
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: Colors.white10,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _postComment,
+                  icon: const Icon(Icons.send),
+                  color: Colors.blueAccent,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white10,
+                    shape: const CircleBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Added bottom padding for keyboard in embedded mode handled by parent mostly?
+          // But input needs to be accessible. Since TabBarView usually expands, this is fine.
+        ],
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(

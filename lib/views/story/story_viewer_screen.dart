@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
-import 'package:cocpit_app/views/story/story_comments_sheet.dart';
+
 import 'package:cocpit_app/views/profile/public_profile_screen.dart';
 import 'package:cocpit_app/views/feed/post_detail_screen.dart';
+import 'package:cocpit_app/views/story/story_engagement_sheet.dart';
 
 class StoryViewerScreen extends StatefulWidget {
   final List<StoryGroup> groups;
@@ -103,11 +104,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     // Auto-open comments checking
     if (widget.autoShowComments) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showComments();
+        if (mounted) _showEngagementSheet(initialTab: 2);
       });
     } else if (widget.autoShowLikes) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showLikes();
+        if (mounted) _showEngagementSheet(initialTab: 1);
       });
     }
   }
@@ -183,22 +184,73 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
 
   Future<void> _fetchEngagement(String storyId) async {
     try {
-      final details = await StoryService.getStoryDetails(storyId);
+      // Fetch details (viewers + reactions) and comments in parallel
+      final results = await Future.wait([
+        StoryService.getStoryDetails(storyId),
+        StoryService.fetchComments(storyId),
+      ]);
 
       if (!mounted) return;
 
+      final details = results[0] as Map<String, dynamic>;
+      final comments = results[1] as List<StoryComment>;
+
+      // 1. Parse Viewers
+      // Backend: { viewerCount: N, viewers: [...] }
+      final viewersList = details['viewers'] as List? ?? [];
+      int viewCount = details['viewerCount'] ?? 0;
+      if (viewCount == 0 && viewersList.isNotEmpty) {
+        viewCount = viewersList.length;
+      }
+
+      // 2. Derive Likes from Viewers (Backend ensures reactors are also viewers)
+      // Filter viewers where 'reaction_type' is 'true' (string) or present
+      final likesList = viewersList.where((v) {
+        final r = v['reaction_type'];
+        return r != null && r.toString().toLowerCase() == 'true';
+      }).toList();
+
+      final likeCount = likesList.length;
+
+      // 3. Determine 'hasLiked' from derived list
+      // We need to check if *current user* is in the likes list.
+      // However, backend getStories gave us 'has_liked'.
+      // If we blindly trust this list, we need to know current user ID.
+      // Simplified: We trust the `getStories` "hasLiked" initially, but if we find ourselves in the list, we confirm it.
+      // Actually, standard pattern: 'hasLiked' is usually separate.
+      // Since this endpoint is for 'Author' usually (permission check in backend?),
+      // non-authors might get 403 on getStoryDetailsById!
+      // WAIT. `getStoryDetailsById` line 1763: "You don't have permission to view these details" if not author.
+      // PROB: If I am NOT the author, `getStoryDetails` will fail (403).
+      // So checking logic is needed.
+
       _engagementCache[storyId] = {
-        "viewCount": details['view_count'] ?? 0,
-        "likeCount": details['like_count'] ?? 0,
-        "commentCount": details['comment_count'] ?? 0,
-        "hasLiked": details['has_liked'] ?? false,
-        "likes": details['likes'] ?? details['reporters'] ?? [], // fallback
-        "viewers": details['viewers'] ?? [],
+        "viewCount": viewCount,
+        "likeCount": likeCount,
+        "commentCount": comments.length,
+        "hasLiked": _hasLiked(storyId), // Keep existing or update if found
+        "likes": likesList,
+        "viewers": viewersList,
+        "comments": comments, // Optional, store if needed
       };
 
-      setState(() {}); // Force rebuild with new cache
-    } catch (_) {
-      // If fail, we rely on old data or 0
+      setState(() {});
+    } catch (e) {
+      // If I am NOT author, getStoryDetails might fail (403).
+      // In that case, we should at least fetch comments count?
+      // And we rely on 'getStories' data for like/view counts.
+      if (e.toString().contains("403")) {
+        // Non-author logic: maintain existing cache but update comments if possible
+        try {
+          final comments = await StoryService.fetchComments(storyId);
+          if (mounted) {
+            final prev = _engagementCache[storyId] ?? {};
+            prev['commentCount'] = comments.length;
+            _engagementCache[storyId] = prev;
+            setState(() {});
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -411,74 +463,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     _resume();
   }
 
-  void _showViewers() async {
-    _pause();
-    final story = _currentStorySafe;
-    if (story == null) return;
-
-    try {
-      final details = await StoryService.getStoryDetails(story.storyId);
-      if (!mounted) return;
-
-      await showModalBottomSheet(
-        context: context,
-        builder: (c) => _UserListSheet(
-          title: "Viewers",
-          users: details['viewers'] as List? ?? [],
-        ),
-        backgroundColor: Colors.transparent,
-      );
-    } catch (e) {
-      // ignore
-    }
-    _resume();
-  }
-
-  void _showLikes() async {
-    _pause();
-    final story = _currentStorySafe;
-    if (story == null) return;
-
-    try {
-      final details = await StoryService.getStoryDetails(story.storyId);
-      if (!mounted) return;
-
-      // Assuming details contains 'likes' array based on standard pattern
-      // If not, it will just show empty, but won't crash
-      final likes =
-          details['likes'] as List? ?? details['reporters'] as List? ?? [];
-
-      await showModalBottomSheet(
-        context: context,
-        builder: (c) => _UserListSheet(title: "Likes", users: likes),
-        backgroundColor: Colors.transparent,
-      );
-    } catch (e) {
-      // ignore
-    }
-    _resume();
-  }
-
-  void _showComments() {
-    _pause();
-    final story = _currentStorySafe;
-    if (story == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StoryCommentsSheet(
-        storyId: story.storyId,
-        initialCount: story.commentCount,
-        isStoryAuthor: story.isAuthor,
-        onCommentCountChanged: (newCount) {
-          setState(() => story.commentCount = newCount);
-        },
-      ),
-    ).then((_) => _resume());
-  }
-
   bool _isLongText(String text) {
     return text.length > 80;
   }
@@ -671,7 +655,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
               // Swipe Up detected
               if (_dragOffsetY == 0) {
                 if (story.isAuthor) {
-                  _showViewers();
+                  _showEngagementSheet(initialTab: 0);
                 } else if (story.description != null &&
                     story.description!.isNotEmpty) {
                   _showDescriptionSheet(context, story.description!);
@@ -953,48 +937,100 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     );
   }
 
+  // ===================================
+  // UNIFIED ENGAGEMENT SHEET
+  // ===================================
+  void _showEngagementSheet({int initialTab = 0}) {
+    _pause();
+    final story = _currentStorySafe;
+    if (story == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StoryEngagementSheet(
+        story: story,
+        initialTabIndex: initialTab,
+        initialData: _engagementCache[story.storyId],
+      ),
+    ).then((_) => _resume());
+  }
+
   Widget _buildFooterActions(Story story, BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     if (story.isAuthor) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Viewers
-          TextButton.icon(
-            onPressed: _showViewers,
-            icon: Icon(Icons.visibility, color: colorScheme.onSurface),
-            label: Text(
-              "${_viewCount(story.storyId)}",
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-
-          // Comments
-          IconButton(
-            onPressed: _showComments,
-            icon: Icon(Icons.chat_bubble_outline, color: colorScheme.onSurface),
-            tooltip: "Comments",
-          ),
-
-          // Likes (Always visible for author to check who liked)
           GestureDetector(
-            onTap: _showLikes,
-            child: Row(
+            onTap: () => _showEngagementSheet(initialTab: 0),
+            child: Column(
               children: [
-                Icon(Icons.favorite, color: Colors.white, size: 24),
-                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_up, color: Colors.white70),
                 Text(
-                  '${_likeCount(story.storyId)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  "Swipe up for insights",
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
-                const SizedBox(width: 8),
               ],
             ),
+          ),
+          SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Activity Button (Left)
+              GestureDetector(
+                onTap: () => _showEngagementSheet(initialTab: 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      // Stacked avatars could go here, but keeping it simple for now
+                      Icon(Icons.visibility, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Activity (${_viewCount(story.storyId)})",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Quick Actions (Right) - Likes/Comments shortcuts
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () =>
+                        _showEngagementSheet(initialTab: 1), // Likes
+                    icon: Icon(Icons.favorite_border, color: Colors.white),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        _showEngagementSheet(initialTab: 2), // Comments
+                    icon: Icon(Icons.chat_bubble_outline, color: Colors.white),
+                  ),
+                  // Share/More could go here
+                  IconButton(
+                    onPressed: () => _showMoreOptions(story),
+                    icon: Icon(Icons.more_horiz, color: Colors.white),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       );
@@ -1004,7 +1040,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         children: [
           // Comment Button
           GestureDetector(
-            onTap: _showComments,
+            onTap: () => _showEngagementSheet(initialTab: 2),
             child: Container(
               // larger hit area
               padding: const EdgeInsets.all(8),
@@ -1072,127 +1108,5 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     if (diff.inHours > 0) return "${diff.inHours}h";
     if (diff.inMinutes > 0) return "${diff.inMinutes}m";
     return "Just now";
-  }
-}
-
-// Reusable sheet for Viewers/Likes
-class _UserListSheet extends StatelessWidget {
-  final String title;
-  final List<dynamic> users;
-
-  const _UserListSheet({required this.title, required this.users});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Dark sheet
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            "$title (${users.length})",
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (users.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: Text(
-                  "No $title yet",
-                  style: const TextStyle(color: Colors.white54),
-                ),
-              ),
-            )
-          else
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.5,
-              ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final v = users[index];
-                  // Robust parsing
-                  final userObj = v is Map ? (v['user'] ?? v) : {};
-
-                  final name =
-                      userObj['name'] ??
-                      userObj['full_name'] ??
-                      userObj['user_name'] ??
-                      userObj['username'] ??
-                      "User";
-
-                  final avatar =
-                      userObj['avatar'] ??
-                      userObj['avatar_url'] ??
-                      userObj['profile_picture'] ??
-                      userObj['user_avatar'];
-
-                  final userId =
-                      userObj['id']?.toString() ?? userObj['_id']?.toString();
-
-                  return GestureDetector(
-                    onTap: userId != null
-                        ? () {
-                            // Navigate to profile
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    PublicProfileScreen(userId: userId),
-                              ),
-                            );
-                          }
-                        : null,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundImage: avatar != null
-                            ? NetworkImage(avatar)
-                            : null,
-                        backgroundColor: Colors.white10,
-                        child: avatar == null
-                            ? const Icon(Icons.person, color: Colors.white70)
-                            : null,
-                      ),
-                      title: Text(
-                        name,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }

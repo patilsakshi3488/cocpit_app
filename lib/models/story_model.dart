@@ -119,14 +119,16 @@ class StoryComment {
 
   factory StoryComment.fromJson(Map<String, dynamic> json) {
     return StoryComment(
-      id: json['id'].toString(),
-      storyId: json['story_id'].toString(),
-      userId: json['user_id'].toString(),
+      id: json['id']?.toString() ?? json['comment_id']?.toString() ?? "",
+      storyId: json['story_id']?.toString() ?? "",
+      userId:
+          json['user_id']?.toString() ?? json['author_id']?.toString() ?? "",
       content: json['content'] ?? "",
       createdAt: DateTime.tryParse(json['created_at'] ?? "") ?? DateTime.now(),
       likeCount: json['like_count'] ?? 0,
       isLiked: json['is_liked'] ?? false,
-      userAvatar: json['user']?['avatar'] ?? json['user_avatar'],
+      userAvatar:
+          json['user']?['avatar'] ?? json['user_avatar'] ?? json['avatar_url'],
       userName:
           json['user']?['name'] ??
           json['user']?['full_name'] ??

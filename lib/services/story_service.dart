@@ -72,7 +72,17 @@ class StoryService {
     final response = await ApiClient.get("${ApiConfig.stories}/$storyId");
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        if (decoded.containsKey('story')) {
+          return decoded['story'];
+        }
+        if (decoded.containsKey('data')) {
+          return decoded['data'];
+        }
+        return decoded;
+      }
+      return {};
     } else {
       throw Exception("Failed to get story details");
     }

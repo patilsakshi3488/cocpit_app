@@ -77,7 +77,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         Map<String, dynamic>? updated;
         if (response.containsKey("post")) {
           updated = response["post"];
-        } else if (response.containsKey("data")) {
+        }
+        else if (response.containsKey("data")) {
           updated = response["data"];
         } else {
           updated = response;

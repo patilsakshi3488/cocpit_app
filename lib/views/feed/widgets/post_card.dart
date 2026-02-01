@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../../../../services/post_provider.dart';
 import '../../../../services/feed_service.dart';
 import 'poll_analytics_dialog.dart';
 import '../../../widgets/poll_widget.dart';
@@ -40,14 +42,22 @@ class _PostCardState extends State<PostCard> {
   void initState() {
     super.initState();
     post = widget.post;
+    // Register the post with the provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PostProvider>().updatePost(widget.post);
+    });
+
     _loadCurrentUser();
     _checkInitialCommentCount();
   }
+
 
   @override
   void didUpdateWidget(PostCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.post != oldWidget.post) {
+      // If widget updates, update provider too
+      context.read<PostProvider>().updatePost(widget.post);
       setState(() {
         post = widget.post;
       });
@@ -70,9 +80,11 @@ class _PostCardState extends State<PostCard> {
       try {
         final comments = await FeedApi.fetchComments(postId);
         if (mounted && comments.isNotEmpty) {
-          setState(() {
-            post["comment_count"] = comments.length;
-          });
+          // Instead of local setState, update provider if possible, but for now
+          // let's stick to local + provider sync
+           final newMap = Map<String, dynamic>.from(post);
+           newMap["comment_count"] = comments.length;
+           context.read<PostProvider>().updatePost(newMap);
         }
       } catch (_) {
         // Ignore errors, keep 0
@@ -153,6 +165,17 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Listen to changes for this post from the provider
+    final providerPost = context.select<PostProvider, Map<String, dynamic>?>(
+      (provider) => provider.getPost(postId),
+    );
+
+    // Use provider data if available, otherwise fallback to local/widget data
+    if (providerPost != null) {
+      post = providerPost;
+    }
+
     final List media = post["media"] ?? post["media_urls"] ?? [];
 
     final normalizedMedia = media.map((m) {
@@ -505,68 +528,75 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _postActions(ThemeData theme) {
-    final isLiked = post["is_liked"] == true;
-    final String currentPostId = postId; // Use robust getter
+    return Consumer<PostProvider>(
+      builder: (context, provider, _) {
+        final postData = provider.getPost(postId);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        InkWell(
-          onTap: () async {
-            if (currentPostId.isEmpty) return;
-            try {
-              setState(() {
-                post["is_liked"] = !post["is_liked"];
-              });
-              await FeedApi.toggleLike(currentPostId);
-            } catch (_) {}
-          },
-          child: _action(
-            isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-            "Like",
-            color: isLiked ? theme.primaryColor : null,
-            theme: theme,
-          ),
-        ),
-        InkWell(
-          onTap: () async {
-            if (currentPostId.isEmpty) return;
-            await showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => CommentsSheet(
-                postId: currentPostId,
-                onCommentAdded: () {
-                  if (mounted) {
-                    setState(() {
-                      // Increment local count
-                      final current =
-                          post["comment_count"] ??
-                          post["comments_count"] ??
-                          post["_count"]?["comments"] ??
-                          0;
+        // If post is not yet registered, render nothing (or skeleton)
+        if (postData == null) {
+          return const SizedBox.shrink();
+        }
 
-                      // Convert to int safely
-                      int count = 0;
-                      if (current is int) count = current;
-                      if (current is String) count = int.tryParse(current) ?? 0;
+        final bool isLiked = postData["is_liked"] == true;
 
-                      // Update preferred field
-                      post["comment_count"] = count + 1;
-                    });
-                  }
-                },
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            /// ❤️ LIKE
+            InkWell(
+              onTap: () {
+                if (postId.isEmpty) return;
+                provider.toggleLike(postId);
+              },
+              child: _action(
+                isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                "Like",
+                color: isLiked ? theme.primaryColor : null,
+                theme: theme,
               ),
-            );
-          },
-          child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
-        ),
-        InkWell(
-          onTap: _onShareTap,
-          child: _action(Icons.share_outlined, "Share", theme: theme),
-        ),
-      ],
+            ),
+
+            /// 💬 COMMENT
+            InkWell(
+              onTap: () async {
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => CommentsSheet(
+                    postId: postId,
+                    onCommentAdded: () {
+                      if (mounted) {
+                        setState(() {
+                          // Increment local count
+                          final current =
+                              post["comment_count"] ??
+                                  post["comments_count"] ??
+                                  post["_count"]?["comments"] ??
+                                  0;
+
+                          // Convert to int safely
+                          int count = 0;
+                          if (current is int) count = current;
+                          if (current is String) count = int.tryParse(current) ?? 0;
+
+                          // Update preferred field
+                          post["comment_count"] = count + 1;
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+              child: _action(Icons.chat_bubble_outline, "Comment", theme: theme),
+            ),
+            InkWell(
+              onTap: () => _onShareTap(),
+              child: _action(Icons.share_outlined, "Share", theme: theme),
+            ),
+          ],
+        );
+      },
     );
   }
 

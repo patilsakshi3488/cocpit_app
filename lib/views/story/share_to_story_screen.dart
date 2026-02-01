@@ -199,31 +199,37 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
             child: Center(
               child: Screenshot(
                 controller: _screenshotController,
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  height: MediaQuery.of(
-                    context,
-                  ).size.height, // Full screen height
-                  decoration: BoxDecoration(
-                    color: _isGradient ? null : _colors[_selectedBgIndex],
-                    gradient: _isGradient ? _gradients[_selectedBgIndex] : null,
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Transform.scale(
-                          scale: _scale,
-                          child: _buildPostCard(),
+                child: SafeArea(
+                  child: Container(
+                    width: MediaQuery.of(context).size.width,
+                    height: MediaQuery.of(
+                      context,
+                    ).size.height, // Full screen height
+                    decoration: BoxDecoration(
+                      color: _isGradient ? null : _colors[_selectedBgIndex],
+                      gradient: _isGradient
+                          ? _gradients[_selectedBgIndex]
+                          : null,
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Transform.scale(
+                            scale: MediaQuery.of(context).size.height < 700
+                                ? 0.9
+                                : _scale,
+                            child: _buildPostCard(),
+                          ),
                         ),
-                      ),
-                      ..._textOverlays,
-                    ],
+                        ..._textOverlays,
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          // ... controls (unchanged in this snippet, effectively) ...
+          //Controls
           Container(
             color: Colors.black,
             padding: const EdgeInsets.all(16),
@@ -327,6 +333,8 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
                 // Description
                 TextField(
                   controller: _descriptionController,
+                  maxLines: 2,
+                  maxLength: 120,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
@@ -481,50 +489,39 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Image / Content - Flexible to prevent overflow
-          Flexible(
-            fit: FlexFit.loose,
+          // Image / Content - ConstrainedBox (Fix 1)
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxHeight: 280, // SAFE LIMIT
+            ),
             child: imageUrl != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxHeight: 320,
-                      ), // Reduced safe limit
-                      child: Image.network(
-                        imageUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          height: 150,
-                          color: Colors.grey[800],
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.broken_image,
-                            color: Colors.white54,
-                          ),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 150,
+                        color: Colors.grey[800],
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.white54,
                         ),
                       ),
                     ),
                   )
-                : Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
+                : Text(
+                    widget.post['content'] ?? widget.post['text'] ?? "",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      height: 1.4,
                     ),
-                    child: Text(
-                      widget.post['content'] ?? widget.post['text'] ?? "",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
                   ),
           ),
 

@@ -962,77 +962,145 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     final colorScheme = theme.colorScheme;
 
     if (story.isAuthor) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () => _showEngagementSheet(initialTab: 0),
-            child: Column(
-              children: [
-                Icon(Icons.keyboard_arrow_up, color: Colors.white70),
-                Text(
-                  "Swipe up for insights",
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+      final viewers =
+          _engagementCache[story.storyId]?['viewers'] as List? ?? [];
+      final firstFewViewers = viewers.take(3).toList(); // Show top 3 avatars
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // LEFT: Activity / Profiles
+            GestureDetector(
+              onTap: () => _showEngagementSheet(initialTab: 0),
+              child: Container(
+                color: Colors.transparent, // Hit area
+                child: Row(
+                  children: [
+                    const Icon(Icons.visibility, color: Colors.white, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      "${_viewCount(story.storyId)}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    if (firstFewViewers.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        height: 24,
+                        width: 24.0 * firstFewViewers.length * 0.7 + 10,
+                        child: Stack(
+                          children: [
+                            for (int i = 0; i < firstFewViewers.length; i++)
+                              Positioned(
+                                left: i * 14.0,
+                                child: CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: Colors.white,
+                                  child: CircleAvatar(
+                                    radius: 11,
+                                    backgroundImage: () {
+                                      final v = firstFewViewers[i];
+                                      final userObj = v is Map
+                                          ? (v['user'] ?? v)
+                                          : {};
+                                      final url =
+                                          userObj['avatar'] ??
+                                          userObj['avatar_url'] ??
+                                          userObj['profile_picture'];
+                                      return url != null
+                                          ? NetworkImage(url)
+                                          : null;
+                                    }(),
+                                    backgroundColor: Colors.grey[800],
+                                    child: () {
+                                      final v = firstFewViewers[i];
+                                      final userObj = v is Map
+                                          ? (v['user'] ?? v)
+                                          : {};
+                                      final url =
+                                          userObj['avatar'] ??
+                                          userObj['avatar_url'] ??
+                                          userObj['profile_picture'];
+                                      return url == null
+                                          ? const Icon(
+                                              Icons.person,
+                                              size: 12,
+                                              color: Colors.white,
+                                            )
+                                          : null;
+                                    }(),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-          SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Activity Button (Left)
-              GestureDetector(
-                onTap: () => _showEngagementSheet(initialTab: 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
+
+            // RIGHT: Likes & Comments
+            Row(
+              children: [
+                // Likes
+                GestureDetector(
+                  onTap: () => _showEngagementSheet(initialTab: 1),
                   child: Row(
                     children: [
-                      // Stacked avatars could go here, but keeping it simple for now
-                      Icon(Icons.visibility, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.favorite, color: Colors.white, size: 24),
+                      const SizedBox(width: 4),
                       Text(
-                        "Activity (${_viewCount(story.storyId)})",
+                        "${_likeCount(story.storyId)}",
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-
-              // Quick Actions (Right) - Likes/Comments shortcuts
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () =>
-                        _showEngagementSheet(initialTab: 1), // Likes
-                    icon: Icon(Icons.favorite_border, color: Colors.white),
+                const SizedBox(width: 16),
+                // Comments
+                GestureDetector(
+                  onTap: () => _showEngagementSheet(initialTab: 2),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${_commentCount(story.storyId)}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () =>
-                        _showEngagementSheet(initialTab: 2), // Comments
-                    icon: Icon(Icons.chat_bubble_outline, color: Colors.white),
-                  ),
-                  // Share/More could go here
-                  IconButton(
-                    onPressed: () => _showMoreOptions(story),
-                    icon: Icon(Icons.more_horiz, color: Colors.white),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _showMoreOptions(story),
+                  icon: const Icon(Icons.more_horiz, color: Colors.white),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ],
+        ),
       );
     } else {
       return Row(

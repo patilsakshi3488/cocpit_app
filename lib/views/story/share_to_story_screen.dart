@@ -122,7 +122,8 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
     setState(() => _isSharing = true);
 
     try {
-      // 1. Capture Image
+      // 1. Capture Full Screenshot (Flattened: Post Card + Background + Text)
+      // This ensures the website sees exactly what the user designed.
       final Uint8List? imageBytes = await _screenshotController.capture();
       if (imageBytes == null) throw Exception("Failed to capture image");
 
@@ -136,26 +137,33 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
       // 3. Upload Media
       final uploadedMedia = await FeedApi.uploadMedia([file]);
       if (uploadedMedia.isEmpty) throw Exception("Failed to upload media");
-
       final mediaUrl = uploadedMedia.first['url'];
 
-      // Get Post ID for deep linking
+      // 4. Get Post ID
       final postId =
           widget.post["_id"]?.toString() ??
           widget.post["post_id"]?.toString() ??
           widget.post["id"]?.toString() ??
           "";
 
-      // 4. Create Story with clean metadata approach
+      // 5. Create Metadata (Logic Only, Visuals are Baked)
+      final metadata = {
+        "version": "1.0",
+        "shared_post_id": postId,
+        // We can still send background info if we want, but it's baked now.
+        // We don't send layers because they are baked.
+      };
+
+      // 6. Create Story
       await StoryService.createStory(
-        title: null, // Title is not used for linking anymore
+        title: null,
         description: _descriptionController.text.trim(),
         mediaUrl: mediaUrl,
-        storyMetadata: {"linked_post_id": postId, "source": "feed_share"},
+        storyMetadata: metadata,
       );
 
       if (mounted) {
-        Navigator.pop(context); // Close Screen
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Shared to story successfully!"),
@@ -199,37 +207,31 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
             child: Center(
               child: Screenshot(
                 controller: _screenshotController,
-                child: SafeArea(
-                  child: Container(
-                    width: MediaQuery.of(context).size.width,
-                    height: MediaQuery.of(
-                      context,
-                    ).size.height, // Full screen height
-                    decoration: BoxDecoration(
-                      color: _isGradient ? null : _colors[_selectedBgIndex],
-                      gradient: _isGradient
-                          ? _gradients[_selectedBgIndex]
-                          : null,
-                    ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Transform.scale(
-                            scale: MediaQuery.of(context).size.height < 700
-                                ? 0.9
-                                : _scale,
-                            child: _buildPostCard(),
-                          ),
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  height: MediaQuery.of(
+                    context,
+                  ).size.height, // Full screen height
+                  decoration: BoxDecoration(
+                    color: _isGradient ? null : _colors[_selectedBgIndex],
+                    gradient: _isGradient ? _gradients[_selectedBgIndex] : null,
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Transform.scale(
+                          scale: _scale,
+                          child: _buildPostCard(),
                         ),
-                        ..._textOverlays,
-                      ],
-                    ),
+                      ),
+                      ..._textOverlays,
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-          //Controls
+          // ... controls (unchanged in this snippet, effectively) ...
           Container(
             color: Colors.black,
             padding: const EdgeInsets.all(16),
@@ -333,8 +335,6 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
                 // Description
                 TextField(
                   controller: _descriptionController,
-                  maxLines: 2,
-                  maxLength: 120,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(
@@ -489,39 +489,50 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Image / Content - ConstrainedBox (Fix 1)
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxHeight: 280, // SAFE LIMIT
-            ),
+          // Image / Content - Flexible to prevent overflow
+          Flexible(
+            fit: FlexFit.loose,
             child: imageUrl != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 150,
-                        color: Colors.grey[800],
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.broken_image,
-                          color: Colors.white54,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: 320,
+                      ), // Reduced safe limit
+                      child: Image.network(
+                        imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 150,
+                          color: Colors.grey[800],
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.white54,
+                          ),
                         ),
                       ),
                     ),
                   )
-                : Text(
-                    widget.post['content'] ?? widget.post['text'] ?? "",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      height: 1.4,
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      widget.post['content'] ?? widget.post['text'] ?? "",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
           ),
 

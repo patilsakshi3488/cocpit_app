@@ -32,7 +32,9 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
     _tabController = TabController(
       length: 3,
       vsync: this,
-      initialIndex: widget.initialTabIndex,
+      initialIndex: (widget.initialTabIndex >= 0 && widget.initialTabIndex <= 2)
+          ? widget.initialTabIndex
+          : 0,
     );
 
     if (widget.initialData != null) {
@@ -41,6 +43,12 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
     } else {
       _load();
     }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -60,17 +68,25 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
 
   @override
   Widget build(BuildContext context) {
-    // Determine tabs visibility based on isAuthor?
-    // Usually standard users can't see Viewers list, only count.
-    // But specific requirement says "One sheet".
-    // For non-authors:
-    // - Views tab: Maybe hide or show just count?
-    // - Likes tab: Usually visible (or just count)
-    // - Comments tab: Visible
-    // The user provided code creates 3 tabs regardless. I will follow that but handle empty/permission states inside the list.
+    if (_loading && _details == null) {
+      return Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Counts
+    final viewCount = _details?['viewCount'] ?? widget.story.viewCount;
+    final likeCount = _details?['likeCount'] ?? widget.story.likeCount;
+    final commentCount =
+        widget.story.commentCount; // Or from details if available
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
         color: Color(0xFF1E1E1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -78,6 +94,7 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
       child: Column(
         children: [
           const SizedBox(height: 12),
+          // Drag Handle
           Container(
             width: 40,
             height: 4,
@@ -86,65 +103,54 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 12),
 
+          // Tab Bar
           TabBar(
             controller: _tabController,
-            indicatorColor: Colors.white,
             labelColor: Colors.white,
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: Colors.white54,
+            indicatorColor: Colors.blueAccent,
             tabs: [
-              Tab(
-                text:
-                    "Views ${_details != null ? '(${_details!['viewCount'] ?? 0})' : ''}",
-              ),
-              Tab(
-                text:
-                    "Likes ${_details != null ? '(${_details!['likeCount'] ?? 0})' : ''}",
-              ),
-              Tab(
-                text:
-                    "Comments ${_details != null ? '(${widget.story.commentCount})' : ''}",
-              ),
+              Tab(text: "Views ($viewCount)"),
+              Tab(text: "Likes ($likeCount)"),
+              Tab(text: "Comments ($commentCount)"),
             ],
           ),
 
+          const Divider(color: Colors.white12, height: 1),
+
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // Views Tab
-                      widget.story.isAuthor
-                          ? _UserList(
-                              users: _details!['viewers'] ?? [],
-                              emptyMsg: "No views yet",
-                            )
-                          : const Center(
-                              child: Text(
-                                "Viewers are private",
-                                style: TextStyle(color: Colors.white54),
-                              ),
-                            ),
-
-                      // Likes Tab
-                      _UserList(
-                        users:
-                            _details!['likes'] ?? _details!['reporters'] ?? [],
-                        emptyMsg: "No likes yet",
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // 1. Views Tab
+                widget.story.isAuthor
+                    ? _UserList(
+                        users: _details?['viewers'] ?? [],
+                        emptyMsg: "No views yet",
+                      )
+                    : const Center(
+                        child: Text(
+                          "Viewers are private",
+                          style: TextStyle(color: Colors.white54),
+                        ),
                       ),
 
-                      // Comments Tab
-                      StoryCommentsSheet(
-                        storyId: widget.story.storyId,
-                        initialCount: widget.story.commentCount,
-                        isStoryAuthor: widget.story.isAuthor,
-                        embedInSheet:
-                            true, // Helper to adjust padding if needed
-                      ),
-                    ],
-                  ),
+                // 2. Likes Tab
+                _UserList(
+                  users: _details?['likes'] ?? _details?['reporters'] ?? [],
+                  emptyMsg: "No likes yet",
+                ),
+
+                // 3. Comments Tab
+                StoryCommentsSheet(
+                  storyId: widget.story.storyId,
+                  initialCount: commentCount,
+                  isStoryAuthor: widget.story.isAuthor,
+                  embedInSheet: true,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -176,35 +182,21 @@ class _UserList extends StatelessWidget {
         final name =
             userObj['name'] ??
             userObj['full_name'] ??
-            userObj['user_name'] ??
             userObj['username'] ??
             "User";
-
         final avatar =
             userObj['avatar'] ??
             userObj['avatar_url'] ??
-            userObj['profile_picture'] ??
-            userObj['user_avatar'];
-
+            userObj['profile_picture'];
         final userId =
             userObj['user_id']?.toString() ??
-            userObj['author_id']?.toString() ??
-            userObj['id']?.toString() ??
-            userObj['_id']?.toString();
+            userObj['_id']?.toString() ??
+            userObj['id']?.toString();
 
         return ListTile(
           contentPadding: EdgeInsets.zero,
           leading: GestureDetector(
-            onTap: userId != null
-                ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PublicProfileScreen(userId: userId),
-                      ),
-                    );
-                  }
-                : null,
+            onTap: userId != null ? () => _navToProfile(context, userId) : null,
             child: CircleAvatar(
               backgroundImage: avatar != null ? NetworkImage(avatar) : null,
               backgroundColor: Colors.white10,
@@ -214,18 +206,16 @@ class _UserList extends StatelessWidget {
             ),
           ),
           title: Text(name, style: const TextStyle(color: Colors.white)),
-          onTap: userId != null
-              ? () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PublicProfileScreen(userId: userId),
-                    ),
-                  );
-                }
-              : null,
+          onTap: userId != null ? () => _navToProfile(context, userId) : null,
         );
       },
+    );
+  }
+
+  void _navToProfile(BuildContext context, String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PublicProfileScreen(userId: userId)),
     );
   }
 }

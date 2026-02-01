@@ -47,6 +47,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // Active Tool
   StoryEditorTool _activeTool = StoryEditorTool.none;
 
+  // Canvas Key for metadata calculation
+  final GlobalKey _canvasKey = GlobalKey();
+  bool _hideTextForCapture = false;
+
   // Deletion State
   bool _isDragging = false;
   bool _isOverDeleteZone = false;
@@ -136,6 +140,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                     child: Screenshot(
                       controller: _screenshotController,
                       child: Container(
+                        key: _canvasKey,
                         decoration: BoxDecoration(
                           color: _backgroundGradient == null
                               ? _backgroundColor
@@ -187,7 +192,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                             // Text Layers (Rendered when NOT editing them specifically)
                             ..._textLayers.map((layer) {
                               // If we are editing THIS layer, hide it from the stack so we don't see double
-                              if (_isTextEditing && _editingLayer == layer) {
+                              if ((_isTextEditing && _editingLayer == layer) ||
+                                  _hideTextForCapture) {
                                 return const SizedBox.shrink();
                               }
                               return DraggableResizableWidget(
@@ -249,6 +255,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   Widget _buildTextLayerWidget(TextLayer layer) {
     return Container(
+      key: layer.key,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: layer.backgroundColor,
@@ -704,27 +711,143 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   Future<void> _exportImage() async {
     try {
-      final image = await _screenshotController.capture();
-      if (image == null) return;
-      final tempDir = Directory.systemTemp;
-      final file = await File(
-        '${tempDir.path}/story_${DateTime.now().millisecondsSinceEpoch}.png',
-      ).create();
-      await file.writeAsBytes(image);
+      // 1. Generate Metadata (Always good for future re-edits or app logic)
+      final metadata = await _generateMetadata();
 
-      // Navigate to Previev instead of popping
+      File? uploadFile;
+
+      if (widget.isVideo) {
+        // =========================
+        // VIDEO FLOW (No Flattening yet)
+        // =========================
+        // Upload original video file.
+        // Layers acts as overlays in App.
+        // Web sees raw video (acceptable constraint for now without server-side processing)
+        if (widget.initialFile != null) {
+          uploadFile = widget.initialFile;
+        }
+      } else {
+        // =========================
+        // IMAGE / TEXT FLOW (Flattening)
+        // =========================
+        // Capture the ENTIRE canvas (Background + Image + Text + Stickers)
+        // This ensures the Website renders it exactly as seen.
+
+        setState(() => _hideTextForCapture = false); // Ensure text is visible!
+        // Wait a frame to ensure state is settled
+        await Future.delayed(const Duration(milliseconds: 50));
+
+        final imageBytes = await _screenshotController.capture();
+
+        if (imageBytes != null) {
+          final tempDir = Directory.systemTemp;
+          final file = await File(
+            '${tempDir.path}/story_flat_${DateTime.now().millisecondsSinceEpoch}.png',
+          ).create();
+          await file.writeAsBytes(imageBytes);
+          uploadFile = file;
+
+          // NOTE: We do NOT inject "main-image" layer here because the media_url IS the full image.
+          // If we add layers on top, we might duplicate text.
+          // But we keep metadata for potential "Logic" or "Re-edit" (if we supported that).
+          // For the viewer, we will teach it to ignore visual layers if it's an image type.
+        }
+      }
+
+      if (uploadFile == null) return;
+
+      // Navigate to Preview with Metadata
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                StoryPreviewScreen(storyFile: file, isVideo: widget.isVideo),
+            builder: (context) => StoryPreviewScreen(
+              storyFile: uploadFile!,
+              isVideo: widget.isVideo,
+              storyMetadata: metadata,
+            ),
           ),
         );
       }
     } catch (e) {
       debugPrint("Export error: $e");
     }
+  }
+
+  Future<Map<String, dynamic>> _generateMetadata() async {
+    // Measure Canvas
+    final RenderBox? canvasBox =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final Size canvasSize = canvasBox?.size ?? MediaQuery.of(context).size;
+
+    final layers = <Map<String, dynamic>>[];
+
+    // 1. Add Main Media Layer (if exists)
+    if (widget.initialFile != null) {
+      layers.add({
+        "id": "main-image", // or main-video
+        "type": widget.isVideo ? "video" : "image",
+        "x": 50.0,
+        "y": 50.0,
+        "width": 100.0,
+        "height": 100.0,
+        "rotation": _rotation * (180 / 3.14159), // Convert Rad to Deg
+        "scale": _scale,
+        "zIndex": 0,
+      });
+    }
+
+    // 2. Add Text Layers
+    for (var i = 0; i < _textLayers.length; i++) {
+      final layer = _textLayers[i];
+      final RenderBox? box =
+          layer.key.currentContext?.findRenderObject() as RenderBox?;
+
+      // Default to estimated size if measurement fails (fallback)
+      final Size size = box?.size ?? const Size(200, 50);
+
+      // Calculate Center Position %
+      final centerX = layer.position.dx + (size.width / 2);
+      final centerY = layer.position.dy + (size.height / 2);
+
+      final xPct = (centerX / canvasSize.width) * 100;
+      final yPct = (centerY / canvasSize.height) * 100;
+      final wPct = (size.width / canvasSize.width) * 100;
+
+      layers.add({
+        "id": layer.id,
+        "type": "text",
+        "content": layer.text,
+        "x": xPct,
+        "y": yPct,
+        "width": wPct,
+        "height": 0.0, // Text auto-height
+        "rotation": layer.rotation * (180 / 3.14159),
+        "scale": layer.scale,
+        "zIndex": 10 + i,
+        "style": {
+          "color":
+              "#${layer.color.value.toRadixString(16).padLeft(8, '0').substring(2)}", // ARGB -> RGB(maybe with alpha?)
+          // Website uses hex code usually. substring(2) keeps RRGGBB
+          // But flutter color value is AARRGGBB.
+          // If alpha is involved, web hex usually handles it or uses rgba.
+          // Simplest: use RRGGBB if alpha 255.
+          // Let's use generic helper or just RRGGBB for now.
+          "textAlign": layer.align.toString().split('.').last,
+          "fontSize": 32,
+          "fontWeight": "bold",
+          "fontFamily": "Roboto",
+        },
+      });
+    }
+
+    return {
+      "version": "1.0",
+      "layers": layers,
+      if (_backgroundColor != Colors.black)
+        "background":
+            "#${_backgroundColor.value.toRadixString(16).padLeft(8, '0').substring(2)}",
+    };
   }
 }
 
@@ -755,6 +878,7 @@ class TextLayer {
   Offset position;
   double rotation;
   double scale;
+  GlobalKey key = GlobalKey(); // NEW: For measurement
 
   TextLayer({
     required this.id,
@@ -765,7 +889,10 @@ class TextLayer {
     required this.position,
     this.rotation = 0.0,
     this.scale = 1.0,
-  });
+    GlobalKey? key,
+  }) {
+    if (key != null) this.key = key;
+  }
 
   TextLayer copy() {
     return TextLayer(
@@ -777,6 +904,7 @@ class TextLayer {
       position: position,
       rotation: rotation,
       scale: scale,
+      key: GlobalKey(), // New key for the copy
     );
   }
 }

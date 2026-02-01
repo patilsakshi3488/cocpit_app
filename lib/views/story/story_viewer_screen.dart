@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
+import 'package:cocpit_app/utils/safe_network_image.dart';
 
-import 'package:cocpit_app/views/profile/public_profile_screen.dart';
 import 'package:cocpit_app/views/feed/post_detail_screen.dart';
+import 'package:cocpit_app/views/profile/public_profile_screen.dart'; // Restored
 import 'package:cocpit_app/views/story/story_engagement_sheet.dart';
+import 'package:cocpit_app/views/story/story_renderer.dart'; // NEW
 
 class StoryViewerScreen extends StatefulWidget {
   final List<StoryGroup> groups;
@@ -177,18 +179,35 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       _animController.duration = const Duration(seconds: 5);
       // Start animation immediately
       _animController.forward();
-      // Optionally warm cache (no dependency)
-      precacheImage(NetworkImage(story.mediaUrl), context);
+
+      // SAFE PRECACHE
+      final img = safeNetworkImage(story.mediaUrl);
+      if (img != null) {
+        precacheImage(img, context);
+      }
     }
   }
 
   Future<void> _fetchEngagement(String storyId) async {
     try {
-      // Fetch details (viewers + reactions) and comments in parallel
-      final results = await Future.wait([
-        StoryService.getStoryDetails(storyId),
-        StoryService.fetchComments(storyId),
-      ]);
+      final story = _currentStorySafe;
+
+      // FIX 403: Only fetch details if AUTHOR
+      final isAuthor = story?.isAuthor ?? false;
+
+      final futures = <Future>[];
+
+      // 1. Details (Viewers/Likes) - AUTHOR ONLY
+      if (isAuthor) {
+        futures.add(StoryService.getStoryDetails(storyId));
+      } else {
+        futures.add(Future.value(<String, dynamic>{})); // Dummy for index 0
+      }
+
+      // 2. Comments - EVERYONE
+      futures.add(StoryService.fetchComments(storyId));
+
+      final results = await Future.wait(futures);
 
       if (!mounted) return;
 
@@ -718,9 +737,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                             GestureDetector(
                               onTap: _navigateToProfile,
                               child: CircleAvatar(
-                                backgroundImage: group.author.avatar != null
-                                    ? NetworkImage(group.author.avatar!)
-                                    : null,
+                                backgroundImage: safeNetworkImage(
+                                  group.author.avatar,
+                                ),
                                 backgroundColor: colorScheme.surfaceVariant,
                                 child: group.author.avatar == null
                                     ? Text(
@@ -869,43 +888,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   Widget _buildMedia(Story story) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (story.mediaType == 'video') {
-          if (_videoController != null &&
-              _videoController!.value.isInitialized) {
-            final videoSize = _videoController!.value.size;
-            final aspectRatio = videoSize.width / videoSize.height;
-
-            return Center(
-              child: AspectRatio(
-                aspectRatio: aspectRatio,
-                child: VideoPlayer(_videoController!),
-              ),
-            );
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        } else {
-          return Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight,
-                maxWidth: constraints.maxWidth,
-              ),
-              child: Image.network(
-                story.mediaUrl,
-                fit: BoxFit.contain,
-                loadingBuilder: (ctx, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-              ),
-            ),
-          );
-        }
-      },
-    );
+    return StoryRenderer(story: story, videoController: _videoController);
   }
 
   Widget _buildProgressBar(int index, BuildContext context) {
@@ -962,145 +945,114 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     final colorScheme = theme.colorScheme;
 
     if (story.isAuthor) {
-      final viewers =
-          _engagementCache[story.storyId]?['viewers'] as List? ?? [];
-      final firstFewViewers = viewers.take(3).toList(); // Show top 3 avatars
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // LEFT: Activity / Profiles
-            GestureDetector(
-              onTap: () => _showEngagementSheet(initialTab: 0),
-              child: Container(
-                color: Colors.transparent, // Hit area
-                child: Row(
-                  children: [
-                    const Icon(Icons.visibility, color: Colors.white, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      "${_viewCount(story.storyId)}",
-                      style: const TextStyle(
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // LEFT: Views & Activity
+              GestureDetector(
+                onTap: () => _showEngagementSheet(initialTab: 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      // Eye Icon
+                      const Icon(
+                        Icons.remove_red_eye_outlined,
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        size: 20,
                       ),
-                    ),
-                    if (firstFewViewers.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        height: 24,
-                        width: 24.0 * firstFewViewers.length * 0.7 + 10,
-                        child: Stack(
-                          children: [
-                            for (int i = 0; i < firstFewViewers.length; i++)
-                              Positioned(
-                                left: i * 14.0,
-                                child: CircleAvatar(
-                                  radius: 12,
-                                  backgroundColor: Colors.white,
-                                  child: CircleAvatar(
-                                    radius: 11,
-                                    backgroundImage: () {
-                                      final v = firstFewViewers[i];
-                                      final userObj = v is Map
-                                          ? (v['user'] ?? v)
-                                          : {};
-                                      final url =
-                                          userObj['avatar'] ??
-                                          userObj['avatar_url'] ??
-                                          userObj['profile_picture'];
-                                      return url != null
-                                          ? NetworkImage(url)
-                                          : null;
-                                    }(),
-                                    backgroundColor: Colors.grey[800],
-                                    child: () {
-                                      final v = firstFewViewers[i];
-                                      final userObj = v is Map
-                                          ? (v['user'] ?? v)
-                                          : {};
-                                      final url =
-                                          userObj['avatar'] ??
-                                          userObj['avatar_url'] ??
-                                          userObj['profile_picture'];
-                                      return url == null
-                                          ? const Icon(
-                                              Icons.person,
-                                              size: 12,
-                                              color: Colors.white,
-                                            )
-                                          : null;
-                                    }(),
-                                  ),
-                                ),
-                              ),
-                          ],
+                      const SizedBox(width: 6),
+                      Text(
+                        "${_viewCount(story.storyId)}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      // Profile text hint
+                      const Text(
+                        "Views",
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
 
-            // RIGHT: Likes & Comments
-            Row(
-              children: [
-                // Likes
-                GestureDetector(
-                  onTap: () => _showEngagementSheet(initialTab: 1),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.favorite, color: Colors.white, size: 24),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${_likeCount(story.storyId)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+              // RIGHT: Likes & Comments
+              Row(
+                children: [
+                  // Likes
+                  GestureDetector(
+                    onTap: () => _showEngagementSheet(initialTab: 1),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.redAccent,
+                            size: 28,
+                          ),
+                          Text(
+                            "${_likeCount(story.storyId)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                // Comments
-                GestureDetector(
-                  onTap: () => _showEngagementSheet(initialTab: 2),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        color: Colors.white,
-                        size: 24,
+
+                  const SizedBox(width: 8),
+
+                  // Comments
+                  GestureDetector(
+                    onTap: () => _showEngagementSheet(initialTab: 2),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          Text(
+                            "${_commentCount(story.storyId)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "${_commentCount(story.storyId)}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _showMoreOptions(story),
-                  icon: const Icon(Icons.more_horiz, color: Colors.white),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ],
-        ),
+                ],
+              ),
+            ],
+          ),
+        ],
       );
     } else {
       return Row(

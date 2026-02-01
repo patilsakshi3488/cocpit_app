@@ -124,14 +124,27 @@ class _StoryTrayState extends State<StoryTray> {
   ) {
     final hasStories = group.stories.isNotEmpty;
 
-    String? bgImage;
+    String? thumbUrl;
     String? videoUrl;
+
     if (hasStories) {
       final latest = group.stories.last;
+
       if (latest.mediaType == 'image') {
-        bgImage = latest.mediaUrl;
+        thumbUrl = latest.mediaUrl;
       } else if (latest.mediaType == 'video') {
+        // Use video thumbnail widget later
+        thumbUrl = null;
         videoUrl = latest.mediaUrl;
+      } else if (latest.sharedPost != null &&
+          latest.sharedPost!.media.isNotEmpty) {
+        // Shared post preview image
+        final media = latest.sharedPost!.media.first;
+        if (media is Map) {
+          thumbUrl = media['url'];
+        } else if (media is String) {
+          thumbUrl = media;
+        }
       }
     }
 
@@ -169,9 +182,11 @@ class _StoryTrayState extends State<StoryTray> {
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-
-          image: bgImage != null
-              ? DecorationImage(image: NetworkImage(bgImage), fit: BoxFit.cover)
+          image: thumbUrl != null
+              ? DecorationImage(
+                  image: NetworkImage(thumbUrl),
+                  fit: BoxFit.cover,
+                )
               : null,
           color: (group.isCurrentUser && !hasStories)
               ? colorScheme.primary
@@ -180,8 +195,35 @@ class _StoryTrayState extends State<StoryTray> {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Safe Fallback: Show Avatar if no thumbnail and no video
+            if (hasStories && thumbUrl == null && videoUrl == null)
+              Center(
+                child: CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.grey.shade700,
+                  backgroundImage:
+                      group.author.avatar != null &&
+                          group.author.avatar!.isNotEmpty
+                      ? NetworkImage(group.author.avatar!)
+                      : null,
+                  child:
+                      (group.author.avatar == null ||
+                          group.author.avatar!.isEmpty)
+                      ? Text(
+                          group.author.name.isNotEmpty
+                              ? group.author.name[0].toUpperCase()
+                              : "?",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+
             // Video Thumbnail Layer
-            if (videoUrl != null && bgImage == null)
+            if (videoUrl != null && thumbUrl == null)
               Positioned.fill(child: VideoStoryThumbnail(mediaUrl: videoUrl)),
             // ======================
             // 1. Current User - No Story
@@ -229,7 +271,6 @@ class _StoryTrayState extends State<StoryTray> {
                     CircleAvatar(
                       radius: 18,
                       backgroundColor: colorScheme.primary,
-
                       child: CircleAvatar(
                         radius: 16,
                         // border: border,

@@ -15,18 +15,10 @@ class StoryService {
     }
   }
 
-  static Future<void> createStory({
-    String? title, // Nullable now preferred
-    String? description,
-    required String mediaUrl,
-    Map<String, dynamic>? storyMetadata,
-  }) async {
-    final body = {
-      "title": title,
-      "description": description,
-      "media_url": mediaUrl,
-      if (storyMetadata != null) "story_metadata": storyMetadata,
-    };
+  static Future<void> createStory(Map<String, dynamic> body) async {
+    // ✅ Normalize for Backend/Web compatibility
+    body['title'] ??= "";
+    body['description'] ??= "";
 
     final response = await ApiClient.post(ApiConfig.story, body: body);
 

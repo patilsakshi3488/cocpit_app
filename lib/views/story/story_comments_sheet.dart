@@ -32,12 +32,10 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
   String? _currentUserId;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late int _totalCount;
 
   @override
   void initState() {
     super.initState();
-    _totalCount = widget.initialCount;
     _initialize();
   }
 
@@ -63,8 +61,8 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
         setState(() {
           _comments = comments;
           _isLoading = false;
-          _totalCount = comments.length;
         });
+        widget.onCommentCountChanged?.call(comments.length);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -83,9 +81,8 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
       if (mounted) {
         setState(() {
           _comments.insert(0, newComment);
-          _totalCount++;
         });
-        widget.onCommentCountChanged?.call(_totalCount);
+        widget.onCommentCountChanged?.call(_comments.length);
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -162,10 +159,9 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     final int index = _comments.indexOf(comment);
     setState(() {
       _comments.remove(comment);
-      _totalCount--;
     });
 
-    widget.onCommentCountChanged?.call(_totalCount);
+    widget.onCommentCountChanged?.call(_comments.length);
 
     try {
       await StoryService.deleteComment(comment.id);
@@ -175,13 +171,11 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
         setState(() {
           if (index != -1 && index <= _comments.length) {
             _comments.insert(index, comment);
-            _totalCount++;
           } else {
             _comments.add(comment);
-            _totalCount++;
           }
         });
-        widget.onCommentCountChanged?.call(_totalCount);
+        widget.onCommentCountChanged?.call(_comments.length);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
@@ -316,7 +310,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
                 Row(
                   children: [
                     Text(
-                      "$_totalCount",
+                      "${_comments.length}",
                       style: const TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(width: 4),

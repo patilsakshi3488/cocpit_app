@@ -714,57 +714,20 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       // 1. Generate Metadata (Always good for future re-edits or app logic)
       final metadata = await _generateMetadata();
 
-      File? uploadFile;
-
-      if (widget.isVideo) {
-        // =========================
-        // VIDEO FLOW (No Flattening yet)
-        // =========================
-        // Upload original video file.
-        // Layers acts as overlays in App.
-        // Web sees raw video (acceptable constraint for now without server-side processing)
-        if (widget.initialFile != null) {
-          uploadFile = widget.initialFile;
-        }
-      } else {
-        // =========================
-        // IMAGE / TEXT FLOW (Flattening)
-        // =========================
-        // Capture the ENTIRE canvas (Background + Image + Text + Stickers)
-        // This ensures the Website renders it exactly as seen.
-
-        setState(() => _hideTextForCapture = false); // Ensure text is visible!
-        // Wait a frame to ensure state is settled
-        await Future.delayed(const Duration(milliseconds: 50));
-
-        final imageBytes = await _screenshotController.capture();
-
-        if (imageBytes != null) {
-          final tempDir = Directory.systemTemp;
-          final file = await File(
-            '${tempDir.path}/story_flat_${DateTime.now().millisecondsSinceEpoch}.png',
-          ).create();
-          await file.writeAsBytes(imageBytes);
-          uploadFile = file;
-
-          // NOTE: We do NOT inject "main-image" layer here because the media_url IS the full image.
-          // If we add layers on top, we might duplicate text.
-          // But we keep metadata for potential "Logic" or "Re-edit" (if we supported that).
-          // For the viewer, we will teach it to ignore visual layers if it's an image type.
-        }
-      }
-
+      final uploadFile = widget.initialFile;
       if (uploadFile == null) return;
 
-      // Navigate to Preview with Metadata
+      // Navigate to Preview with Metadata + Raw State for Re-edit
       if (mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => StoryPreviewScreen(
-              storyFile: uploadFile!,
+              storyFile: uploadFile,
               isVideo: widget.isVideo,
               storyMetadata: metadata,
+              originalLayers: _textLayers, // ✅ Passed for Re-edit
+              originalBackgroundColor: _backgroundColor, // ✅ Passed for Re-edit
             ),
           ),
         );

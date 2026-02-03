@@ -2,19 +2,28 @@ import 'dart:io';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/cloudinary_service.dart';
 import 'package:cocpit_app/services/story_service.dart';
+import 'package:cocpit_app/utils/story_upload_mapper.dart';
 import 'package:cocpit_app/views/story/story_renderer.dart';
+import 'package:cocpit_app/views/story/editor/story_editor_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:screenshot/screenshot.dart';
 
 class StoryPreviewScreen extends StatefulWidget {
   final File storyFile;
   final bool isVideo;
+  final bool isSimple; // ✅ NEW: Skip editor logic
   final Map<String, dynamic>? storyMetadata;
+  final List<TextLayer>? originalLayers; // ✅ Added for re-edit
+  final Color? originalBackgroundColor; // ✅ Added for re-edit
 
   const StoryPreviewScreen({
     super.key,
     required this.storyFile,
     required this.isVideo,
+    this.isSimple = false,
     this.storyMetadata,
+    this.originalLayers,
+    this.originalBackgroundColor,
   });
 
   @override
@@ -23,6 +32,8 @@ class StoryPreviewScreen extends StatefulWidget {
 
 class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
   final TextEditingController _captionController = TextEditingController();
+  final ScreenshotController _screenshotController =
+      ScreenshotController(); // ✅ ADDED
   bool _isUploading = false;
 
   Future<void> _uploadStory() async {
@@ -30,21 +41,33 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final url = await CloudinaryService.uploadFile(
+      String mediaUrl = "";
+      String? publicId;
+
+      // ✅ Website Rule: Upload clean source media, NOT baked compositions.
+      // Compositions are handled live via metadata layers.
+      final uploadResult = await CloudinaryService.uploadFile(
         widget.storyFile,
         isVideo: widget.isVideo,
       );
+      mediaUrl = uploadResult['url'];
+      publicId = uploadResult['public_id'];
 
-      // NOTE: With Flattened Architecture, we no longer need to strictly inject "main-image" src
-      // because the mediaUrl itself IS the flattened image which the website uses.
-      // However, we still pass metadata for App interactions.
-
-      await StoryService.createStory(
-        title: "",
+      // ✅ 3. BUILD PAYLOAD (Web-Compatible)
+      final payload = StoryUploadMapper.buildPayload(
+        cloudinaryUrl: mediaUrl,
+        mediaType: widget.isVideo ? 'video' : 'image',
+        publicId: publicId,
         description: _captionController.text,
-        mediaUrl: url,
-        storyMetadata: widget.storyMetadata,
+        editorMetadata: widget.isSimple
+            ? null
+            : {
+                "layers": widget.storyMetadata?['layers'],
+                "background": widget.storyMetadata?['background'],
+              },
       );
+
+      await StoryService.createStory(payload);
 
       if (mounted) {
         // Pop all the way back home
@@ -89,7 +112,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), // Go back to Editor
+            onPressed: () => _handleEdit(context), // ✅ Improved Re-edit
             child: const Text(
               "Edit",
               style: TextStyle(
@@ -105,21 +128,13 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
           // Content using StoryRenderer for accurate preview
           Positioned.fill(
             bottom: 160,
-            child: StoryRenderer(
-              story: previewStory,
-              previewFile: widget.storyFile,
-              // Note: Video preview might need a controller if we want it to play.
-              // For now, if it's video, StoryRenderer might show loader if we don't pass controller.
-              // However, StoryEditor usually passes a file.
-              // If isVideo is true, we should ideally pass a video controller.
-              // But StoryPreview doesn't init one currently.
-              // Let's rely on basic image preview for now or let StoryRenderer handle file video if we implement it.
-              // Since StoryRenderer with file supports Image.file, it works for image.
-              // For Video, StoryRenderer expects VideoPlayerController.
-              // If we don't pass one, it shows loader.
-              // I'll leave video as is in original for now?
-              // The original used Image.file for image and Text "Video Preview" for video.
-              // I'll stick to StoryRenderer for Image and fallback for Video if needed.
+            child: Screenshot(
+              controller: _screenshotController,
+              child: StoryRenderer(
+                story: previewStory,
+                previewFile: widget.storyFile,
+                isPreview: true, // ✅ Required for safety net
+              ),
             ),
           ),
 
@@ -177,7 +192,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
                         flex: 1,
                         child: OutlinedButton(
                           onPressed: () =>
-                              Navigator.pop(context), // Go back to editor
+                              _handleEdit(context), // ✅ Improved Re-edit
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.white54),
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -231,6 +246,36 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleEdit(BuildContext context) {
+    // ✅ If simple, we navigate FORWARD to the editor instead of just popping.
+    // This allows transitioning from a direct pick to a rich editor session.
+    if (widget.isSimple) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StoryEditorScreen(
+            initialFile: widget.storyFile,
+            isVideo: widget.isVideo,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // ✅ Cleanly return to editor with raw state
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoryEditorScreen(
+          initialFile: widget.storyFile, // Pass the file back
+          isVideo: widget.isVideo,
+          initialBackgroundColor: widget.originalBackgroundColor,
+          initialTextLayers: widget.originalLayers,
+        ),
       ),
     );
   }

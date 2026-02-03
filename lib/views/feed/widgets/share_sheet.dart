@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/share_service.dart';
 import '../../story/share_to_story_screen.dart';
+import '../../post/create_post_screen.dart';
 
 class ShareSheet extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -164,49 +165,76 @@ class _ShareSheetState extends State<ShareSheet> {
           // Options Row
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _optionButton(
-                  icon: Icons.link,
-                  label: "Copy Link",
-                  onTap: () {
-                    final String postId =
-                        widget.post["_id"]?.toString() ??
-                        widget.post["post_id"]?.toString() ??
-                        widget.post["id"]?.toString() ??
-                        "";
-                    Clipboard.setData(
-                      ClipboardData(text: "https://example.com/post/$postId"),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Link copied to clipboard")),
-                    );
-                  },
-                ),
-                const SizedBox(width: 16),
-                _optionButton(
-                  icon: Icons.add_circle_outline,
-                  label: "Add to Story",
-                  onTap: () {
-                    // Navigate to ShareToStoryScreen
-                    Navigator.pop(context); // Close share sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ShareToStoryScreen(post: widget.post),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 16),
-                _optionButton(
-                  icon: Icons.share_outlined,
-                  label: "External",
-                  onTap: () {
-                    // Logic for external share
-                  },
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _optionButton(
+                    icon: Icons.repeat,
+                    label: "Share to Feed",
+                    onTap: () {
+                      final String postId =
+                          widget.post["post_id"]?.toString() ??
+                          widget.post["_id"]?.toString() ??
+                          widget.post["id"]?.toString() ??
+                          "";
+                      Navigator.pop(context); // Close share sheet
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreatePostScreen(
+                            sharedPostId: postId,
+                            originalPost: widget.post,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  _optionButton(
+                    icon: Icons.link,
+                    label: "Copy Link",
+                    onTap: () {
+                      final String postId =
+                          widget.post["_id"]?.toString() ??
+                          widget.post["post_id"]?.toString() ??
+                          widget.post["id"]?.toString() ??
+                          "";
+                      Clipboard.setData(
+                        ClipboardData(text: "https://example.com/post/$postId"),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Link copied to clipboard"),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  _optionButton(
+                    icon: Icons.add_circle_outline,
+                    label: "Add to Story",
+                    onTap: () {
+                      // Navigate to ShareToStoryScreen
+                      Navigator.pop(context); // Close share sheet
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShareToStoryScreen(post: widget.post),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  _optionButton(
+                    icon: Icons.share_outlined,
+                    label: "External",
+                    onTap: () {
+                      // Logic for external share
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
 

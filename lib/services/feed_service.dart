@@ -236,6 +236,7 @@ class FeedApi {
     String category = 'Professional',
     String visibility = 'public',
     String title = '',
+    String? sharedPostId,
   }) async {
     // Construct Payload
     final Map<String, dynamic> body = {
@@ -244,6 +245,10 @@ class FeedApi {
       "visibility": visibility,
       "title": title,
     };
+
+    if (sharedPostId != null) {
+      body["shared_post_id"] = sharedPostId;
+    }
 
     if (mediaUrls != null && mediaUrls.isNotEmpty) {
       body["media_urls"] = mediaUrls;

@@ -22,6 +22,7 @@ import '../post/create_post_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../main.dart'; // To access routeObserver
 import '../bottom_navigation.dart';
+import './widgets/shared_post_preview.dart';
 import '../../services/notification_service.dart';
 import 'widgets/edit_post_modal.dart';
 import 'widgets/share_sheet.dart';
@@ -406,19 +407,29 @@ class _HomeScreenState extends State<HomeScreen>
           _postHeader(post, theme),
           if (post["content"] != null && post["content"].toString().isNotEmpty)
             _postText(post, theme),
-          if (media.isNotEmpty) _postMedia(media),
-          if (poll != null)
-            PollWidget(
-              postId: post["post_id"]?.toString() ?? "",
-              poll: poll,
-              onPollUpdated: (updatedPoll) {
-                if (mounted) {
-                  setState(() {
-                    post["poll"] = updatedPoll;
-                  });
-                }
-              },
-            ),
+
+          // REPOST LOGIC
+          if (post["shared_post"] != null)
+            SharedPostPreview(
+              sharedPost: Map<String, dynamic>.from(post["shared_post"]),
+              isMe: false, // Default or determine from post
+            )
+          else ...[
+            if (media.isNotEmpty) _postMedia(media),
+            if (poll != null)
+              PollWidget(
+                postId: post["post_id"]?.toString() ?? "",
+                poll: poll,
+                onPollUpdated: (updatedPoll) {
+                  if (mounted) {
+                    setState(() {
+                      post["poll"] = updatedPoll;
+                    });
+                  }
+                },
+              ),
+          ],
+
           _postStats(post, theme),
           const Divider(height: 1),
           _postActions(post, theme),
@@ -629,8 +640,8 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _postStats(Map<String, dynamic> post, ThemeData theme) {
     final commentCount =
         post["comment_count"] ?? // Exact match for your API response
-            post["rowCount"] ??      // Fallback for your detail view
-            0;
+        post["rowCount"] ?? // Fallback for your detail view
+        0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -640,8 +651,10 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(width: 4),
           Text("${post["like_count"] ?? 0}", style: theme.textTheme.bodySmall),
           const SizedBox(width: 12),
-          Text("$commentCount ${commentCount == 1 ? 'comment' : 'comments'}",
-              style: theme.textTheme.bodySmall),
+          Text(
+            "$commentCount ${commentCount == 1 ? 'comment' : 'comments'}",
+            style: theme.textTheme.bodySmall,
+          ),
         ],
       ),
     );
@@ -701,7 +714,6 @@ class _HomeScreenState extends State<HomeScreen>
         // COMMENT
         InkWell(
           onTap: () async {
-
             await showModalBottomSheet(
               context: context,
               isScrollControlled: true,
@@ -709,15 +721,14 @@ class _HomeScreenState extends State<HomeScreen>
               builder: (context) => CommentsSheet(
                 postId: postId,
                 onCommentAdded: () {
-
                   if (mounted) {
                     setState(() {
                       // Increment local count
                       int currentCount() {
                         final c =
                             post["comment_count"] ?? // Matches "comment_count": 7 in your JSON
-                                post["rowCount"] ??
-                                post["comments_count"];
+                            post["rowCount"] ??
+                            post["comments_count"];
 
                         if (c is int) return c;
                         if (c is String) return int.tryParse(c) ?? 0;
@@ -726,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                       // Update preferred field
                       post["comment_count"] = currentCount() + 1;
-                      debugPrint("count : "+currentCount().toString());
+                      debugPrint("count : " + currentCount().toString());
                     });
                   }
                 },

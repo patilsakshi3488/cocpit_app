@@ -2,12 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/feed_service.dart';
+import '../feed/widgets/nested_post_preview.dart';
 
 class CreatePostScreen extends StatefulWidget {
-  final String? sharedPostId;
-  final Map<String, dynamic>? originalPost;
-
-  const CreatePostScreen({super.key, this.sharedPostId, this.originalPost});
+  final Map<String, dynamic>? sharedPost;
+  const CreatePostScreen({super.key, this.sharedPost});
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -111,8 +110,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     if (content.isEmpty &&
         _selectedFiles.isEmpty &&
         !_showPollCreator &&
-        !_isArticle &&
-        widget.sharedPostId == null) {
+        !_isArticle) {
       return;
     }
 
@@ -159,6 +157,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
 
       // 3. Create Post
+      final String? sharedPostId =
+          (widget.sharedPost?["post_id"] ??
+                  widget.sharedPost?["_id"] ??
+                  widget.sharedPost?["id"])
+              ?.toString();
+
       await FeedApi.createPost(
         content: _showPollCreator
             ? _pollQuestionController.text.trim()
@@ -169,7 +173,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         title: _isArticle ? _titleController.text.trim() : '',
         category: _category,
         visibility: 'public',
-        sharedPostId: widget.sharedPostId,
+        sharedPostId: sharedPostId,
       );
 
       if (mounted) {
@@ -261,42 +265,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           "Create a post",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: TextButton(
-                onPressed: _isPosting ? null : _submitPost,
-                style: TextButton.styleFrom(
-                  backgroundColor: _isPosting
-                      ? Colors.grey
-                      : const Color(0xFF6B7AFE),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                child: _isPosting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        "Post",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -333,24 +301,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (widget.sharedPostId == null) ...[
-                    _buildCategorySelector(theme),
-                    const SizedBox(height: 24),
-                  ],
+                  _buildCategorySelector(theme),
+                  const SizedBox(height: 24),
 
                   // Dynamic Body
                   if (_isArticle)
                     _buildArticleBody(theme)
                   else if (_showPollCreator)
                     _buildPollBody(theme)
-                  else ...[
+                  else
                     _buildDefaultBody(theme),
-                    if (widget.sharedPostId != null &&
-                        widget.originalPost != null) ...[
-                      const SizedBox(height: 20),
-                      _buildSharedPostPreview(theme),
-                    ],
-                  ],
                 ],
               ),
             ),
@@ -359,8 +319,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           // Dynamic Footer
           if (isSpecialMode)
             _buildSpecialFooter(theme)
-          else if (widget.sharedPostId != null)
-            _buildRepostFooter(theme)
           else
             _buildBottomActions(theme),
         ],
@@ -370,105 +328,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _buildDefaultBody(ThemeData theme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
           controller: _textController,
           maxLines: null,
-          decoration: InputDecoration(
-            hintText: widget.sharedPostId != null
-                ? "What's on your mind?"
-                : "What do you want to talk about?",
-            hintStyle: const TextStyle(color: Colors.grey),
+          decoration: const InputDecoration(
+            hintText: "What do you want to talk about?",
+            hintStyle: TextStyle(color: Colors.grey),
             border: InputBorder.none,
           ),
           style: const TextStyle(color: Colors.white, fontSize: 18),
         ),
-        if (widget.sharedPostId != null) ...[
-          const SizedBox(height: 12),
-          const Icon(
-            Icons.sentiment_satisfied_alt_outlined,
-            color: Colors.grey,
-          ),
-        ],
+        if (widget.sharedPost != null)
+          NestedPostPreview(originalPost: widget.sharedPost!),
       ],
-    );
-  }
-
-  Widget _buildSharedPostPreview(ThemeData theme) {
-    final post = widget.originalPost!;
-    final author = post["author"] ?? post["user"] ?? {};
-    final authorName =
-        author["full_name"] ?? author["name"] ?? post["author_name"] ?? "User";
-    final authorAvatar =
-        author["avatar_url"] ??
-        author["avatar"] ??
-        post["author_avatar"] ??
-        post["authorAvatar"];
-    final content = post["content"] ?? post["post_text"] ?? "";
-    final media = post["media"] ?? post["media_urls"] ?? [];
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2B2D31),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundImage: authorAvatar != null
-                    ? NetworkImage(authorAvatar)
-                    : null,
-                child: authorAvatar == null
-                    ? Text(
-                        authorName.isNotEmpty ? authorName[0] : "?",
-                        style: const TextStyle(fontSize: 10),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  authorName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (content.toString().isNotEmpty)
-            Text(
-              content,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          if (media is List && media.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                media.first is String ? media.first : media.first["url"],
-                height: 150,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -692,55 +565,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     );
   }
 
-  Widget _buildRepostFooter(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        border: Border(top: BorderSide(color: Colors.grey.shade800)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _isPosting ? null : _submitPost,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(
-                0xFF353D4A,
-              ), // LinkedIn style Post button color
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: _isPosting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    "Post",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSpecialFooter(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -818,28 +642,28 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 icon: Icons.image_outlined,
                 label: "Photo",
                 color: Colors.blue,
-                onTap: widget.sharedPostId != null ? () {} : _pickImages,
+                onTap: _pickImages,
               ),
               _actionButton(
                 context,
                 icon: Icons.videocam_outlined,
                 label: "Video",
                 color: Colors.green, // Updated color
-                onTap: widget.sharedPostId != null ? () {} : _pickVideo,
+                onTap: _pickVideo,
               ),
               _actionButton(
                 context,
                 icon: Icons.article_outlined,
                 label: "Article",
                 color: Colors.deepOrange, // Updated color
-                onTap: widget.sharedPostId != null ? () {} : _toggleArticle,
+                onTap: _toggleArticle,
               ),
               _actionButton(
                 context,
                 icon: Icons.poll_outlined,
                 label: "Poll",
                 color: Colors.deepPurple, // Updated color
-                onTap: widget.sharedPostId != null ? () {} : _togglePoll,
+                onTap: _togglePoll,
               ),
             ],
           ),

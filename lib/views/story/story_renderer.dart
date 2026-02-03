@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
 import 'package:video_player/video_player.dart';
-import 'package:cocpit_app/views/feed/widgets/shared_post_preview.dart';
+import 'package:cocpit_app/utils/safe_network_image.dart';
+import 'package:cocpit_app/views/feed/post_detail_screen.dart';
 
 class StoryRenderer extends StatefulWidget {
   final Story story;
@@ -164,11 +165,69 @@ class _StoryRendererState extends State<StoryRenderer> {
       return Container(
         color: Colors.black,
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
-            child: SharedPostPreview(
-              sharedPost: shared.toMap(),
-              isMe: widget.story.isAuthor,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostDetailScreen(post: {"id": shared.postId}),
+                ),
+              );
+            },
+            child: Container(
+              width: 300,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 12),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundImage: safeNetworkImage(shared.author.avatar),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          shared.author.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (shared.media.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CachedNetworkImage(
+                        imageUrl: shared.media.first is Map
+                            ? shared.media.first['url']
+                            : shared.media.first,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Tap to view full post",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -130,59 +130,15 @@ class SharedPost {
   final String postId;
   final StoryAuthor author;
   final List<dynamic> media;
-  final String content;
-  final bool isAccessible;
-  final String? reason;
-  final Map<String, dynamic>? poll;
-  final int likeCount;
-  final int commentCount;
-  final String? createdAt;
 
-  SharedPost({
-    required this.postId,
-    required this.author,
-    required this.media,
-    required this.content,
-    required this.isAccessible,
-    this.reason,
-    this.poll,
-    this.likeCount = 0,
-    this.commentCount = 0,
-    this.createdAt,
-  });
+  SharedPost({required this.postId, required this.author, required this.media});
 
   factory SharedPost.fromJson(Map<String, dynamic> json) {
     return SharedPost(
       postId: json['post_id']?.toString() ?? "",
       author: StoryAuthor.fromJson(json['author'] ?? {}),
       media: json['media'] ?? [],
-      content: json['content'] ?? json['post_text'] ?? "",
-      isAccessible: json['is_accessible'] != false,
-      reason: json['reason'],
-      poll: json['poll'],
-      likeCount: json['like_count'] ?? 0,
-      commentCount: json['comment_count'] ?? 0,
-      createdAt: json['created_at']?.toString(),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'post_id': postId,
-      'author': {
-        'full_name': author.name,
-        'avatar_url': author.avatar,
-        'id': author.id,
-      },
-      'media': media,
-      'content': content,
-      'is_accessible': isAccessible,
-      'reason': reason,
-      'poll': poll,
-      'like_count': likeCount,
-      'comment_count': commentCount,
-      'created_at': createdAt,
-    };
   }
 }
 

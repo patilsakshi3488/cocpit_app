@@ -236,7 +236,7 @@ class FeedApi {
     String category = 'Professional',
     String visibility = 'public',
     String title = '',
-    String? sharedPostId,
+    String? sharedPostId, // New parameter for reposts
   }) async {
     // Construct Payload
     final Map<String, dynamic> body = {

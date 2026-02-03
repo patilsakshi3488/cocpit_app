@@ -22,10 +22,10 @@ import '../post/create_post_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../main.dart'; // To access routeObserver
 import '../bottom_navigation.dart';
-import './widgets/shared_post_preview.dart';
 import '../../services/notification_service.dart';
 import 'widgets/edit_post_modal.dart';
 import 'widgets/share_sheet.dart';
+import 'widgets/nested_post_preview.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -407,29 +407,23 @@ class _HomeScreenState extends State<HomeScreen>
           _postHeader(post, theme),
           if (post["content"] != null && post["content"].toString().isNotEmpty)
             _postText(post, theme),
-
-          // REPOST LOGIC
           if (post["shared_post"] != null)
-            SharedPostPreview(
-              sharedPost: Map<String, dynamic>.from(post["shared_post"]),
-              isMe: false, // Default or determine from post
-            )
-          else ...[
-            if (media.isNotEmpty) _postMedia(media),
-            if (poll != null)
-              PollWidget(
-                postId: post["post_id"]?.toString() ?? "",
-                poll: poll,
-                onPollUpdated: (updatedPoll) {
-                  if (mounted) {
-                    setState(() {
-                      post["poll"] = updatedPoll;
-                    });
-                  }
-                },
-              ),
-          ],
-
+            NestedPostPreview(
+              originalPost: Map<String, dynamic>.from(post["shared_post"]),
+            ),
+          if (media.isNotEmpty) _postMedia(media),
+          if (poll != null)
+            PollWidget(
+              postId: post["post_id"]?.toString() ?? "",
+              poll: poll,
+              onPollUpdated: (updatedPoll) {
+                if (mounted) {
+                  setState(() {
+                    post["poll"] = updatedPoll;
+                  });
+                }
+              },
+            ),
           _postStats(post, theme),
           const Divider(height: 1),
           _postActions(post, theme),

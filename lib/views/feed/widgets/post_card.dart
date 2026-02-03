@@ -11,7 +11,7 @@ import '../comments_sheet.dart';
 import '../home_screen.dart'; // For VideoPost
 import '../../../../services/secure_storage.dart';
 import 'share_sheet.dart';
-import 'shared_post_preview.dart';
+import 'nested_post_preview.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -223,33 +223,26 @@ class _PostCardState extends State<PostCard> {
           _postHeader(theme),
           if (post["content"] != null && post["content"].toString().isNotEmpty)
             _postText(theme),
-
-          // REPOST LOGIC: Render shared post if present
           if (post["shared_post"] != null)
-            SharedPostPreview(
-              sharedPost: Map<String, dynamic>.from(post["shared_post"]),
-              isMe: isMine,
-            )
-          else ...[
-            // Normal media/poll only if NOT a repost
-            if (normalizedMedia.isNotEmpty) _postMedia(normalizedMedia),
-            if (poll != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: PollWidget(
-                  postId: postId,
-                  poll: poll,
-                  onPollUpdated: (updatedPoll) {
-                    if (mounted) {
-                      setState(() {
-                        post["poll"] = updatedPoll;
-                      });
-                    }
-                  },
-                ),
+            NestedPostPreview(
+              originalPost: Map<String, dynamic>.from(post["shared_post"]),
+            ),
+          if (normalizedMedia.isNotEmpty) _postMedia(normalizedMedia),
+          if (poll != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: PollWidget(
+                postId: postId,
+                poll: poll,
+                onPollUpdated: (updatedPoll) {
+                  if (mounted) {
+                    setState(() {
+                      post["poll"] = updatedPoll;
+                    });
+                  }
+                },
               ),
-          ],
-
+            ),
           _postStats(theme),
           Divider(height: 1, color: theme.dividerColor.withOpacity(0.5)),
           _postActions(theme),

@@ -5,6 +5,7 @@ class ProfileLivingResume extends StatelessWidget {
   final Function(bool) onTabChanged;
   final VoidCallback onUploadResume;
   final VoidCallback onDownloadPDF;
+  final String? resumeUrl;
 
   const ProfileLivingResume({
     super.key,
@@ -12,6 +13,7 @@ class ProfileLivingResume extends StatelessWidget {
     required this.onTabChanged,
     required this.onUploadResume,
     required this.onDownloadPDF,
+    this.resumeUrl,
   });
 
   @override
@@ -38,11 +40,12 @@ class ProfileLivingResume extends StatelessWidget {
                     onPressed: onUploadResume,
                     tooltip: 'Upload Resume',
                   ),
-                  IconButton(
-                    icon: Icon(Icons.picture_as_pdf_outlined, color: theme.primaryColor),
-                    onPressed: onDownloadPDF,
-                    tooltip: 'Download PDF',
-                  ),
+                  if (resumeUrl != null && resumeUrl!.isNotEmpty)
+                    IconButton(
+                      icon: Icon(Icons.picture_as_pdf_outlined, color: theme.primaryColor),
+                      onPressed: onDownloadPDF,
+                      tooltip: 'Download PDF',
+                    ),
                 ],
               ),
             ],
@@ -123,21 +126,52 @@ class ProfileLivingResume extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    if (resumeUrl == null || resumeUrl!.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+         decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Center(
+          child: Column(
+            children: [
+               Icon(Icons.upload_file, size: 48, color: theme.disabledColor),
+               const SizedBox(height: 12),
+               Text(
+                 "No resume uploaded yet",
+                 style: theme.textTheme.bodyLarge?.copyWith(color: theme.disabledColor),
+               ),
+               TextButton(onPressed: onUploadResume, child: const Text("Upload Now"))
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Extract filename from URL or use default
+    String filename = "My Resume";
+    try {
+      filename = resumeUrl!.split('/').last;
+      if (filename.length > 30) filename = "${filename.substring(0, 20)}...pdf";
+    } catch (_) {}
+
     return Column(
       children: [
-        _documentItem(context, "Resume_Sally_Liang.pdf", "Updated 2 days ago"),
-        const SizedBox(height: 16),
-        _documentItem(context, "Portfolio_2024.pdf", "Updated 1 month ago"),
+        _documentItem(context, filename, "Uploaded Resume", true),
       ],
     );
   }
 
-  Widget _documentItem(BuildContext context, String title, String subtitle) {
+  Widget _documentItem(BuildContext context, String title, String subtitle, bool isResume) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
+    return GestureDetector(
+      onTap: isResume ? onDownloadPDF : null,
+      child: Container(
+        padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
@@ -169,6 +203,7 @@ class ProfileLivingResume extends StatelessWidget {
             onPressed: () {},
           ),
         ],
+      ),
       ),
     );
   }

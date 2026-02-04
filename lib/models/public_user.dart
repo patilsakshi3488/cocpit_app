@@ -11,6 +11,9 @@ class PublicUser {
   final List<PublicEducation> educations;
   final List<String> skills;
   final bool? isFollowing;
+  final String? resumeUrl;
+  final String? email;
+  final String? mobileNumber;
 
   PublicUser({
     required this.id,
@@ -24,6 +27,9 @@ class PublicUser {
     required this.educations,
     required this.skills,
     this.isFollowing,
+    this.resumeUrl,
+    this.email,
+    this.mobileNumber,
   });
 
   factory PublicUser.fromJson(Map<String, dynamic> json) {
@@ -62,6 +68,30 @@ class PublicUser {
       final skills = List<String>.from(skillsList);
 
       final isFollowing = userData['is_following'] ?? json['is_following'];
+      
+      // Parse Resume
+      final resumeObj = userData['resume'] ?? json['resume'];
+      String? resumeUrl;
+      
+      if (resumeObj != null) {
+        if (resumeObj is Map) {
+           resumeUrl = resumeObj['url'] ?? resumeObj['file_url'];
+        } else if (resumeObj is String) {
+           resumeUrl = resumeObj;
+        }
+      }
+
+      // Fallback: Check common flat keys if not found in 'resume' object
+      if (resumeUrl == null) {
+        resumeUrl = userData['resume_url'] ?? 
+                    json['resume_url'] ?? // Check root json
+                    userData['resume_file'] ??
+                    json['resume_file'] ?? // Check root json
+                    userData['cv'] ??
+                    json['cv'] ?? // Check root json
+                    userData['cv_url'] ??
+                    userData['document_url'];
+      }
 
       return PublicUser(
         id: id,
@@ -75,6 +105,9 @@ class PublicUser {
         educations: educations,
         skills: skills,
         isFollowing: isFollowing,
+        resumeUrl: resumeUrl,
+        email: userData['email'],
+        mobileNumber: userData['mobile_number'],
       );
     } catch (e, stack) {
       print("🔥 Error parsing PublicUser: $e");

@@ -12,6 +12,7 @@ class EventService {
     String? location,
     String? type,
     String? date,
+    int limit = 50,
   }) async {
     String query = "";
     List<String> params = [];
@@ -19,6 +20,7 @@ class EventService {
         "location=$location");
     if (type != null && type.isNotEmpty) params.add("type=$type");
     if (date != null && date.isNotEmpty) params.add("date=$date");
+    params.add("limit=$limit");
 
     if (params.isNotEmpty) {
       query = "?${params.join("&")}";
@@ -67,6 +69,8 @@ class EventService {
     required DateTime registrationDeadline,
     required bool waitlist,
     File? banner,
+    String? organizerName,
+    String? organizerEmail,
   }) async {
     final Map<String, String> fields = {
       "title": title,
@@ -82,6 +86,8 @@ class EventService {
     if (virtualLink != null) fields["virtualLink"] = virtualLink;
     if (location != null) fields["location"] = location;
     if (maxAttendees != null) fields["maxAttendees"] = maxAttendees.toString();
+    if (organizerName != null) fields["organizerName"] = organizerName;
+    if (organizerEmail != null) fields["organizerEmail"] = organizerEmail;
 
     // The backend uses uploadEventBanner.single('banner') middleware.
     // This typically requires a multipart request.
@@ -122,6 +128,8 @@ class EventService {
           "maxAttendees": maxAttendees,
           "registrationDeadline": registrationDeadline.toIso8601String(),
           "waitlist": waitlist,
+          "organizerName": organizerName,
+          "organizerEmail": organizerEmail,
         },
       );
        if (response.statusCode == 201) {
@@ -208,6 +216,16 @@ class EventService {
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((e) => EventModel.fromJson(e)..isSaved = true).toList();
+    }
+    return [];
+  }
+  /// Get registrants for an event (Organizer only)
+  static Future<List<Map<String, dynamic>>> getEventRegistrants(String eventId) async {
+    // Note: Assuming endpoint /api/events/:id/registrations exists based on user requirement
+    final response = await ApiClient.get("${ApiConfig.events}/$eventId/registrations");
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
     }
     return [];
   }

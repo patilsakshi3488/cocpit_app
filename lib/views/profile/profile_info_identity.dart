@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'widgets/contact_info_modal.dart';
+
 class ProfileInfoIdentity extends StatelessWidget {
   final String name;
   final String headline;
@@ -15,6 +17,11 @@ class ProfileInfoIdentity extends StatelessWidget {
   final int connectionCount;
   final String? latestEducation;
   final bool isFollowing;
+  
+  // New Contact Fields
+  final String? email;
+  final String? mobileNumber;
+  final String? profileUrl;
 
   const ProfileInfoIdentity({
     super.key,
@@ -32,7 +39,23 @@ class ProfileInfoIdentity extends StatelessWidget {
     required this.connectionCount,
     this.latestEducation,
     this.isFollowing = false,
+    this.email,
+    this.mobileNumber,
+    this.profileUrl,
   });
+
+  void _showContactInfo(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent, 
+      builder: (ctx) => ContactInfoModal(
+        userName: name,
+        email: email,
+        phone: mobileNumber,
+        profileUrl: profileUrl,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +135,7 @@ class ProfileInfoIdentity extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () => _showContactInfo(context),
                 child: Text(
                   "Contact info",
                   style: TextStyle(

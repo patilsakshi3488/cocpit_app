@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:cocpit_app/services/api_client.dart';
+import 'package:cocpit_app/config/api_config.dart';
 import 'package:flutter/foundation.dart';
 
 class ProfileService {
@@ -46,6 +48,8 @@ class ProfileService {
     String? degree,
     String? location,
     String? about,
+    String? mobileNumber,
+    String? email,
   }) async {
     final body = <String, dynamic>{};
 
@@ -81,6 +85,14 @@ class ProfileService {
 
     if (about != null && about.trim().isNotEmpty) {
       body['about_text'] = about.trim();
+    }
+
+    if (mobileNumber != null && mobileNumber.trim().isNotEmpty) {
+      body['mobile_number'] = mobileNumber.trim();
+    }
+
+    if (email != null && email.trim().isNotEmpty) {
+      body['email'] = email.trim();
     }
 
     // ✅ If nothing changed, do nothing
@@ -178,6 +190,75 @@ class ProfileService {
 
   Future<bool> deleteCover() async {
     final response = await ApiClient.delete("/profile/cover");
+    return response.statusCode == 200;
+  }
+
+  Future<String?> uploadResume(File file) async {
+    // Helper to separate success logic
+    String? extractUrl(http.Response r) {
+      debugPrint("🔍 Checking response: ${r.statusCode} - ${r.body}");
+      if (r.statusCode == 200 || r.statusCode == 201) {
+        try {
+          final decoded = jsonDecode(r.body);
+          return decoded['resumeUrl'] ??
+              decoded['url'] ??
+              decoded['resume_url'] ??
+              decoded['file_url'] ??
+              decoded['secure_url'] ??
+              decoded['data']?['url'];
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    // 1. Try POST /profile/resume
+    var response = await ApiClient.multipart("/profile/resume", fileField: "resume", file: file);
+    var url = extractUrl(response);
+    if (url != null) return url;
+
+    // 2. Try PUT /profile/resume (Common for updates)
+    if (response.statusCode == 405 || response.statusCode == 404) {
+       debugPrint("⚠️ /profile/resume POST failed, trying PUT...");
+       response = await ApiClient.multipart("/profile/resume", fileField: "resume", file: file, method: "PUT");
+       url = extractUrl(response);
+       if (url != null) return url;
+    }
+
+    // 3. Fallback to generic /upload
+    debugPrint("⚠️ Specific endpoints failed, trying generic /upload...");
+    response = await ApiClient.multipart(
+      ApiConfig.upload,
+      fileField: "files",
+      files: [file],
+    );
+    
+    if (response.statusCode == 200 || response.statusCode == 201) {
+         try {
+           final decoded = jsonDecode(response.body);
+           // Generic upload often returns { "urls": [ { "url": "..." } ] } for multiple files
+           // OR { "url": "..." } for single
+           String? uploadedUrl = decoded['url'] ?? decoded['file_url'] ?? decoded['secure_url'];
+           
+           if (uploadedUrl == null && decoded['urls'] is List && decoded['urls'].isNotEmpty) {
+              uploadedUrl = decoded['urls'][0]['url'];
+           }
+
+           if (uploadedUrl != null) {
+             // Link to profile
+             await ApiClient.put("/profile/me", body: {"resume_url": uploadedUrl});
+             return uploadedUrl;
+           }
+         } catch(e) {
+            debugPrint("Generic upload parse error: $e");
+         }
+    }
+
+    // 4. Throw detailed error if all failed
+    throw "Upload Failed (${response.statusCode}): ${response.body}";
+  }
+
+  Future<bool> deleteResume() async {
+    final response = await ApiClient.delete("/profile/resume");
     return response.statusCode == 200;
   }
 

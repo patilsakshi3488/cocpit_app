@@ -18,6 +18,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final locationCtrl = TextEditingController();
   final virtualLinkCtrl = TextEditingController();
   final maxAttendeesCtrl = TextEditingController();
+  final organizerNameCtrl = TextEditingController();
+  final organizerEmailCtrl = TextEditingController();
 
   String selectedCategory = 'Tech';
   String selectedEventType = 'Online';
@@ -52,6 +54,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     locationCtrl.dispose();
     virtualLinkCtrl.dispose();
     maxAttendeesCtrl.dispose();
+    organizerNameCtrl.dispose();
+    organizerEmailCtrl.dispose();
     super.dispose();
   }
 
@@ -171,6 +175,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             if (t != null) setState(() => endTime = t);
                           },
                         ),
+                      ]),
+                      
+                      _section(theme, 'Organizer Info'),
+                      _card(theme, [
+                        _field(theme, 'Organizer Name *', organizerNameCtrl),
+                        _field(theme, 'Contact Email', organizerEmailCtrl, keyboardType: TextInputType.emailAddress),
                       ]),
                       
                       _section(theme, 'Event Details'),
@@ -527,6 +537,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         registrationDeadline: deadline,
         waitlist: hasWaitlist,
         banner: bannerImage,
+        organizerName: organizerNameCtrl.text.trim(),
+        organizerEmail: organizerEmailCtrl.text.trim(),
       );
 
       if (eventId != null) {

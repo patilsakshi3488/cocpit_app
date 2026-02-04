@@ -249,7 +249,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   // 1. COMPOSE STEP
   Widget _buildCompose() {
     final theme = Theme.of(context);
-    bool isSpecialMode = _isArticle || _showPollCreator;
+    final bool isRepost = widget.sharedPost != null;
+    bool isSpecialMode = (_isArticle || _showPollCreator) && !isRepost;
 
     return Scaffold(
       backgroundColor: const Color(
@@ -265,6 +266,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           "Create a post",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          if (isRepost)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: TextButton(
+                onPressed: _isPosting ? null : _submitPost,
+                child: _isPosting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        "Post",
+                        style: TextStyle(
+                          color: Color(0xFF6B7AFE),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -317,7 +343,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
 
           // Dynamic Footer
-          if (isSpecialMode)
+          if (isSpecialMode || isRepost)
             _buildSpecialFooter(theme)
           else
             _buildBottomActions(theme),
@@ -340,7 +366,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 18),
         ),
         if (widget.sharedPost != null)
-          NestedPostPreview(originalPost: widget.sharedPost!),
+          NestedPostPreview(
+            originalPost: widget.sharedPost!,
+            isInteractive: false,
+          ),
       ],
     );
   }
@@ -618,6 +647,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Widget _buildBottomActions(ThemeData theme) {
+    if (widget.sharedPost != null) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

@@ -345,13 +345,20 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  void _onShareTap() {
-    showModalBottomSheet(
+  void _onShareTap() async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ShareSheet(post: post),
     );
+
+    if (result == true && mounted) {
+      // If we are in the detail screen, we might want to pop back to feed or just show a snackbar
+      // But for website parity, a sucessful repost in feed refreshes the feed.
+      // If this PostCard is inside a detail screen, we can return the result back.
+      Navigator.of(context).pop(true);
+    }
   }
 
   Widget _buildPostMenu(ThemeData theme) {

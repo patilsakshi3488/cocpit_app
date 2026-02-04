@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 import '../post_detail_screen.dart';
+import '../../profile/public_profile_screen.dart';
 
 class NestedPostPreview extends StatelessWidget {
   final Map<String, dynamic> originalPost;
+  final bool isInteractive;
 
-  const NestedPostPreview({super.key, required this.originalPost});
+  const NestedPostPreview({
+    super.key,
+    required this.originalPost,
+    this.isInteractive = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // STRICT BACKEND CONTRACT (Matches Website Logic)
+    final author = originalPost['author'] as Map<String, dynamic>?;
+    final String? authorId = author?['user_id']?.toString();
+    final String authorName = author?['full_name'] ?? 'Unknown User';
+    final String? authorAvatar = author?['avatar_url'];
 
     // CHECK IF POST IS INACCESSIBLE
     final bool isDeleted = originalPost['deleted'] == true;
@@ -31,10 +43,8 @@ class NestedPostPreview extends StatelessWidget {
         (category == 'Personal' || visibility == 'personal') && !isProfessional;
 
     // Explicit permission/relationship checks (Unfollowed/Blocked cases)
-    final authorData = originalPost['author'] ?? originalPost['user'] ?? {};
     final bool isFollowing =
-        originalPost['is_following'] == true ||
-        authorData['is_following'] == true;
+        originalPost['is_following'] == true || author?['is_following'] == true;
 
     final bool isAccessible =
         originalPost['is_accessible'] == true ||
@@ -53,90 +63,9 @@ class NestedPostPreview extends StatelessWidget {
     // If we have no author and no content, it's likely a shell or missing
     final bool isEmpty =
         originalPost.isEmpty ||
-        (originalPost['author'] == null &&
+        (author == null &&
             (originalPost['content'] == null ||
                 originalPost['content'].isEmpty));
-
-    if (isDeleted ||
-        (isPrivate && lacksPermission) ||
-        isEmpty ||
-        lacksPermission ||
-        relationshipBroken) {
-      final authorName =
-          originalPost['author_name'] ??
-          originalPost['author']?['full_name'] ??
-          originalPost['author']?['name'] ??
-          'Unknown User';
-
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white.withOpacity(0.03),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Lock Icon with circular background
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lock,
-                  color: Colors.orangeAccent,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Content Unavailable",
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Post by $authorName",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.blueAccent,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                (isPrivate || isPersonal)
-                    ? "This is a Personal post.\nConnect with the user to view it."
-                    : "This content is no longer available.",
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withOpacity(0.6),
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // EXTRACT METADATA
-    final authorName =
-        originalPost['author_name'] ??
-        originalPost['author']?['full_name'] ??
-        originalPost['author']?['name'] ??
-        'Unknown User';
-
-    final authorAvatar =
-        originalPost['author_avatar'] ??
-        originalPost['author']?['avatar_url'] ??
-        originalPost['author']?['avatar'];
 
     final postText = originalPost['content'] ?? originalPost['post_text'] ?? '';
 
@@ -152,6 +81,113 @@ class NestedPostPreview extends StatelessWidget {
                 '')
             .toString();
 
+    final Widget content =
+        isDeleted ||
+            (isPrivate && lacksPermission) ||
+            isEmpty ||
+            lacksPermission ||
+            relationshipBroken
+        ? _buildInaccessibleView(context, theme, authorId, authorName)
+        : _buildNormalView(
+            context,
+            theme,
+            authorId,
+            authorName,
+            authorAvatar,
+            postText,
+            postImage,
+            timestamp,
+          );
+
+    return AbsorbPointer(absorbing: !isInteractive, child: content);
+  }
+
+  Widget _buildInaccessibleView(
+    BuildContext context,
+    ThemeData theme,
+    String? authorId,
+    String authorName,
+  ) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.03),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Lock Icon with circular background
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock,
+                color: Colors.orangeAccent,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Content Unavailable",
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: authorId == null
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PublicProfileScreen(userId: authorId),
+                        ),
+                      );
+                    },
+              child: Text(
+                "Post by $authorName",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.blueAccent,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              originalPost['reason_text'] ??
+                  "This content is no longer available.",
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.white.withOpacity(0.6),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNormalView(
+    BuildContext context,
+    ThemeData theme,
+    String? authorId,
+    String authorName,
+    String? authorAvatar,
+    String postText,
+    String? postImage,
+    String timestamp,
+  ) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -173,58 +209,70 @@ class NestedPostPreview extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundImage: authorAvatar != null
-                        ? NetworkImage(authorAvatar)
-                        : null,
-                    child: authorAvatar == null
-                        ? Text(
-                            authorName.isNotEmpty ? authorName[0] : '?',
-                            style: const TextStyle(fontSize: 10),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            authorName,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+            GestureDetector(
+              onTap: authorId == null
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PublicProfileScreen(userId: authorId),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "• Reposted",
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                      );
+                    },
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundImage: authorAvatar != null
+                          ? NetworkImage(authorAvatar)
+                          : null,
+                      child: authorAvatar == null
+                          ? Text(
+                              authorName.isNotEmpty ? authorName[0] : '?',
+                              style: const TextStyle(fontSize: 10),
+                            )
+                          : null,
                     ),
-                  ),
-                  if (timestamp.isNotEmpty)
-                    Text(
-                      timestamp,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 11,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              authorName,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "• Reposted",
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                ],
+                    if (timestamp.isNotEmpty)
+                      Text(
+                        timestamp,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
 

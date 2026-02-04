@@ -6,12 +6,14 @@ class SharedPostPreview extends StatelessWidget {
   final Map<String, dynamic> sharedPost;
   final bool isMe;
   final String? messageText;
+  final bool isInteractive;
 
   const SharedPostPreview({
     super.key,
     required this.sharedPost,
     required this.isMe,
     this.messageText,
+    this.isInteractive = true,
   });
 
   @override
@@ -20,25 +22,11 @@ class SharedPostPreview extends StatelessWidget {
 
     // EXTRACT METADATA (Support both rich payload and nested legacy structure)
     // Rich payload fields: post_owner_name, post_image, post_text, etc.
-    final authorName =
-        sharedPost['post_owner_name'] ??
-        sharedPost['author']?['full_name'] ??
-        sharedPost['author']?['name'] ??
-        'Unknown User';
-
-    final authorAvatar =
-        sharedPost['post_owner_avatar'] ?? sharedPost['author']?['avatar_url'];
-
-    final authorId =
-        (sharedPost['post_owner_id'] ??
-                sharedPost['post_author_id'] ??
-                sharedPost['owner_id'] ??
-                sharedPost['author']?['id'] ??
-                sharedPost['author']?['_id'] ??
-                sharedPost['user']?['id'] ??
-                sharedPost['user']?['_id'] ??
-                sharedPost['user_id'])
-            ?.toString();
+    // STRICT BACKEND CONTRACT (Matches Website Logic)
+    final author = sharedPost['author'] as Map<String, dynamic>?;
+    final String? authorId = author?['user_id']?.toString();
+    final String authorName = author?['full_name'] ?? 'Unknown User';
+    final String? authorAvatar = author?['avatar_url'];
 
     final postText = sharedPost['post_text'] ?? sharedPost['content'] ?? '';
 
@@ -76,10 +64,9 @@ class SharedPostPreview extends StatelessWidget {
     final bool isPersonal =
         (category == 'Personal' || visibility == 'personal') && !isProfessional;
 
-    final authorData = sharedPost['author'] ?? sharedPost['user'] ?? {};
+    // Explicit permission/relationship checks (Unfollowed/Blocked cases)
     final bool isFollowing =
-        sharedPost['is_following'] == true ||
-        authorData['is_following'] == true;
+        sharedPost['is_following'] == true || author?['is_following'] == true;
 
     final bool isAccessible =
         sharedPost['is_accessible'] == true ||
@@ -104,286 +91,311 @@ class SharedPostPreview extends StatelessWidget {
         isReserved ||
         lacksPermission ||
         relationshipBroken) {
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1B2735),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  shape: BoxShape.circle,
+      return AbsorbPointer(
+        absorbing: !isInteractive,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B2735),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock,
+                    color: Colors.orangeAccent,
+                    size: 24,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.lock,
-                  color: Colors.orangeAccent,
-                  size: 24,
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: authorId == null
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  PublicProfileScreen(userId: authorId),
+                            ),
+                          );
+                        },
+                  child: Text(
+                    "Post by $authorName",
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.blueAccent,
+                      fontWeight: FontWeight.w500,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Content Unavailable",
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                const SizedBox(height: 12),
+                Text(
+                  (isPrivate || isPersonal)
+                      ? "This is a Personal post.\nConnect with the user to view it."
+                      : "This content is no longer available.",
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 11,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                (isPrivate || isPersonal)
-                    ? "This is a Personal post.\nConnect with the user to view it."
-                    : "This content is no longer available.",
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 11,
-                  height: 1.4,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B2735), // Sleek deep dark bubble color
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1️⃣ HEADER: Author Info (Target: Profile)
-          InkWell(
-            onTap: () {
-              if (authorId != null && authorId.isNotEmpty) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PublicProfileScreen(userId: authorId),
-                  ),
-                );
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              color: Colors.white.withOpacity(0.03),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundImage: authorAvatar != null
-                        ? NetworkImage(authorAvatar)
-                        : null,
-                    backgroundColor: theme.primaryColor.withOpacity(0.2),
-                    child: authorAvatar == null
-                        ? Text(
-                            authorName.isNotEmpty ? authorName[0] : '?',
-                            style: const TextStyle(fontSize: 10),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          authorName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          "Shared a post",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
+    return AbsorbPointer(
+      absorbing: !isInteractive,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B2735), // Sleek deep dark bubble color
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1️⃣ HEADER: Author Info (Target: Profile)
+            InkWell(
+              onTap: () {
+                if (authorId != null && authorId.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PublicProfileScreen(userId: authorId),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 2️⃣ BODY: Media & Caption (Target: Post Detail)
-          InkWell(
-            onTap: () {
-              // Ensure we have a valid post ID or payload
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PostDetailScreen(post: sharedPost),
-                ),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (postImage != null)
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AspectRatio(
-                        aspectRatio: 1.2,
-                        child: Image.network(
-                          postImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                color: Colors.black26,
-                                child: const Icon(
-                                  Icons.broken_image,
-                                  color: Colors.white24,
-                                ),
-                              ),
-                        ),
-                      ),
-                      if (isVideo)
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 30,
-                          ),
-                        ),
-                    ],
-                  )
-                else if (isPoll)
-                  Container(
-                    height: 100,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                color: Colors.white.withOpacity(0.03),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundImage: authorAvatar != null
+                          ? NetworkImage(authorAvatar)
+                          : null,
+                      backgroundColor: theme.primaryColor.withOpacity(0.2),
+                      child: authorAvatar == null
+                          ? Text(
+                              authorName.isNotEmpty ? authorName[0] : '?',
+                              style: const TextStyle(fontSize: 10),
+                            )
+                          : null,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: const Center(
+                    const SizedBox(width: 8),
+                    Expanded(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.poll_outlined,
-                            color: Colors.white54,
-                            size: 30,
-                          ),
-                          SizedBox(height: 4),
                           Text(
-                            "Tap to view Poll",
+                            authorName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            "Shared a post",
                             style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 10,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                if (postText.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      postText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // 3️⃣ FOOTER / MESSAGE (Optional message sent with post)
-          if (messageText != null && messageText!.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.05)),
-                ),
-                color: Colors.white.withOpacity(0.01),
-              ),
-              child: Text(
-                messageText!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  ],
                 ),
               ),
             ),
 
-          // 4️⃣ VIEW DETAILS CTA
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PostDetailScreen(post: sharedPost),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.02),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.05)),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            // 2️⃣ BODY: Media & Caption (Target: Post Detail)
+            InkWell(
+              onTap: () {
+                // Ensure we have a valid post ID or payload
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PostDetailScreen(post: sharedPost),
+                  ),
+                );
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 14,
-                    color: theme.primaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    "View Post Details",
-                    style: TextStyle(
-                      color: theme.primaryColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                  if (postImage != null)
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AspectRatio(
+                          aspectRatio: 1.2,
+                          child: Image.network(
+                            postImage,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: Colors.black26,
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.white24,
+                                  ),
+                                ),
+                          ),
+                        ),
+                        if (isVideo)
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                      ],
+                    )
+                  else if (isPoll)
+                    Container(
+                      height: 100,
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.poll_outlined,
+                              color: Colors.white54,
+                              size: 30,
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              "Tap to view Poll",
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                  if (postText.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        postText,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            // 3️⃣ FOOTER / MESSAGE (Optional message sent with post)
+            if (messageText != null && messageText!.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withOpacity(0.05)),
+                  ),
+                  color: Colors.white.withOpacity(0.01),
+                ),
+                child: Text(
+                  messageText!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+            // 4️⃣ VIEW DETAILS CTA
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PostDetailScreen(post: sharedPost),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.02),
+                  border: Border(
+                    top: BorderSide(color: Colors.white.withOpacity(0.05)),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.visibility_outlined,
+                      size: 14,
+                      color: theme.primaryColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      "View Post Details",
+                      style: TextStyle(
+                        color: theme.primaryColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

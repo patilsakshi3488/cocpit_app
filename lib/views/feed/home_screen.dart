@@ -278,13 +278,22 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _onShareTap(Map<String, dynamic> post) {
-    showModalBottomSheet(
+  void _onShareTap(Map<String, dynamic> post) async {
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ShareSheet(post: post),
     );
+
+    if (mounted && result == true) {
+      // SUCCESSFUL REPOST -> Refresh feed from top
+      cursorCreatedAt = null;
+      cursorPostId = null;
+      hasMoreFeeds = true;
+      feedPosts.clear();
+      fetchAllFeeds();
+    }
   }
 
   // ... (Search Logic unchanged) ...

@@ -3,15 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
+import 'package:cocpit_app/utils/safe_network_image.dart';
+
+import 'package:cocpit_app/views/feed/post_detail_screen.dart';
+import 'package:cocpit_app/views/profile/public_profile_screen.dart'; // Restored
+import 'package:cocpit_app/views/story/story_engagement_sheet.dart';
+import 'package:cocpit_app/views/story/story_renderer.dart'; // NEW
 
 class StoryViewerScreen extends StatefulWidget {
   final List<StoryGroup> groups;
   final int initialGroupIndex;
+  final String? initialStoryId;
+  final bool autoShowComments;
+  final bool autoShowLikes;
 
   const StoryViewerScreen({
     super.key,
     required this.groups,
     required this.initialGroupIndex,
+    this.initialStoryId,
+    this.autoShowComments = false,
+    this.autoShowLikes = false,
   });
 
   @override
@@ -32,15 +44,55 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   bool _isPaused = false;
   double _dragOffsetY = 0.0;
 
+  // -------------------------
+  // CACHE (Single Source of Truth)
+  // -------------------------
+  final Map<String, Map<String, dynamic>> _engagementCache = {};
+
+  int _likeCount(String storyId) =>
+      _engagementCache[storyId]?['likeCount'] ?? 0;
+
+  int _viewCount(String storyId) =>
+      _engagementCache[storyId]?['viewCount'] ?? 0;
+
+  int _commentCount(String storyId) =>
+      _engagementCache[storyId]?['commentCount'] ?? 0;
+
+  bool _hasLiked(String storyId) =>
+      _engagementCache[storyId]?['hasLiked'] ?? false;
+
   @override
   void initState() {
     super.initState();
     _currentGroupIndex = widget.initialGroupIndex;
 
-    // Find first unseen story
-    final group = widget.groups[_currentGroupIndex];
-    int firstUnseen = group.stories.indexWhere((s) => !s.hasViewed);
-    _currentStoryIndex = firstUnseen != -1 ? firstUnseen : 0;
+    // Initial bounds check
+    if (_currentGroupIndex < 0 || _currentGroupIndex >= widget.groups.length) {
+      _currentGroupIndex = 0;
+    }
+
+    // Determine starting story
+    if (widget.groups.isNotEmpty) {
+      final group = widget.groups[_currentGroupIndex];
+      int targetIndex = -1;
+
+      // 1. Try to find specific story if ID provided
+      if (widget.initialStoryId != null) {
+        targetIndex = group.stories.indexWhere(
+          (s) => s.storyId == widget.initialStoryId,
+        );
+      }
+
+      // 2. Fallback to first unseen
+      if (targetIndex == -1) {
+        targetIndex = group.stories.indexWhere((s) => !s.hasViewed);
+      }
+
+      // 3. Fallback to 0
+      _currentStoryIndex = targetIndex != -1 ? targetIndex : 0;
+    } else {
+      _currentStoryIndex = 0;
+    }
 
     _animController = AnimationController(vsync: this);
     _animController.addStatusListener((status) {
@@ -50,6 +102,17 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     });
 
     _loadStory();
+
+    // Auto-open comments checking
+    if (widget.autoShowComments) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showEngagementSheet(initialTab: 2);
+      });
+    } else if (widget.autoShowLikes) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showEngagementSheet(initialTab: 1);
+      });
+    }
   }
 
   @override
@@ -59,8 +122,20 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     super.dispose();
   }
 
-  StoryGroup get _currentGroup => widget.groups[_currentGroupIndex];
-  Story get _currentStory => _currentGroup.stories[_currentStoryIndex];
+  // Safe Getters
+  StoryGroup? get _currentGroupSafe {
+    if (widget.groups.isEmpty) return null;
+    if (_currentGroupIndex >= widget.groups.length) return null;
+    return widget.groups[_currentGroupIndex];
+  }
+
+  Story? get _currentStorySafe {
+    final group = _currentGroupSafe;
+    if (group == null) return null;
+    if (group.stories.isEmpty) return null;
+    if (_currentStoryIndex >= group.stories.length) return null;
+    return group.stories[_currentStoryIndex];
+  }
 
   Future<void> _loadStory() async {
     _videoController?.dispose();
@@ -68,7 +143,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     _animController.stop();
     _animController.reset();
 
-    final story = _currentStory;
+    final story = _currentStorySafe;
+    if (story == null) return; // Safety check
 
     // Mark as viewed in API
     if (!story.isAuthor && !story.hasViewed) {
@@ -78,8 +154,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       });
     }
 
+    // 🔥 FETCH LATEST COUNTS to CACHE
+    _fetchEngagement(story.storyId);
+
     if (story.mediaType == 'video') {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(story.mediaUrl));
+      _videoController = VideoPlayerController.networkUrl(
+        Uri.parse(story.mediaUrl),
+      );
       try {
         await _videoController!.initialize();
         if (!mounted) return;
@@ -96,16 +177,124 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       }
     } else {
       _animController.duration = const Duration(seconds: 5);
-// Start animation immediately
+      // Start animation immediately
       _animController.forward();
-// Optionally warm cache (no dependency)
-      precacheImage(NetworkImage(story.mediaUrl), context);
 
+      // SAFE PRECACHE
+      final img = safeNetworkImage(story.mediaUrl);
+      if (img != null) {
+        precacheImage(img, context);
+      }
     }
   }
 
+  Future<void> _fetchEngagement(String storyId) async {
+    try {
+      final story = _currentStorySafe;
+
+      // FIX 403: Only fetch details if AUTHOR
+      final isAuthor = story?.isAuthor ?? false;
+
+      final futures = <Future>[];
+
+      // 1. Details (Viewers/Likes) - AUTHOR ONLY
+      if (isAuthor) {
+        futures.add(StoryService.getStoryDetails(storyId));
+      } else {
+        futures.add(Future.value(<String, dynamic>{})); // Dummy for index 0
+      }
+
+      // 2. Comments - EVERYONE
+      futures.add(StoryService.fetchComments(storyId));
+
+      final results = await Future.wait(futures);
+
+      if (!mounted) return;
+
+      final details = results[0] as Map<String, dynamic>;
+      final comments = results[1] as List<StoryComment>;
+
+      // 1. Parse Viewers
+      // Backend: { viewerCount: N, viewers: [...] }
+      final viewersList = details['viewers'] as List? ?? [];
+      int viewCount = details['viewerCount'] ?? 0;
+      if (viewCount == 0 && viewersList.isNotEmpty) {
+        viewCount = viewersList.length;
+      }
+
+      // 2. Derive Likes from Viewers (Backend ensures reactors are also viewers)
+      // Filter viewers where 'reaction_type' is 'true' (string) or present
+      final likesList = viewersList.where((v) {
+        final r = v['reaction_type'];
+        return r != null && r.toString().toLowerCase() == 'true';
+      }).toList();
+
+      final likeCount = likesList.length;
+
+      // 3. Determine 'hasLiked' from derived list
+      // We need to check if *current user* is in the likes list.
+      // However, backend getStories gave us 'has_liked'.
+      // If we blindly trust this list, we need to know current user ID.
+      // Simplified: We trust the `getStories` "hasLiked" initially, but if we find ourselves in the list, we confirm it.
+      // Actually, standard pattern: 'hasLiked' is usually separate.
+      // Since this endpoint is for 'Author' usually (permission check in backend?),
+      // non-authors might get 403 on getStoryDetailsById!
+      // WAIT. `getStoryDetailsById` line 1763: "You don't have permission to view these details" if not author.
+      // PROB: If I am NOT the author, `getStoryDetails` will fail (403).
+      // So checking logic is needed.
+
+      _engagementCache[storyId] = {
+        "viewCount": viewCount,
+        "likeCount": likeCount,
+        "commentCount": comments.length,
+        "hasLiked": _hasLiked(storyId), // Keep existing or update if found
+        "likes": likesList,
+        "viewers": viewersList,
+        "comments": comments, // Optional, store if needed
+      };
+
+      setState(() {});
+    } catch (e) {
+      // If I am NOT author, getStoryDetails might fail (403).
+      // In that case, we should at least fetch comments count?
+      // And we rely on 'getStories' data for like/view counts.
+      if (e.toString().contains("403")) {
+        // Non-author logic: maintain existing cache but update comments if possible
+        try {
+          final comments = await StoryService.fetchComments(storyId);
+          if (mounted) {
+            final prev = _engagementCache[storyId] ?? {};
+            prev['commentCount'] = comments.length;
+            _engagementCache[storyId] = prev;
+            setState(() {});
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Method to navigate to profile
+  void _navigateToProfile() {
+    _pause();
+    final group = _currentGroupSafe;
+    if (group == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(userId: group.author.id),
+      ),
+    ).then((_) => _resume());
+  }
+
   void _onStoryFinished() {
-    if (_currentStoryIndex < _currentGroup.stories.length - 1) {
+    final group = _currentGroupSafe;
+    if (group == null) {
+      Navigator.pop(context);
+      return;
+    }
+
+    if (_currentStoryIndex < group.stories.length - 1) {
       setState(() {
         _currentStoryIndex++;
       });
@@ -113,7 +302,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     } else {
       // Group finished. Find next group with unseen stories that is not current user.
       int nextGroupIndex = -1;
-      int previusGroupIndex=-1;
 
       for (int i = _currentGroupIndex + 1; i < widget.groups.length; i++) {
         final g = widget.groups[i];
@@ -153,8 +341,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     // 2️⃣ Find previous NON-current-user group
     int prevGroupIndex = _currentGroupIndex - 1;
 
-    while (prevGroupIndex >= 0 &&
-        widget.groups[prevGroupIndex].isCurrentUser) {
+    while (prevGroupIndex >= 0 && widget.groups[prevGroupIndex].isCurrentUser) {
       prevGroupIndex--; // ⏭ skip current user
     }
 
@@ -162,8 +349,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       final prevGroup = widget.groups[prevGroupIndex];
 
       // Find first unseen story
-      final firstUnseenIndex =
-      prevGroup.stories.indexWhere((s) => !s.hasViewed);
+      final firstUnseenIndex = prevGroup.stories.indexWhere(
+        (s) => !s.hasViewed,
+      );
 
       setState(() {
         _currentGroupIndex = prevGroupIndex;
@@ -178,51 +366,63 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       _loadStory();
       return;
     }
-
-    // 3️⃣ No previous valid user → stay / close
-    // Navigator.pop(context); // optional
   }
 
-    void _pause() {
-    if (_isPaused) return;
+  /// STRICT PAUSE: Ensures everything stops immediately
+  void _pause() {
+    // Force pause even if _isPaused is true, to be safe
     setState(() => _isPaused = true);
     _animController.stop();
     _videoController?.pause();
   }
 
   void _resume() {
-    if (!_isPaused) return;
+    if (!_isPaused) return; // Only resume if effectively paused by our logic
     setState(() => _isPaused = false);
     _animController.forward();
     _videoController?.play();
   }
 
   Future<void> _handleReaction() async {
-    // Optimistic toggle
-    final story = _currentStory;
-    final wasLiked = story.hasLiked;
-    final oldLikeCount = story.likeCount;
+    final story = _currentStorySafe;
+    if (story == null) return;
 
+    final id = story.storyId;
+
+    // Init cache if missing (edge case)
+    if (!_engagementCache.containsKey(id)) {
+      _engagementCache[id] = {
+        "viewCount": story.viewCount,
+        "likeCount": story.likeCount,
+        "commentCount": story.commentCount,
+        "hasLiked": story.hasLiked,
+        "likes": [],
+        "viewers": [],
+      };
+    }
+
+    final cached = _engagementCache[id]!;
+    final wasLiked = cached['hasLiked'] as bool;
+
+    // Optimistic Update
     setState(() {
-      story.hasLiked = !wasLiked;
-      story.likeCount = wasLiked ? oldLikeCount - 1 : oldLikeCount + 1;
+      cached['hasLiked'] = !wasLiked;
+      cached['likeCount'] = (cached['likeCount'] as int) + (wasLiked ? -1 : 1);
     });
 
     try {
-      final isLiked = await StoryService.reactToStory(story.storyId, 'true');
-      // Update with actual server state if needed, but optimistic is usually fine.
-      if (mounted) {
-        setState(() {
-          story.hasLiked = isLiked;
-          // Adjust count if mismatch? simplified for now.
-        });
-      }
+      // Toggle string 'true' usually means "like"
+      final isLikedResponse = await StoryService.reactToStory(id, 'true');
+
+      // Re-fetch truth to be safe
+      await _fetchEngagement(id);
     } catch (e) {
-      // Revert
+      // Rollback
       if (mounted) {
         setState(() {
-          story.hasLiked = wasLiked;
-          story.likeCount = oldLikeCount;
+          cached['hasLiked'] = wasLiked;
+          cached['likeCount'] =
+              (cached['likeCount'] as int) + (wasLiked ? 1 : -1);
         });
       }
     }
@@ -231,69 +431,90 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   Future<void> _deleteStory() async {
     _pause();
     final confirm = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text("Delete Story?"),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text("Cancel")),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text("Delete")),
-          ],
-        )
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Delete Story?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
+      final story = _currentStorySafe;
+      final group = _currentGroupSafe;
+
+      if (story == null || group == null) return;
+
       try {
-        await StoryService.deleteStory(_currentStory.storyId);
+        await StoryService.deleteStory(story.storyId);
         // Remove locally
         setState(() {
-          _currentGroup.stories.removeAt(_currentStoryIndex);
+          group.stories.removeAt(_currentStoryIndex);
+
+          if (group.stories.isEmpty) {
+            Navigator.pop(context); // Close if no stories left
+            return;
+          }
+
+          if (_currentStoryIndex >= group.stories.length) {
+            _currentStoryIndex = group.stories.length - 1;
+          }
         });
 
-        if (_currentGroup.stories.isEmpty) {
-          Navigator.pop(context); // Close if no stories left
-        } else {
-          if (_currentStoryIndex >= _currentGroup.stories.length) {
-            _currentStoryIndex--;
-          }
+        if (mounted) {
           _loadStory(); // Load new current
         }
         return; // Don't resume
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed: $e")));
       }
     }
     _resume();
   }
 
-  void _showViewers() async {
-    _pause();
-    try {
-      final details = await StoryService.getStoryDetails(_currentStory.storyId);
-      if (!mounted) return;
-
-      await showModalBottomSheet(
-        context: context,
-        builder: (c) => _ViewersSheet(details: details),
-        backgroundColor: Colors.transparent,
-      );
-    } catch (e) {
-      // ignore
-    }
-    _resume();
+  bool _isLongText(String text) {
+    return text.length > 80;
   }
 
-  bool _isLongText(String text) {
-    return text.length > 80; // tweak if needed
+  Future<void> _openLinkedPostFromMetadata(dynamic postId) async {
+    if (postId == null) return;
+    _pause();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostDetailScreen(
+          post: {
+            "id": postId.toString(),
+            "author": {"name": "Loading...", "id": ""},
+          },
+        ),
+      ),
+    ).then((_) => _resume());
+  }
+
+  Future<void> _openLinkedPost(String rawTitle) async {
+    final postId = rawTitle.replaceFirst("LINKED_POST:", "");
+    if (postId.isEmpty) return;
+    _openLinkedPostFromMetadata(postId);
   }
 
   Future<void> _showDescriptionSheet(
-      BuildContext context,
-      // String title,
-      String description,
-      ) async {
-    _pause(); // ⏸ pause story
+    BuildContext context,
+    String description,
+  ) async {
+    _pause();
 
-    debugPrint("clicked on description bar");
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -314,12 +535,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
               ),
             ),
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.2,
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Drag handle
                 Center(
                   child: Container(
                     width: 40,
@@ -331,18 +551,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                     ),
                   ),
                 ),
-
-                // if (title.isNotEmpty)
-                //   Text(
-                //     title,
-                //     style: theme.textTheme.titleMedium?.copyWith(
-                //       fontWeight: FontWeight.bold,
-                //       color: colorScheme.onSurface,
-                //     ),
-                //   ),
-
                 const SizedBox(height: 12),
-
                 Expanded(
                   child: SingleChildScrollView(
                     child: Text(
@@ -360,17 +569,58 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       },
     );
 
-    _resume(); // ▶ resume story after close
+    _resume();
   }
 
+  void _showMoreOptions(Story story) {
+    _pause();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (c) => SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Wrap(
+            children: [
+              if (story.isAuthor)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
+                    "Delete Story",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(c);
+                    _deleteStory();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => _resume());
+  }
 
   @override
   Widget build(BuildContext context) {
+    final group = _currentGroupSafe;
+    final story = _currentStorySafe;
+
+    if (group == null || story == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context);
+      });
+      return const SizedBox.shrink();
+    }
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final story = _currentStory;
-    final group = _currentGroup;
 
     return Scaffold(
       backgroundColor: Colors.black, // Dark background for better swipe effect
@@ -378,11 +628,36 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         offset: Offset(0, _dragOffsetY),
         child: GestureDetector(
           onTapDown: (_) => _pause(),
-          onTapUp: (_) => _resume(),
+          onTapUp: (details) {
+            _resume();
+            final width = MediaQuery.of(context).size.width;
+            final dx = details.globalPosition.dx;
+
+            if (dx < width * 0.25) {
+              _previousStory();
+            } else if (dx > width * 0.75) {
+              _onStoryFinished();
+            } else {
+              // Center Tap: Check metadata for link
+              if (story.storyMetadata != null &&
+                  story.storyMetadata!['linked_post_id'] != null) {
+                _openLinkedPostFromMetadata(
+                  story.storyMetadata!['linked_post_id'],
+                );
+              } else if (story.title != null &&
+                  story.title!.startsWith("LINKED_POST:")) {
+                // BACKWARD COMPATIBILITY
+                _openLinkedPost(story.title!);
+              } else {
+                _onStoryFinished(); // Default
+              }
+            }
+          },
           onTapCancel: _resume,
           onLongPress: _pause,
           onLongPressUp: _resume,
           onVerticalDragUpdate: (details) {
+            // Drag Down -> Close
             if (details.delta.dy > 0 || _dragOffsetY > 0) {
               setState(() {
                 _dragOffsetY += details.delta.dy;
@@ -394,6 +669,20 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                 (details.primaryVelocity != null &&
                     details.primaryVelocity! > 500)) {
               Navigator.pop(context);
+            } else if (details.primaryVelocity != null &&
+                details.primaryVelocity! < -500) {
+              // Swipe Up detected
+              if (_dragOffsetY == 0) {
+                if (story.isAuthor) {
+                  _showEngagementSheet(initialTab: 0);
+                } else if (story.description != null &&
+                    story.description!.isNotEmpty) {
+                  _showDescriptionSheet(context, story.description!);
+                }
+              }
+              setState(() {
+                _dragOffsetY = 0.0;
+              });
             } else {
               setState(() {
                 _dragOffsetY = 0.0;
@@ -404,169 +693,192 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
             color: colorScheme.surface, // Inner content bg
             child: Stack(
               children: [
-            // ======================
-            // Media
-            // ======================
-            Positioned.fill(
-              child: _buildMedia(story),
-            ),
+                // ======================
+                // Media
+                // ======================
+                Positioned.fill(child: _buildMedia(story)),
 
-            // ======================
-            // Tap Zones
-            // ======================
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _previousStory,
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _onStoryFinished,
-                  ),
-                ),
-              ],
-            ),
+                // ======================
+                // Tap Zones (REMOVED - Handled by Parent)
+                // ======================
 
-            // ======================
-            // Top Overlay
-            // ======================
-            SafeArea(
-              child: Column(
-                children: [
-                  // Progress Bars
-                  Padding(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Row(
-                      children: List.generate(
-                        group.stories.length,
+                // ======================
+                // Top Overlay
+                // ======================
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Progress Bars
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: List.generate(
+                            group.stories.length,
                             (index) => Expanded(
-                          child: Padding(
-                            padding:
-                            const EdgeInsets.symmetric(horizontal: 2),
-                            child: _buildProgressBar(index,context),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: _buildProgressBar(index, context),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundImage: group.author.avatar != null
-                              ? NetworkImage(group.author.avatar!)
-                              : null,
-                          backgroundColor: colorScheme.surfaceVariant,
-                          child: group.author.avatar == null
-                              ? Text(
-                            group.author.name[0],
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                            ),
-                          )
-                              : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          group.author.name,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _timeAgo(story.createdAt),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color:
-                            colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                        const Spacer(),
-                        // Close icon removed
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ======================
-            // Footer Overlay
-            // ======================
-            Positioned(
-              bottom: 20,
-              left: 0,
-              right: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-
-                  if (story.title != null && story.title!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: GestureDetector(
-                        onTap: () {
-                          if (story.description != null &&
-                              story.description!.isNotEmpty ||
-                              _isLongText(story.description!)) {
-                            _showDescriptionSheet(
-                              context,
-                              // story.title ?? "",
-                              story.description!,
-                            );
-                          }
-                        },
-                        child: Column(
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
                           children: [
-                            Text(
-                              story.title!,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: colorScheme.onSurface,
+                            GestureDetector(
+                              onTap: _navigateToProfile,
+                              child: CircleAvatar(
+                                backgroundImage: safeNetworkImage(
+                                  group.author.avatar,
+                                ),
+                                backgroundColor: colorScheme.surfaceVariant,
+                                child: group.author.avatar == null
+                                    ? Text(
+                                        group.author.name[0],
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      )
+                                    : null,
                               ),
                             ),
-
-
-                            // READ MORE (tap only here)
-                            if (_isLongText(story.title!))
-                              GestureDetector(
-                                onTap: () {
-                                  _showDescriptionSheet(
-                                    context,
-                                    story.title!, // 👈 SHOW TITLE TEXT
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    "Read more",
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _navigateToProfile,
+                              child: Text(
+                                group.author.name,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
                                 ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _timeAgo(story.createdAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                            const Spacer(),
+
+                            // 3-Dot Menu for Author
+                            if (story.isAuthor)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: colorScheme.onSurface,
+                                ),
+                                onPressed: () => _showMoreOptions(story),
                               ),
                           ],
                         ),
                       ),
-                    ),
+                    ],
+                  ),
+                ),
 
-                  _buildFooterActions(story,context),
-                ],
-              ),
-            ),
+                // ======================
+                // Footer Overlay
+                // ======================
+                Positioned(
+                  bottom: 20,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // SHOW DESCRIPTION (With Opaque HitTest to prevent drill-through)
+                      if (story.description != null &&
+                          story.description!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior
+                                .opaque, // Blocks tap from going to parent
+                            onTap: () {
+                              if (_isLongText(story.description!)) {
+                                _showDescriptionSheet(
+                                  context,
+                                  story.description!,
+                                );
+                              }
+                            },
+                            child: Column(
+                              children: [
+                                Text(
+                                  story.description!,
+                                  textAlign: TextAlign.center,
+                                  maxLines: _isLongText(story.description!)
+                                      ? 2
+                                      : 4,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white,
+                                    shadows: [
+                                      const Shadow(
+                                        blurRadius: 4,
+                                        color: Colors.black54,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // READ MORE (tap only here)
+                                if (_isLongText(story.description!))
+                                  GestureDetector(
+                                    onTap: () {
+                                      _showDescriptionSheet(
+                                        context,
+                                        story.description!,
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black45,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          "Read more",
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                      _buildFooterActions(story, context),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -576,47 +888,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   Widget _buildMedia(Story story) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (story.mediaType == 'video') {
-          if (_videoController != null &&
-              _videoController!.value.isInitialized) {
-            final videoSize = _videoController!.value.size;
-            final aspectRatio = videoSize.width / videoSize.height;
-
-            return Center(
-              child: AspectRatio(
-                aspectRatio: aspectRatio,
-                child: VideoPlayer(_videoController!),
-              ),
-            );
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        } else {
-          return Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight,
-                maxWidth: constraints.maxWidth,
-              ),
-              child: Image.network(
-                story.mediaUrl,
-                fit: BoxFit.contain,
-                loadingBuilder: (ctx, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-              ),
-            ),
-          );
-        }
-      },
-    );
+    return StoryRenderer(story: story, videoController: _videoController);
   }
-
-
-
 
   Widget _buildProgressBar(int index, BuildContext context) {
     final theme = Theme.of(context);
@@ -640,13 +913,31 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
           return LinearProgressIndicator(
             value: value,
             backgroundColor: colorScheme.onSurface.withOpacity(0.3),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              colorScheme.onSurface,
-            ),
+            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onSurface),
           );
         },
       ),
     );
+  }
+
+  // ===================================
+  // UNIFIED ENGAGEMENT SHEET
+  // ===================================
+  void _showEngagementSheet({int initialTab = 0}) {
+    _pause();
+    final story = _currentStorySafe;
+    if (story == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StoryEngagementSheet(
+        story: story,
+        initialTabIndex: initialTab,
+        initialData: _engagementCache[story.storyId],
+      ),
+    ).then((_) => _resume());
   }
 
   Widget _buildFooterActions(Story story, BuildContext context) {
@@ -654,20 +945,112 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     final colorScheme = theme.colorScheme;
 
     if (story.isAuthor) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          TextButton.icon(
-            onPressed: _showViewers,
-            icon: Icon(Icons.visibility, color: colorScheme.onSurface),
-            label: Text(
-              "${story.viewCount}",
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-          IconButton(
-            onPressed: _deleteStory,
-            icon: Icon(Icons.delete, color: colorScheme.onSurface),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // LEFT: Views & Activity
+              GestureDetector(
+                onTap: () => _showEngagementSheet(initialTab: 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      // Eye Icon
+                      const Icon(
+                        Icons.remove_red_eye_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "${_viewCount(story.storyId)}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Profile text hint
+                      const Text(
+                        "Views",
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // RIGHT: Likes & Comments
+              Row(
+                children: [
+                  // Likes
+                  GestureDetector(
+                    onTap: () => _showEngagementSheet(initialTab: 1),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.redAccent,
+                            size: 28,
+                          ),
+                          Text(
+                            "${_likeCount(story.storyId)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // Comments
+                  GestureDetector(
+                    onTap: () => _showEngagementSheet(initialTab: 2),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          Text(
+                            "${_commentCount(story.storyId)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       );
@@ -675,135 +1058,75 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       return Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // 💬 Chat / Reply
-          IconButton(
-            iconSize: 40,
-            icon: Icon(
-              Icons.chat_bubble_outline,
-              color: colorScheme.onSurface,
-              size: 26,
+          // Comment Button
+          GestureDetector(
+            onTap: () => _showEngagementSheet(initialTab: 2),
+            child: Container(
+              // larger hit area
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    color: colorScheme.onSurface,
+                    size: 28,
+                  ),
+                  if (_commentCount(story.storyId) > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      "${_commentCount(story.storyId)}",
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            onPressed: () {
-              _pause(); // pause story like WhatsApp
-              // _openChat(story); // open chat / reply UI
-            },
           ),
 
-          const SizedBox(width: 8),
-
-          // ❤️ Like
+          const SizedBox(width: 12), // Spacing
+          // Like Button
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: Icon(
-                story.hasLiked ? Icons.favorite : Icons.favorite_border,
-                color: story.hasLiked
-                    ? colorScheme.error
-                    : colorScheme.onSurface,
-                size: 30,
-              ),
-              onPressed: _handleReaction,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _hasLiked(story.storyId)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
+                    color: _hasLiked(story.storyId)
+                        ? colorScheme.error
+                        : colorScheme.onSurface,
+                    size: 30,
+                  ),
+                  onPressed: _handleReaction,
+                ),
+                // Show count for viewers too if > 0
+                if (_likeCount(story.storyId) > 0)
+                  Text(
+                    "${_likeCount(story.storyId)}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
       );
-
-
     }
   }
 
-
-  String _timeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 60) return "${diff.inMinutes}m";
-    if (diff.inHours < 24) return "${diff.inHours}h";
-    return "${diff.inDays}d";
+  String _timeAgo(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inDays > 0) return "${diff.inDays}d";
+    if (diff.inHours > 0) return "${diff.inHours}h";
+    if (diff.inMinutes > 0) return "${diff.inMinutes}m";
+    return "Just now";
   }
-}
-
-class _ViewersSheet extends StatelessWidget {
-  final Map<String, dynamic> details;
-
-  const _ViewersSheet({required this.details});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final viewers = details['viewers'] as List? ?? [];
-
-    return Container(
-      height: 400,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(16),
-        ),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              "Viewers (${details['viewerCount']})",
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-          Expanded(
-            child: viewers.isEmpty
-                ? Center(
-              child: Text(
-                "No views yet",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-            )
-                : ListView.builder(
-              itemCount: viewers.length,
-              itemBuilder: (context, index) {
-                final v = viewers[index];
-                final hasLiked = v['reaction_type'] == true;
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: colorScheme.surfaceVariant,
-                    backgroundImage: v['avatar_url'] != null
-                        ? NetworkImage(v['avatar_url'])
-                        : null,
-                    child: v['avatar_url'] == null
-                        ? Text(
-                      v['full_name']?[0] ?? "?",
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                      ),
-                    )
-                        : null,
-                  ),
-                  title: Text(
-                    v['full_name'] ?? "Unknown",
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  trailing: hasLiked
-                      ? Icon(
-                    Icons.favorite,
-                    color: colorScheme.error,
-                  )
-                      : null,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
 }

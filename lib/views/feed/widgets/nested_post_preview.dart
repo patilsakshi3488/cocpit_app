@@ -109,12 +109,11 @@ class NestedPostPreview extends StatelessWidget {
     String authorName,
   ) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withOpacity(0.03),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        color: theme.cardColor.withOpacity(0.5),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
       ),
       child: Center(
         child: Column(
@@ -198,18 +197,17 @@ class NestedPostPreview extends StatelessWidget {
         );
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.white.withOpacity(0.01),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+          color: theme.cardColor.withOpacity(0.3),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            GestureDetector(
+            InkWell(
               onTap: authorId == null
                   ? null
                   : () {
@@ -221,54 +219,56 @@ class NestedPostPreview extends StatelessWidget {
                       );
                     },
               child: Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 14,
+                      radius: 12,
+                      backgroundColor: theme.primaryColor.withOpacity(0.1),
                       backgroundImage: authorAvatar != null
                           ? NetworkImage(authorAvatar)
                           : null,
                       child: authorAvatar == null
                           ? Text(
                               authorName.isNotEmpty ? authorName[0] : '?',
-                              style: const TextStyle(fontSize: 10),
+                              style: const TextStyle(fontSize: 8),
                             )
                           : null,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              authorName,
-                              style: theme.textTheme.titleSmall?.copyWith(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: authorName,
+                              style: theme.textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Colors.white,
+                                fontSize: 12,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "• Reposted",
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withOpacity(0.5),
-                              fontSize: 11,
+                            TextSpan(
+                              text: " · Reposted",
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color
+                                    ?.withOpacity(0.5),
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (timestamp.isNotEmpty)
                       Text(
                         timestamp,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 11,
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(
+                            0.4,
+                          ),
+                          fontSize: 10,
                         ),
                       ),
                   ],
@@ -293,11 +293,14 @@ class NestedPostPreview extends StatelessWidget {
             // Content
             if (postText.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                 child: Text(
                   postText,
-                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
-                  maxLines: 3,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                  maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),

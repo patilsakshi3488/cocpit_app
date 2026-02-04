@@ -20,6 +20,7 @@ class PostCard extends StatefulWidget {
   final Function(String)? onDelete;
   final Function(String)? onEdit;
   final Function(String, bool)? onPrivacyChange;
+  final VoidCallback? onRepost;
 
   const PostCard({
     super.key,
@@ -29,6 +30,7 @@ class PostCard extends StatefulWidget {
     this.onDelete,
     this.onEdit,
     this.onPrivacyChange,
+    this.onRepost,
   });
 
   @override
@@ -191,32 +193,16 @@ class _PostCardState extends State<PostCard> {
     return Container(
       margin: widget.simpleView
           ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: widget.simpleView
-          ? BoxDecoration(
-              color: theme.cardColor,
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.dividerColor.withValues(alpha: 0.2),
-                  width: 8, // Thicker separator for flat feed
-                ),
-              ),
-            )
-          : BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: theme.dividerColor.withValues(alpha: 0.5),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+          : const EdgeInsets.symmetric(
+              vertical: 4.0,
+            ), // Maintain space between posts
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -244,7 +230,7 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
           _postStats(theme),
-          Divider(height: 1, color: theme.dividerColor.withOpacity(0.5)),
+          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
           _postActions(theme),
         ],
       ),
@@ -267,82 +253,111 @@ class _PostCardState extends State<PostCard> {
         post["authorAvatar"];
     final String category = post["category"] ?? post["category_name"] ?? "";
 
-    return InkWell(
-      onTap: () async {
-        String? authorId = getAuthorId();
-        if (authorId == null || authorId.isEmpty) return;
-
-        String? myId = currentUserId;
-        if (myId == null) {
-          myId = await AppSecureStorage.getCurrentUserId();
-          if (mounted) setState(() => currentUserId = myId);
-        }
-
-        final bool amIOwner = myId != null && authorId == myId;
-
-        if (amIOwner) {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/profile',
-            (route) => false,
-          );
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PublicProfileScreen(userId: authorId),
-            ),
-          );
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: _navigateToProfile,
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: theme.primaryColor.withOpacity(0.1),
               backgroundImage: authorAvatar != null
                   ? NetworkImage(authorAvatar)
                   : null,
               child: authorAvatar == null
-                  ? Text(authorName.isNotEmpty ? authorName[0] : "?")
+                  ? Text(
+                      authorName.isNotEmpty ? authorName[0] : "?",
+                      style: TextStyle(color: theme.primaryColor, fontSize: 14),
+                    )
                   : null,
             ),
-            const SizedBox(width: 10),
-            Expanded(
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: _navigateToProfile,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    authorName,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                   Row(
                     children: [
-                      if (category.isNotEmpty)
-                        Text(category, style: theme.textTheme.bodySmall),
+                      Flexible(
+                        child: Text(
+                          authorName,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       if (post["created_at"] != null) ...[
-                        if (category.isNotEmpty)
-                          Text(" • ", style: theme.textTheme.bodySmall),
+                        Text(
+                          " • ",
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 11,
+                            color: theme.textTheme.bodySmall?.color
+                                ?.withOpacity(0.5),
+                          ),
+                        ),
                         TimeAgoWidget(
                           dateTime: DateTime.parse(
                             post["created_at"].toString(),
                           ),
-                          style: theme.textTheme.bodySmall,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 11,
+                            color: theme.textTheme.bodySmall?.color
+                                ?.withOpacity(0.5),
+                          ),
                         ),
                       ],
                     ],
                   ),
+                  if (category.isNotEmpty)
+                    Text(
+                      category,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.textTheme.bodySmall?.color?.withOpacity(
+                          0.6,
+                        ),
+                        fontSize: 12,
+                      ),
+                    ),
                 ],
               ),
             ),
-            _buildPostMenu(theme),
-          ],
-        ),
+          ),
+          _buildPostMenu(theme),
+        ],
       ),
     );
+  }
+
+  Future<void> _navigateToProfile() async {
+    String? authorId = getAuthorId();
+    if (authorId == null || authorId.isEmpty) return;
+
+    String? myId = currentUserId;
+    if (myId == null) {
+      myId = await AppSecureStorage.getCurrentUserId();
+      if (mounted) setState(() => currentUserId = myId);
+    }
+
+    final bool amIOwner = myId != null && authorId == myId;
+
+    if (amIOwner) {
+      Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PublicProfileScreen(userId: authorId),
+        ),
+      );
+    }
   }
 
   void _onShareTap() async {
@@ -356,8 +371,8 @@ class _PostCardState extends State<PostCard> {
     if (result == true && mounted) {
       // If we are in the detail screen, we might want to pop back to feed or just show a snackbar
       // But for website parity, a sucessful repost in feed refreshes the feed.
-      // If this PostCard is inside a detail screen, we can return the result back.
-      Navigator.of(context).pop(true);
+      // Call callback if provided, otherwise do nothing (let parent handle via provider updates if needed)
+      widget.onRepost?.call();
     }
   }
 
@@ -419,7 +434,11 @@ class _PostCardState extends State<PostCard> {
             ),
           ),
         ],
-        child: Icon(Icons.more_horiz, color: theme.iconTheme.color),
+        child: Icon(
+          Icons.more_horiz,
+          color: theme.iconTheme.color?.withOpacity(0.6),
+          size: 20,
+        ),
       );
     }
     // Non-owner menu actions
@@ -434,33 +453,29 @@ class _PostCardState extends State<PostCard> {
           );
         }
         if (value == 'save') {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("Post saved")));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Post added to favorites")),
+          );
         }
       },
       itemBuilder: (context) => [
         PopupMenuItem(
-          value: 'share',
+          value: 'save',
           child: Row(
             children: [
-              Icon(Icons.share, size: 18, color: theme.iconTheme.color),
+              Icon(Icons.star_border, size: 18),
               const SizedBox(width: 8),
-              const Text("Share"),
+              const Text("Add to favorites"),
             ],
           ),
         ),
         PopupMenuItem(
-          value: 'save',
+          value: 'share',
           child: Row(
             children: [
-              Icon(
-                Icons.bookmark_border,
-                size: 18,
-                color: theme.iconTheme.color,
-              ),
+              Icon(Icons.link, size: 18),
               const SizedBox(width: 8),
-              const Text("Save Post"),
+              const Text("Copy link"),
             ],
           ),
         ),
@@ -475,7 +490,11 @@ class _PostCardState extends State<PostCard> {
           ),
         ),
       ],
-      child: Icon(Icons.more_vert, color: theme.iconTheme.color),
+      child: Icon(
+        Icons.more_horiz,
+        color: theme.iconTheme.color?.withOpacity(0.6),
+        size: 20,
+      ),
     );
   }
 
@@ -492,8 +511,11 @@ class _PostCardState extends State<PostCard> {
 
   Widget _postText(ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Text(post["content"], style: theme.textTheme.bodyMedium),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        post["content"],
+        style: theme.textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.4),
+      ),
     );
   }
 
@@ -524,16 +546,16 @@ class _PostCardState extends State<PostCard> {
         0;
     final likeCount = post["like_count"] ?? post["likes"] ?? 0;
 
+    if (likeCount == 0 && commentCount == 0) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.thumb_up, size: 14, color: theme.primaryColor),
-          const SizedBox(width: 4),
-          Text("$likeCount", style: theme.textTheme.bodySmall),
-          const SizedBox(width: 12),
-          Text("$commentCount comments", style: theme.textTheme.bodySmall),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Text(
+        "$likeCount likes · $commentCount comments",
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+          fontSize: 12,
+        ),
       ),
     );
   }
@@ -542,73 +564,73 @@ class _PostCardState extends State<PostCard> {
     return Consumer<PostProvider>(
       builder: (context, provider, _) {
         final postData = provider.getPost(postId);
-
-        // If post is not yet registered, render nothing (or skeleton)
-        if (postData == null) {
-          return const SizedBox.shrink();
-        }
+        if (postData == null) return const SizedBox.shrink();
 
         final bool isLiked = postData["is_liked"] == true;
 
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+        return Column(
           children: [
-            /// ❤️ LIKE
-            InkWell(
-              onTap: () {
-                if (postId.isEmpty) return;
-                provider.toggleLike(postId);
-              },
-              child: _action(
-                isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                "Like",
-                color: isLiked ? theme.primaryColor : null,
-                theme: theme,
-              ),
-            ),
-
-            /// 💬 COMMENT
-            InkWell(
-              onTap: () async {
-                await showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => CommentsSheet(
-                    postId: postId,
-                    onCommentAdded: () {
-                      if (mounted) {
-                        setState(() {
-                          // Increment local count
-                          final current =
-                              post["comment_count"] ??
-                              post["comments_count"] ??
-                              post["_count"]?["comments"] ??
-                              0;
-
-                          // Convert to int safely
-                          int count = 0;
-                          if (current is int) count = current;
-                          if (current is String)
-                            count = int.tryParse(current) ?? 0;
-
-                          // Update preferred field
-                          post["comment_count"] = count + 1;
-                        });
-                      }
-                    },
-                  ),
-                );
-              },
-              child: _action(
-                Icons.chat_bubble_outline,
-                "Comment",
-                theme: theme,
-              ),
-            ),
-            InkWell(
-              onTap: () => _onShareTap(),
-              child: _action(Icons.share_outlined, "Share", theme: theme),
+            Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _action(
+                  isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                  "Like",
+                  color: isLiked
+                      ? theme.primaryColor
+                      : theme.iconTheme.color?.withOpacity(0.7),
+                  onTap: () {
+                    if (postId.isNotEmpty) provider.toggleLike(postId);
+                  },
+                  theme: theme,
+                ),
+                _action(
+                  Icons.chat_bubble_outline,
+                  "Comment",
+                  onTap: () async {
+                    await showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => CommentsSheet(
+                        postId: postId,
+                        onCommentAdded: () {
+                          if (mounted) {
+                            setState(() {
+                              final current =
+                                  post["comment_count"] ??
+                                  post["comments_count"] ??
+                                  0;
+                              int count = current is String
+                                  ? (int.tryParse(current) ?? 0)
+                                  : current;
+                              post["comment_count"] = count + 1;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  },
+                  theme: theme,
+                ),
+                _action(
+                  Icons.share_outlined,
+                  "Share",
+                  onTap: _onShareTap,
+                  theme: theme,
+                ),
+                _action(
+                  Icons.bookmark_border,
+                  "Save",
+                  onTap: () {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text("Post saved")));
+                  },
+                  theme: theme,
+                ),
+              ],
             ),
           ],
         );
@@ -620,26 +642,19 @@ class _PostCardState extends State<PostCard> {
     IconData icon,
     String label, {
     Color? color,
+    required VoidCallback onTap,
     required ThemeData theme,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: color ?? theme.iconTheme.color?.withOpacity(0.7),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: color ?? theme.textTheme.bodyMedium?.color,
-            ),
-          ),
-        ],
+    // ICONS ONLY - NO TEXT LABELS
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Icon(
+          icon,
+          size: 20, // Website icon size
+          color: color ?? theme.iconTheme.color?.withOpacity(0.8),
+        ),
       ),
     );
   }

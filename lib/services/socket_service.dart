@@ -197,19 +197,25 @@ class SocketService {
     });
 
     // 4. Typing Indicators
-    _socket!.on('isTyping', (data) {
-      debugPrint('⌨️ [Socket] isTyping Received: $data');
+    void handleTyping(data) {
+      debugPrint('⌨️ [Socket] typing Received: $data');
       if (data != null && data is Map) {
         _typingController.add(Map<String, dynamic>.from(data));
       }
-    });
+    }
 
-    _socket!.on('stoppedTyping', (data) {
-      debugPrint('🛑 [Socket] stoppedTyping Received: $data');
+    _socket!.on('isTyping', handleTyping);
+    _socket!.on('typing', handleTyping);
+
+    void handleStopTyping(data) {
+      debugPrint('🛑 [Socket] stopTyping Received: $data');
       if (data != null && data is Map) {
         _stopTypingController.add(Map<String, dynamic>.from(data));
       }
-    });
+    }
+
+    _socket!.on('stoppedTyping', handleStopTyping);
+    _socket!.on('stopTyping', handleStopTyping);
 
     // 6. Initial Online Users (Hypothetical - catching common patterns)
     _socket!.on('onlineUsers', (data) {

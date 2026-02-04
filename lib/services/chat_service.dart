@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
 import 'social_service.dart';
@@ -40,6 +41,7 @@ class ChatService {
   List<Map<String, dynamic>> _currentMessages = [];
   String? _activeConversationId;
   String? get activeConversationId => _activeConversationId;
+  List<Map<String, dynamic>> get currentMessages => _currentMessages;
 
   // --- Socket Listeners ---
   void _listenToSocket() {
@@ -141,19 +143,23 @@ class ChatService {
 
     // 4. Message Read
     _socketService.onMessageRead.listen((data) {
-      // payload: { conversation_id, reader_id, messageIds: [] }
+      // payload: { conversation_id, reader_id, messageIds: [], read_at: timestamp }
       final convId = (data['conversation_id'] ?? data['conversationId'])
           ?.toString();
       if (convId == _activeConversationId) {
         final messageIds = List<String>.from(
           data['message_ids'] ?? data['messageIds'] ?? [],
         );
+        final readAt = data['read_at'] ?? DateTime.now().toIso8601String();
+
         bool changed = false;
         for (var msg in _currentMessages) {
           final mId = (msg['message_id'] ?? msg['id'])?.toString();
           if (mId != null && messageIds.contains(mId)) {
-            msg['read_at'] = DateTime.now().toIso8601String();
-            changed = true;
+            if (msg['read_at'] == null) {
+              msg['read_at'] = readAt;
+              changed = true;
+            }
           }
         }
         if (changed) {
@@ -182,24 +188,31 @@ class ChatService {
 
   // --- Public API ---
 
-  /// Enter a chat: Loads history and subscribes to updates
+  // Pagination State
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
+  final int _pageSize = 20;
+
+  /// Enter a chat: Loads initial history and subscribes to updates
   Future<void> enterChat(String conversationId) async {
     _activeConversationId = conversationId;
     _currentMessages = []; // Clear previous
     _activeMessagesController.add([]); // Notify UI
     _currentTypingUsers.clear();
     _typingUsersController.add({});
+    _hasMore = true;
+    _isLoadingMore = false;
 
     // 1. Join Room for Typing Indicators
     _socketService.joinConversation(conversationId);
 
-    // 2. Fetch History
-    final messages = await _socialService.getMessages(conversationId);
-    if (_activeConversationId == conversationId) {
-      _currentMessages = messages;
-      _activeMessagesController.add(List.from(_currentMessages));
+    // 2. Fetch Initial History
+    await _loadMessages(initial: true);
 
-      // 3. Mark as Read (Backend)
+    // 3. Mark as Read (Backend)
+    if (_activeConversationId == conversationId) {
       await _socialService.markAsRead(conversationId);
 
       // 4. Clear local notifications if any
@@ -211,6 +224,66 @@ class ChatService {
 
       // Also fetch fresh from server to be sure
       fetchTotalUnreadCount();
+    }
+  }
+
+  /// Load more messages (Pagination)
+  Future<void> loadMoreMessages() async {
+    if (!_hasMore || _isLoadingMore || _activeConversationId == null) return;
+    await _loadMessages(initial: false);
+  }
+
+  /// Internal message loader
+  Future<void> _loadMessages({required bool initial}) async {
+    if (_activeConversationId == null) return;
+
+    _isLoadingMore = true;
+    // Broadcast loading state if you had a separate stream for it,
+    // or just let UI check isLoadingMore getter (reactive update needed?)
+    // Actually, UI usually just triggers and waits.
+    // For proper UI spinner, we might want to emit the list again or just rely on Future completion.
+
+    try {
+      String? beforeCursor;
+      if (!initial && _currentMessages.isNotEmpty) {
+        // Use oldest message timestamp as cursor
+        // List is Oldest -> Newest (index 0 is Oldest)
+        beforeCursor = _currentMessages.first['created_at'];
+      }
+
+      final newMessages = await _socialService.getMessages(
+        _activeConversationId!,
+        before: beforeCursor,
+        limit: _pageSize,
+      );
+
+      if (_activeConversationId == null) return; // Left chat while loading
+
+      if (newMessages.length < _pageSize) {
+        _hasMore = false;
+      }
+
+      if (initial) {
+        _currentMessages = newMessages;
+      } else {
+        // Prepend older messages
+        // Dedup just in case
+        for (var msg in newMessages.reversed) {
+          final msgId = (msg['message_id'] ?? msg['id'])?.toString();
+          final exists = _currentMessages.any(
+            (m) => (m['message_id'] ?? m['id'])?.toString() == msgId,
+          );
+          if (!exists) {
+            _currentMessages.insert(0, msg);
+          }
+        }
+      }
+
+      _activeMessagesController.add(List.from(_currentMessages));
+    } catch (e) {
+      debugPrint("❌ Error loading messages: $e");
+    } finally {
+      _isLoadingMore = false;
     }
   }
 
@@ -253,6 +326,7 @@ class ChatService {
       'message_id': tempId,
       'text_content': content,
       'sender_id': 'me', // UI should handle 'me' or actual ID check
+      'target_user_id': targetUserId, // Needed for retry
       'created_at': DateTime.now().toIso8601String(),
       'status': 'sending',
     };
@@ -260,25 +334,187 @@ class ChatService {
     _currentMessages.add(optimisticMessage);
     _activeMessagesController.add(List.from(_currentMessages));
 
-    // 2. API Call
-    final result = await _socialService.sendMessage(
-      targetUserId: targetUserId,
-      content: content,
-    );
+    // 🛰️ Quick Network Check for "Immediate" failure feedback
+    if (!await _hasNetwork()) {
+      _markAsFailed(tempId);
+      _activeMessagesController.add(List.from(_currentMessages));
+      return;
+    }
 
-    // 3. Reconcile
-    if (result != null) {
-      final index = _currentMessages.indexWhere(
-        (m) => m['message_id'] == tempId,
+    try {
+      // 2. API Call
+      final result = await _socialService.sendMessage(
+        targetUserId: targetUserId,
+        content: content,
       );
-      if (index != -1) {
-        _currentMessages[index] = result;
+
+      // 3. Reconcile
+      if (result != null) {
+        final index = _currentMessages.indexWhere(
+          (m) => m['message_id'] == tempId,
+        );
+        if (index != -1) {
+          _currentMessages[index] = result;
+        } else {
+          // Should not happen if optimistic is there, but safety:
+          _currentMessages.add(result);
+        }
       } else {
-        _currentMessages.add(result);
+        // Handle explicit null failure
+        _markAsFailed(tempId);
       }
-    } else {
-      // Handle failure (remove or mark failed)
-      _currentMessages.removeWhere((m) => m['message_id'] == tempId);
+    } catch (e) {
+      debugPrint("❌ Send message failed: $e");
+      _markAsFailed(tempId);
+    }
+
+    _activeMessagesController.add(List.from(_currentMessages));
+  }
+
+  /// Send a Media Message (Image/Video)
+  Future<void> sendMediaMessage({
+    required String targetUserId,
+    required File file,
+    required String mediaType, // 'image' or 'video'
+  }) async {
+    if (_activeConversationId == null) return;
+
+    final tempId = "media_temp_${DateTime.now().millisecondsSinceEpoch}";
+    final optimisticMessage = {
+      'message_id': tempId,
+      'sender_id': 'me',
+      'target_user_id': targetUserId,
+      'created_at': DateTime.now().toIso8601String(),
+      'status': 'sending',
+      'local_media_path': file.path,
+      'media_type': mediaType,
+    };
+
+    _currentMessages.add(optimisticMessage);
+    _activeMessagesController.add(List.from(_currentMessages));
+
+    // 🛰️ Quick Check
+    if (!await _hasNetwork()) {
+      _markAsFailed(tempId);
+      _activeMessagesController.add(List.from(_currentMessages));
+      return;
+    }
+
+    try {
+      final result = await _socialService.sendMediaMessage(
+        targetUserId: targetUserId,
+        file: file,
+        mediaType: mediaType,
+      );
+
+      if (result != null) {
+        final index = _currentMessages.indexWhere(
+          (m) => m['message_id'] == tempId,
+        );
+        if (index != -1) {
+          _currentMessages[index] = result;
+        }
+      } else {
+        _markAsFailed(tempId);
+      }
+    } catch (e) {
+      debugPrint("❌ Media upload failed: $e");
+      _markAsFailed(tempId);
+    }
+    _activeMessagesController.add(List.from(_currentMessages));
+  }
+
+  void _markAsFailed(String tempId) {
+    final index = _currentMessages.indexWhere((m) => m['message_id'] == tempId);
+    if (index != -1) {
+      _currentMessages[index]['status'] = 'failed';
+    }
+  }
+
+  /// 🛰️ Connectivity helper
+  Future<bool> _hasNetwork() async {
+    if (kIsWeb) return true; // InternetAddress not available on web
+    try {
+      final result = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 2));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Retry a failed message
+  Future<void> retryMessage(String tempId) async {
+    final index = _currentMessages.indexWhere((m) => m['message_id'] == tempId);
+    if (index == -1) return;
+
+    final msg = _currentMessages[index];
+    if (msg['status'] != 'failed') return;
+
+    // 1. Reset status to sending
+    msg['status'] = 'sending';
+    _activeMessagesController.add(List.from(_currentMessages));
+
+    // 🛰️ Quick Check
+    if (!await _hasNetwork()) {
+      _markAsFailed(tempId);
+      _activeMessagesController.add(List.from(_currentMessages));
+      return;
+    }
+
+    // 2. Extract original data (assuming it's preserved in msg)
+    // We need targetUserId.
+    // Issue: The original `sendMessage` had targetUserId as arg, but `_currentMessages` only has message data.
+    // Solution: We need to know who we are talking to.
+    // Efficient fix: Use `_activeConversationId` via `SocialService` if possible, OR
+    // we need to look up the other participant.
+    // Actually `sendMessage` API takes `targetUserId`.
+    // In a 1-on-1 chat, we can infer target from the active conversation context?
+    // Start simple: We might need to store `target_user_id` in the optimistic message for retries.
+
+    final targetUserId = msg['target_user_id'];
+    final content = msg['text_content'];
+    final localPath = msg['local_media_path'];
+    final mediaType = msg['media_type'];
+
+    try {
+      if (localPath != null && File(localPath).existsSync()) {
+        // --- RETRY MEDIA ---
+        final result = await _socialService.sendMediaMessage(
+          targetUserId: targetUserId ?? '',
+          file: File(localPath),
+          mediaType: mediaType ?? 'image',
+        );
+        if (result != null) {
+          final idx = _currentMessages.indexWhere(
+            (m) => m['message_id'] == tempId,
+          );
+          if (idx != -1) _currentMessages[idx] = result;
+        } else {
+          _markAsFailed(tempId);
+        }
+      } else if (content != null) {
+        // --- RETRY TEXT ---
+        final result = await _socialService.sendMessage(
+          targetUserId: targetUserId ?? '',
+          content: content,
+        );
+
+        if (result != null) {
+          final idx = _currentMessages.indexWhere(
+            (m) => m['message_id'] == tempId,
+          );
+          if (idx != -1) _currentMessages[idx] = result;
+        } else {
+          _markAsFailed(tempId);
+        }
+      } else {
+        _markAsFailed(tempId);
+      }
+    } catch (e) {
+      debugPrint("❌ Retry failed: $e");
+      _markAsFailed(tempId);
     }
     _activeMessagesController.add(List.from(_currentMessages));
   }

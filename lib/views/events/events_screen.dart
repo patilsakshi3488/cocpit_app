@@ -4,6 +4,7 @@ import '../../services/event_service.dart';
 import 'event_card.dart';
 import 'event_details_screen.dart';
 import 'create_event_screen.dart';
+import 'event_dashboard_screen.dart';
 import '../bottom_navigation.dart';
 import '../../widgets/app_top_bar.dart';
 
@@ -36,12 +37,11 @@ class _EventsScreenState extends State<EventsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       setState(() {});
-      // Optionally refresh data on tab change if needed, but keeping future instance preserves data.
-      // If we want to refresh on tab switch:
-      // if (!_tabController.indexIsChanging) _refreshCurrentTab();
+      // Refresh data on tab change to keep lists up to date (e.g. after registration)
+      if (!_tabController.indexIsChanging) _refreshCurrentTab();
     });
     _loadAllData();
   }
@@ -390,6 +390,7 @@ class _EventsScreenState extends State<EventsScreen>
         Tab(text: 'Registered'),
         Tab(text: 'Saved'),
         Tab(text: 'My Events'),
+        Tab(text: 'Event Dashboard'),
       ],
     );
   }
@@ -409,6 +410,8 @@ class _EventsScreenState extends State<EventsScreen>
       case 3:
         targetFuture = _myEvents;
         break;
+      case 4:
+         return const EventDashboardScreen();
     }
 
     return FutureBuilder<List<EventModel>>(

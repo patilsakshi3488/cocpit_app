@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'edit_profile_screen.dart';
 import '../bottom_navigation.dart';
 import 'settings_screen/settings_screen.dart';
@@ -7,6 +9,7 @@ import '../../services/secure_storage.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/feed_service.dart';
+import '../../config/api_config.dart';
 import '../login/signin_screen.dart';
 
 import 'profile_models.dart';
@@ -53,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String profileImage = 'lib/images/profile.jpg';
   String? coverImage;
+  String? resumeUrl;
 
   List<Experience> experiences = [];
   List<Education> educations = [];
@@ -148,6 +152,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             user['cover_image'] ??
             user['cover_url'] ??
             '';
+        debugPrint("🔍 Full Profile Data: $data");
+        debugPrint("🔍 User Object: $user");
+        debugPrint("🔍 Resume keys check: resume_url=${user['resume_url']}, resume=${user['resume']}, resume_file=${user['resume_file']}");
+        
+        // Check for resume in top-level 'resume' object (returned by getProfile)
+        if (data['resume'] != null && data['resume'] is Map) {
+          resumeUrl = data['resume']['url'] ?? data['resume']['file_url'];
+        } else {
+           // Fallback to checking inside user object (legacy or alternative structure)
+           resumeUrl = user['resume_url'] ?? 
+                      user['resume'] ?? 
+                      user['resume_file'] ?? 
+                      user['cv'] ?? 
+                      user['cv_url'] ?? 
+                      user['document_url'];
+        }
+        
+        debugPrint("📄 Parsed Resume URL: $resumeUrl");
 
         experiences = fetchedExperiences;
         educations = fetchedEducations;
@@ -267,6 +289,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _handleResumeUpload() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Uploading resume...")),
+        );
+
+        File file = File(result.files.single.path!);
+        try {
+          final uploadResult = await profileService.uploadResume(file);
+
+          if (mounted) {
+            if (uploadResult != null && uploadResult.isNotEmpty) {
+              setState(() {
+                resumeUrl = uploadResult;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Resume uploaded successfully")),
+              );
+              // Do not reload profile immediately to avoid overwriting the local URL with potentially stale server data
+              // _loadProfile();
+            } else {
+               // Should be caught by catch block if it throws, but handle empty just in case
+               throw "Unknown error (empty result)";
+            }
+          }
+        } catch (e) {
+          debugPrint("Resume upload error: $e");
+          if (mounted) {
+             // Show the specific error from the service!
+             ScaffoldMessenger.of(context).showSnackBar(
+               SnackBar(
+                 content: Text(e.toString().replaceAll("Exception:", "").trim()),
+                 duration: const Duration(seconds: 5), // Longer duration to read
+                 action: SnackBarAction(label: "Copy", onPressed: (){
+                     // Optional: Copy to clipboard if needed
+                 }),
+               ),
+             );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error picking file: $e");
+    }
+  }
+
+  Future<void> _handleResumeDownload() async {
+    debugPrint("📥 Downloading Resume. Current URL: $resumeUrl");
+    if (resumeUrl == null || resumeUrl!.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No resume found")),
+        );
+      }
+      return;
+    }
+
+    String fullUrl = resumeUrl!;
+    // Handle relative URLs
+    if (!fullUrl.startsWith('http')) {
+      // Remove leading slash if both have it to avoid double slash
+      if (fullUrl.startsWith('/') && ApiConfig.baseUrl.endsWith('/')) {
+        fullUrl = '${ApiConfig.baseUrl}${fullUrl.substring(1)}';
+      } else if (!fullUrl.startsWith('/') && !ApiConfig.baseUrl.endsWith('/')) {
+        fullUrl = '${ApiConfig.baseUrl}/$fullUrl';
+      } else {
+        fullUrl = '${ApiConfig.baseUrl}$fullUrl';
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Opening: $fullUrl")),
+    );
+
+    final Uri url = Uri.parse(fullUrl);
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      debugPrint("Error launching resume: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not download resume. Check link.")),
+        );
+      }
+    }
+  }
+
   /// =========================
   /// MODALS
   /// =========================
@@ -320,6 +439,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'degree': profile?['user']?['degree'] ?? '',
             'location': location,
             'about': about,
+            'mobileNumber': profile?['user']?['mobile_number'] ?? '',
+            'email': profile?['user']?['email'] ?? '',
           },
         ),
       ),
@@ -340,6 +461,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       degree: result['degree']!,
       location: result['location']!,
       about: result['about']!,
+      mobileNumber: result['mobileNumber'],
+      email: result['email'],
     );
 
     if (success && mounted) {
@@ -563,6 +686,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onEditIdentity: _showEditIdentityModal,
                         connectionCount: connectionCount,
                         latestEducation: latestEducation,
+                        // Pass contact info
+                        email: profile?['user']?['email'],
+                        mobileNumber: profile?['user']?['mobile_number'],
+                        profileUrl: "https://frontend.cocpit.in/profile/${profile?['user']?['id'] ?? profile?['user']?['user_id'] ?? ''}",
                       ),
                       _divider(theme),
 
@@ -571,11 +698,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       _divider(theme),
-                      ProfileLivingResume(
+                        ProfileLivingResume(
                         isOverviewSelected: isOverviewSelected,
                         onTabChanged: (v) => setState(() => isOverviewSelected = v),
-                        onUploadResume: () {},
-                        onDownloadPDF: () {},
+                        onUploadResume: _handleResumeUpload,
+                        onDownloadPDF: _handleResumeDownload,
+                        resumeUrl: resumeUrl,
                       ),
                       _divider(theme),
                       ProfileAboutSection(about: about),

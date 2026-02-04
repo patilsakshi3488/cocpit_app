@@ -20,6 +20,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _degreeController;
   late TextEditingController _locationController;
   late TextEditingController _aboutController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
 
   @override
   void initState() {
@@ -50,6 +52,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _aboutController = TextEditingController(
       text: widget.initialData['about'] ?? '',
     );
+    _phoneController = TextEditingController(
+      text: widget.initialData['mobileNumber'] ?? '',
+    );
+    _emailController = TextEditingController(
+      text: widget.initialData['email'] ?? '',
+    );
   }
 
   @override
@@ -62,6 +70,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _degreeController.dispose();
     _locationController.dispose();
     _aboutController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -185,6 +195,36 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   "Enter your location",
                   required: true,
                 ),
+                
+                _label("Phone Number"),
+                _field(
+                  _phoneController, 
+                  "Enter 10-digit mobile number",
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return null; // Optional
+                    if (!RegExp(r'^\d{10}$').hasMatch(value)) {
+                      return "Mobile number must be exactly 10 digits";
+                    }
+                    return null;
+                  },
+                  keyboardType: TextInputType.phone
+                ),
+
+                _label("Email Address"),
+                _field(
+                  _emailController, 
+                  "Enter your email",
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return null; // Optional
+                     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    // Check for uppercase? (Requirement: 'mail not a upper case')
+                    // We can just auto-convert on save, but can also warn here if strict.
+                    return null;
+                  },
+                   keyboardType: TextInputType.emailAddress
+                ),
 
                 _label("About"),
                 _field(_aboutController, "Tell us about yourself", maxLines: 6),
@@ -200,17 +240,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // SAVE HANDLER
   // =========================
   void _onSave() {
-    // Validation removed as per request
-    Navigator.pop(context, {
-      'name': _nameController.text.trim(),
-      'headline': _headlineController.text.trim(),
-      'jobTitle': _jobTitleController.text.trim(),
-      'company': _companyController.text.trim(),
-      'school': _schoolController.text.trim(),
-      'degree': _degreeController.text.trim(),
-      'location': _locationController.text.trim(),
-      'about': _aboutController.text.trim(),
-    });
+    if (_formKey.currentState!.validate()) {
+       Navigator.pop(context, {
+        'name': _nameController.text.trim(),
+        'headline': _headlineController.text.trim(),
+        'jobTitle': _jobTitleController.text.trim(),
+        'company': _companyController.text.trim(),
+        'school': _schoolController.text.trim(),
+        'degree': _degreeController.text.trim(),
+        'location': _locationController.text.trim(),
+        'about': _aboutController.text.trim(),
+        'mobileNumber': _phoneController.text.trim(),
+        'email': _emailController.text.trim().toLowerCase(), // ✅ FORCE LOWERCASE
+      });
+    }
   }
 
   // =========================
@@ -229,6 +272,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     String hint, {
     int maxLines = 1,
     bool required = false,
+    String? Function(String?)? validator,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     final theme = Theme.of(context);
 
@@ -236,6 +281,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       controller: controller,
       maxLines: maxLines,
       style: theme.textTheme.bodyLarge,
+      keyboardType: keyboardType,
+      validator: validator,
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
@@ -251,6 +298,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder( // Red border on error
+           borderRadius: BorderRadius.circular(12),
+           borderSide: BorderSide(color: theme.colorScheme.error, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,

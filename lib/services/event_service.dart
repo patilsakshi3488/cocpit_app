@@ -11,6 +11,7 @@ class EventService {
   static Future<List<EventModel>> getEvents({
     String? location,
     String? type,
+    String? category,
     String? date,
     String? startDate,
     String? endDate,
@@ -20,6 +21,7 @@ class EventService {
     List<String> params = [];
     if (location != null && location.isNotEmpty) params.add("location=$location");
     if (type != null && type.isNotEmpty) params.add("type=$type");
+    if (category != null && category.isNotEmpty) params.add("category=$category");
     if (date != null && date.isNotEmpty) params.add("date=$date");
     if (startDate != null && startDate.isNotEmpty) params.add("startDate=$startDate");
     if (endDate != null && endDate.isNotEmpty) params.add("endDate=$endDate");

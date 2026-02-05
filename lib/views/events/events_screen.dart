@@ -28,11 +28,28 @@ class _EventsScreenState extends State<EventsScreen>
   Future<List<EventModel>>? _myEvents;
 
   // Filters
+  // Filters
   bool fOnline = false;
   bool fInPerson = false;
-  // bool fFree = false; // Backend doesn't support yet
-  // bool fPaid = false; // Backend doesn't support yet
-  // Map<String, bool> fCategories = ... // Backend doesn't support yet
+  
+  bool fFree = false;
+  bool fPaid = false;
+
+  Map<String, bool> fCategories = {
+    'Tech': false,
+    'Business': false,
+    'Networking': false,
+    'Workshop': false,
+    'Summit': false,
+    'Conference': false,
+    'Masterclass': false,
+  };
+
+  bool fDateToday = false;
+  bool fDateWeek = false;
+  bool fDateMonth = false;
+
+  bool fPopular = false;
 
   @override
   void initState() {
@@ -61,11 +78,42 @@ class _EventsScreenState extends State<EventsScreen>
     setState(() {
       switch (_tabController.index) {
         case 0:
+          // Calculate Date Range
+          final now = DateTime.now();
+          String? startDate = now.toIso8601String();
+          String? endDate;
+
+          if (fDateMonth) {
+            endDate = now.add(const Duration(days: 30)).toIso8601String();
+          } else if (fDateWeek) {
+            endDate = now.add(const Duration(days: 7)).toIso8601String();
+          } else if (fDateToday) {
+            endDate = DateTime(now.year, now.month, now.day, 23, 59, 59).toIso8601String();
+          }
+
+          // Categories
+          final activeCats = fCategories.entries
+              .where((e) => e.value)
+              .map((e) => e.key)
+              .toList();
+          // We only pass the first one if multiple, as backend support is limited/singular for now
+          // Or we can join them if we implement comma-split in backend.
+          // For now, let's pass the first one if any.
+          String? catParam = activeCats.isNotEmpty ? activeCats.first : null;
+
           _discoverEvents = EventService.getEvents(
             type: fOnline ? 'Online' : (fInPerson ? 'InPerson' : null),
-            startDate: DateTime.now().toIso8601String(),
-            // Pass other filters if backend supported them
-          );
+            startDate: startDate,
+            endDate: endDate,
+            category: catParam,
+          ).then((value) {
+             if (fPopular) {
+               value.sort((a, b) => b.registeredCount.compareTo(a.registeredCount));
+             }
+             // Filter price locally if needed?
+             // Since we don't have price data really, we skip.
+             return value;
+          });
           break;
         case 1:
           _registeredEvents = EventService.getMyRegisteredEvents();
@@ -111,8 +159,16 @@ class _EventsScreenState extends State<EventsScreen>
   }
 
   void _openFilterSheet() {
+    // Temp state
     bool tOnline = fOnline;
     bool tInPerson = fInPerson;
+    bool tFree = fFree;
+    bool tPaid = fPaid;
+    Map<String, bool> tCategories = Map.from(fCategories);
+    bool tDateToday = fDateToday;
+    bool tDateWeek = fDateWeek;
+    bool tDateMonth = fDateMonth;
+    bool tPopular = fPopular;
 
     final theme = Theme.of(context);
 
@@ -122,9 +178,9 @@ class _EventsScreenState extends State<EventsScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSS) => DraggableScrollableSheet(
-          initialChildSize: 0.4, // Reduced size since fewer filters
-          maxChildSize: 0.6,
-          minChildSize: 0.3,
+          initialChildSize: 0.85,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
           builder: (_, controller) => Container(
             decoration: BoxDecoration(
               color: theme.scaffoldBackgroundColor,
@@ -156,20 +212,36 @@ class _EventsScreenState extends State<EventsScreen>
                         ),
                       ),
                       const SizedBox(height: 30),
+                      
                       _fSection(theme, 'Event Type'),
-                      _fItem(
-                        theme,
-                        'Online',
-                        tOnline,
-                        (v) => setSS(() => tOnline = v),
-                      ),
-                      _fItem(
-                        theme,
-                        'In-person',
-                        tInPerson,
-                        (v) => setSS(() => tInPerson = v),
-                      ),
-                      // Backend doesn't support Price/Category filters yet
+                      _fItem(theme, 'Online', tOnline, (v) => setSS(() => tOnline = v)),
+                      _fItem(theme, 'In-person', tInPerson, (v) => setSS(() => tInPerson = v)),
+                      
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Price'),
+                      _fItem(theme, 'Free', tFree, (v) => setSS(() => tFree = v)),
+                      _fItem(theme, 'Paid', tPaid, (v) => setSS(() => tPaid = v)),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Category'),
+                      ...tCategories.keys.map((key) => _fItem(
+                        theme, 
+                        key, 
+                        tCategories[key]!, 
+                        (v) => setSS(() => tCategories[key] = v)
+                      )),
+
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Date'),
+                      _fItem(theme, 'Today', tDateToday, (v) => setSS(() => tDateToday = v)),
+                      _fItem(theme, 'This Week', tDateWeek, (v) => setSS(() => tDateWeek = v)),
+                      _fItem(theme, 'This Month', tDateMonth, (v) => setSS(() => tDateMonth = v)),
+ 
+                      const SizedBox(height: 20),
+                      _fSection(theme, 'Popularity'),
+                      _fItem(theme, 'Popular Events', tPopular, (v) => setSS(() => tPopular = v)),
+                      
+                      const SizedBox(height: 100), // Spacing for bottom button
                     ],
                   ),
                 ),
@@ -183,6 +255,13 @@ class _EventsScreenState extends State<EventsScreen>
                             setSS(() {
                               tOnline = false;
                               tInPerson = false;
+                              tFree = false;
+                              tPaid = false;
+                              tCategories.updateAll((key, value) => false);
+                              tDateToday = false;
+                              tDateWeek = false;
+                              tDateMonth = false;
+                              tPopular = false;
                             });
                           },
                           style: OutlinedButton.styleFrom(
@@ -193,7 +272,7 @@ class _EventsScreenState extends State<EventsScreen>
                             ),
                           ),
                           child: Text(
-                            'Reset',
+                            'Clear All Filters', // Text from screenshot
                             style: TextStyle(
                               color: theme.textTheme.bodyLarge?.color,
                             ),
@@ -204,18 +283,20 @@ class _EventsScreenState extends State<EventsScreen>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
+                            // Apply to main state
                             setState(() {
                               fOnline = tOnline;
                               fInPerson = tInPerson;
+                              fFree = tFree;
+                              fPaid = tPaid;
+                              fCategories = tCategories;
+                              fDateToday = tDateToday;
+                              fDateWeek = tDateWeek;
+                              fDateMonth = tDateMonth;
+                              fPopular = tPopular;
                             });
                             Navigator.pop(context);
-                            // Apply filters
-                            _discoverEvents = EventService.getEvents(
-                              type: fOnline
-                                  ? 'Online'
-                                  : (fInPerson ? 'InPerson' : null),
-                              startDate: DateTime.now().toIso8601String(),
-                            );
+                            _refreshCurrentTab();
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.primaryColor,
@@ -225,7 +306,7 @@ class _EventsScreenState extends State<EventsScreen>
                             ),
                           ),
                           child: Text(
-                            'Apply Filters',
+                            'Apply Filters', // Could be just "Apply" maybe? Screenshot doesn't show button text clearly but logical.
                             style: TextStyle(
                               color: theme.colorScheme.onPrimary,
                               fontWeight: FontWeight.bold,
@@ -260,8 +341,8 @@ class _EventsScreenState extends State<EventsScreen>
           child: Row(
             children: [
               Container(
-                width: 22,
-                height: 22,
+                width: 24,
+                height: 24,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(

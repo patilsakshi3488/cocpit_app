@@ -17,6 +17,7 @@ class Job {
   final bool activelyHiring;
   final DateTime createdAt;
   final String? recruiterName;
+  final int applicantCount;
 
   // UI State fields (mutable as they can change)
   bool isSaved;
@@ -42,6 +43,7 @@ class Job {
     required this.activelyHiring,
     required this.createdAt,
     this.recruiterName,
+    this.applicantCount = 0,
     this.isSaved = false,
     this.hasApplied = false,
     this.applicationStatus,
@@ -49,14 +51,14 @@ class Job {
 
   factory Job.fromJson(Map<String, dynamic> json) {
     return Job(
-      id: json['job_id']?.toString() ?? '',
+      id: json['job_id']?.toString() ?? json['_id']?.toString() ?? json['id']?.toString() ?? '',
       recruiterId: json['recruiter_id']?.toString() ?? '',
       title: json['title'] ?? '',
       companyName: json['company_name'] ?? '',
       location: json['location'] ?? '',
       description: json['description'] ?? '',
-      salaryMin: _parseInt(json['salary_min']),
-      salaryMax: _parseInt(json['salary_max']),
+      salaryMin: _parseInt(json['salary_min'] ?? json['minSalary']),
+      salaryMax: _parseInt(json['salary_max'] ?? json['maxSalary']),
       jobType: json['job_type'] ?? '',
       workMode: json['work_mode'] ?? '',
       companyType: json['company_type'] ?? '',
@@ -67,6 +69,7 @@ class Job {
       activelyHiring: json['actively_hiring'] == true,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       recruiterName: json['recruiter_name'],
+      applicantCount: _parseInt(json['applicant_count'] ?? json['applicants'] ?? json['applicants_count']),
       isSaved: json['isSaved'] == true,
       hasApplied: json['hasApplied'] == true,
       applicationStatus: json['applicationStatus'],
@@ -74,6 +77,7 @@ class Job {
   }
 
   static int _parseInt(dynamic value) {
+    if (value == null) return 0;
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();

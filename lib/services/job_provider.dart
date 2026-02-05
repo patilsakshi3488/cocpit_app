@@ -181,7 +181,8 @@ class JobProvider extends ChangeNotifier {
     required String email,
     required String phone,
     String? coverNote,
-    required File resumeFile,
+    File? resumeFile,
+    String? resumeUrl,
   }) async {
     try {
       await _jobService.applyJob(
@@ -191,6 +192,7 @@ class JobProvider extends ChangeNotifier {
         phone: phone,
         coverNote: coverNote,
         resumeFile: resumeFile,
+        resumeUrl: resumeUrl,
       );
 
       // Update local state to reflect application
@@ -229,7 +231,13 @@ class JobProvider extends ChangeNotifier {
     }
   }
 
+  void markJobAsApplied(String jobId) {
+    _updateLocalJobStatus(jobId, hasApplied: true);
+    notifyListeners();
+  }
+
   void _updateLocalJobStatus(String jobId, {bool? isSaved, bool? hasApplied}) {
+    // ... existing implementation ...
     void updateList(List<Job> list) {
       for (var job in list) {
         if (job.id == jobId) {

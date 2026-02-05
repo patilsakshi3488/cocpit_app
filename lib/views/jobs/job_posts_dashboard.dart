@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import '../../models/job_model.dart';
 
 class JobPostsDashboard extends StatelessWidget {
-  final List<Map<String, dynamic>> postedJobs;
-  const JobPostsDashboard({super.key, required this.postedJobs});
+  final List<Job> postedJobs;
+  final Function(Job) onViewApplicants;
+
+  const JobPostsDashboard({
+    super.key,
+    required this.postedJobs,
+    required this.onViewApplicants,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -10,12 +17,9 @@ class JobPostsDashboard extends StatelessWidget {
 
     // Calculate Real Stats
     final totalJobs = postedJobs.length;
-    final activeJobs = postedJobs.where((j) => j['isHiring'] == true).length;
+    final activeJobs = postedJobs.where((j) => j.activelyHiring).length;
     final totalApplicants = postedJobs.fold<int>(0, (sum, j) {
-       // Extract "0" from "0 applicants applied"
-       final str = j['applicants'] as String? ?? "0";
-       final count = int.tryParse(str.split(' ')[0]) ?? 0;
-       return sum + count;
+       return sum + j.applicantCount;
     });
 
     final List<Map<String, dynamic>> stats = [
@@ -64,54 +68,58 @@ class JobPostsDashboard extends StatelessWidget {
             // Stats Cards
             LayoutBuilder(
               builder: (context, constraints) {
-                return Column(
+                return Row(
                   children: stats.map((stat) {
-                    return Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: theme.dividerColor,
-                          width: 0.5,
+                    return Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainer,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: theme.dividerColor.withValues(alpha: 0.5),
+                            width: 0.5,
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                stat['title'],
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.textTheme.bodySmall?.color,
-                                ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stat['title'],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                                fontSize: 12,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                stat['count'],
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  stat['count'],
+                                  style: theme.textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: stat['color'].withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: stat['color'],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    stat['icon'],
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Icon(
-                              stat['icon'],
-                              color: stat['color'],
-                              size: 24,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   }).toList(),
@@ -119,11 +127,11 @@ class JobPostsDashboard extends StatelessWidget {
               },
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
 
             // Job Posts Section
             Text(
-              "Your Job Posts ($totalJobs)",
+              "Your Job Posts (${postedJobs.length})",
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -151,21 +159,21 @@ class JobPostsDashboard extends StatelessWidget {
                 ),
               )
             else
-              ...postedJobs.map((job) => _dashboardJobCard(theme, job)),
+              ...postedJobs.map((job) => _dashboardJobCard(context, theme, job)),
           ],
         ),
       ),
     );
   }
 
-  Widget _dashboardJobCard(ThemeData theme, Map<String, dynamic> job) {
+  Widget _dashboardJobCard(BuildContext context, ThemeData theme, Job job) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
+        color: theme.colorScheme.surfaceContainer, // Dark card background
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,34 +181,110 @@ class JobPostsDashboard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                job['title'],
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (job['isHiring'] == true ? Colors.green : Colors.grey)
-                      .withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  job['isHiring'] == true ? "Active" : "Closed",
-                  style: TextStyle(
-                    color: job['isHiring'] == true ? Colors.green : Colors.grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    job.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white, // Assuming dark theme text
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                     job.companyName, 
+                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.more_vert, color: Colors.grey),
+                onPressed: () {},
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            "${job['applicants']} • Posted ${job['time']}",
-            style: theme.textTheme.bodySmall,
+          const SizedBox(height: 12),
+          
+          // Status Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.circle, color: Colors.green, size: 8),
+                const SizedBox(width: 6),
+                Text(
+                  "Open", // Dynamic status if available
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          Row(
+            children: [
+               Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
+               SizedBox(width: 4),
+               Text(job.location, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+               SizedBox(width: 12),
+               Icon(Icons.access_time, size: 14, color: Colors.grey),
+               SizedBox(width: 4),
+               Text(job.jobType, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          Divider(color: theme.dividerColor.withValues(alpha: 0.2)),
+          const SizedBox(height: 12),
+          
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+               Row(
+                 children: [
+                   Icon(Icons.people_outline, size: 16, color: Colors.grey),
+                   SizedBox(width: 6),
+                   Text(
+                     "${job.applicantCount} applicants",
+                     style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                   ),
+                 ],
+               ),
+               Text(
+                 job.postedTimeAgo,
+                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+               ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => onViewApplicants(job),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text(
+                "View Applicants",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ],
       ),

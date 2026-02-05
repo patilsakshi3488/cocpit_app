@@ -149,24 +149,47 @@ class JobService {
     required String email,
     required String phone,
     String? coverNote,
-    required File resumeFile,
+    File? resumeFile,
+    String? resumeUrl,
   }) async {
-    final response = await ApiClient.multipart(
-      "${ApiConfig.jobs}/$jobId/apply",
-      fileField: "resume",
-      file: resumeFile,
-      fields: {
-        "full_name": fullName,
-        "email": email,
-        "phone": phone,
-        if (coverNote != null) "cover_note": coverNote,
-      },
-    );
-    if (response.statusCode != 201) {
-      throw Exception("Failed to apply for job: ${response.body}");
+    if (resumeFile == null && resumeUrl == null) {
+      throw Exception("Resume is required (file or url)");
     }
-    return response.statusCode == 201 ;
 
+    if (resumeFile != null) {
+      // Use Multipart
+      final response = await ApiClient.multipart(
+        "${ApiConfig.jobs}/$jobId/apply",
+        fileField: "resume",
+        file: resumeFile,
+        fields: {
+          "full_name": fullName,
+          "email": email,
+          "phone": phone,
+          if (coverNote != null) "cover_note": coverNote,
+        },
+      );
+      if (response.statusCode != 201) {
+        throw Exception("Failed to apply for job: ${response.body}");
+      }
+      return response.statusCode == 201;
+    } else {
+      // Use JSON with resume_url
+      final response = await ApiClient.post(
+        "${ApiConfig.jobs}/$jobId/apply",
+        body: {
+          "full_name": fullName,
+          "email": email,
+          "phone": phone,
+          "resume_url": resumeUrl,
+          if (coverNote != null) "cover_note": coverNote,
+        },
+      );
+      if (response.statusCode != 201) {
+        throw Exception("Failed to apply for job: ${response.body}");
+      }
+      return response.statusCode == 201;
+    }
   }
 
   Future<void> saveJob(String jobId) async {

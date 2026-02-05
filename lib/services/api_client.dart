@@ -75,60 +75,61 @@ class ApiClient {
     Map<String, String>? fields,
     String method = "POST",
   }) async {
-    final token = await AppSecureStorage.getAccessToken();
-    final request = http.MultipartRequest(
-      method,
-      Uri.parse("${ApiConfig.baseUrl}$path"),
-    );
-
-    if (token != null) {
-      request.headers["Authorization"] = "Bearer $token";
-    }
-
-    if (fields != null) request.fields.addAll(fields);
-
-    // Handle single file
-    // if (file != null) {
-    //   request.files.add(
-    //     await http.MultipartFile.fromPath(fileField, file.path),
-    //   );
-    // }
-    //
-    // // Handle multiple files
-    // if (files != null) {
-    //   for (var f in files) {
-    //     request.files.add(await http.MultipartFile.fromPath(fileField, f.path));
-    //   }
-    // }
-
-    if (file != null) {
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          fileField,
-          file.path,
-          contentType: http.MediaType.parse(
-            lookupMimeType(file.path) ?? 'image/jpeg',
-          ),
-        ),
+    Future<http.Response> makeRequest(String? token) async {
+      final request = http.MultipartRequest(
+        method,
+        Uri.parse("${ApiConfig.baseUrl}$path"),
       );
-    }
-    // Handle multiple files
-    if (files != null) {
-      for (var f in files) {
+
+      if (token != null) {
+        request.headers["Authorization"] = "Bearer $token";
+      }
+
+      if (fields != null) request.fields.addAll(fields);
+
+      if (file != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
             fileField,
-            f.path,
+            file.path,
             contentType: http.MediaType.parse(
-              lookupMimeType(f.path) ?? 'image/jpeg',
+              lookupMimeType(file.path) ?? 'image/jpeg',
             ),
           ),
         );
       }
+      // Handle multiple files
+      if (files != null) {
+        for (var f in files) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              fileField,
+              f.path,
+              contentType: http.MediaType.parse(
+                lookupMimeType(f.path) ?? 'image/jpeg',
+              ),
+            ),
+          );
+        }
+      }
+
+      final streamed = await request.send();
+      return http.Response.fromStream(streamed);
     }
 
-    final streamed = await request.send();
-    return http.Response.fromStream(streamed);
+    String? token = await AppSecureStorage.getAccessToken();
+    var response = await makeRequest(token);
+
+    if (response.statusCode == 401) {
+      print("Multipart 401, refreshing token...");
+      final newToken = await AuthService().refreshAccessToken();
+      if (newToken != null) {
+        token = newToken; // Update token
+        response = await makeRequest(token); // Retry with new token
+      }
+    }
+
+    return response;
   }
 
   // ===================== CORE AUTH HANDLER =====================

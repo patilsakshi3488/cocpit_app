@@ -11,6 +11,8 @@ import '../../services/secure_storage.dart';
 import '../profile/profile_models.dart';
 import 'job_details_screen.dart';
 import 'job_applicants_screen.dart';
+import 'job_posts_dashboard.dart';
+import 'post_job_modal.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -20,11 +22,13 @@ class JobsScreen extends StatefulWidget {
 }
 
 class _JobsScreenState extends State<JobsScreen> {
-  int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
+  int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers, 3: Dashboard
   int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
   bool _isAdmin = false;
 
   Map<String, dynamic> _currentFilters = {};
+  Job? _selectedJobForApplicants;
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +80,10 @@ class _JobsScreenState extends State<JobsScreen> {
         provider.fetchMyPostedJobs();
       }
     } else if (mainTab == 2) {
+    } else if (mainTab == 2) {
       provider.fetchJobOffers();
+    } else if (mainTab == 3) {
+      provider.fetchMyPostedJobs();
     }
   }
 
@@ -100,7 +107,7 @@ class _JobsScreenState extends State<JobsScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            if (_isAdmin) SliverToBoxAdapter(child: _postJobHeader(theme)),
+            SliverToBoxAdapter(child: _postJobButton(theme)),
             SliverToBoxAdapter(child: _tabs(theme, provider)),
             _contentArea(theme, provider),
           ],
@@ -109,62 +116,33 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  Widget _postJobHeader(ThemeData theme) {
+  Widget _postJobButton(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: ()  {  debugPrint("POST JOB HEADER TAPPED");
-          _showPostJobModal(context);
-          },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.primaryColor.withValues(alpha: 0.3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          ElevatedButton.icon(
+            onPressed: () => _showPostJobModal(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              foregroundColor: theme.colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text(
+              "Post a Job",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: theme.primaryColor,
-                child: Icon(
-                  Icons.add,
-                  color: theme.colorScheme.onPrimary,
-                  size: 14,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Post a job",
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.primaryColor,
-                      ),
-
-                    ),
-                    Text(
-                      "Find the right talent for your team",
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: theme.primaryColor,
-              ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -184,6 +162,7 @@ class _JobsScreenState extends State<JobsScreen> {
                 _tabPill(theme, "View Jobs", 0),
                 _tabPill(theme, "My Jobs", 1),
                 _tabPill(theme, "Offers", 2, badge: provider.jobOffers.length > 0 ? "${provider.jobOffers.length}" : null),
+                _tabPill(theme, "DASHBOARD (TEST)", 3), // Tracer Bullet
               ],
             ),
           ),
@@ -211,7 +190,10 @@ class _JobsScreenState extends State<JobsScreen> {
     bool active = mainTab == index;
     return GestureDetector(
       onTap: () {
-        setState(() => mainTab = index);
+        setState(() {
+          mainTab = index;
+          _selectedJobForApplicants = null;
+        });
         _loadData();
       },
       child: Container(
@@ -321,6 +303,21 @@ class _JobsScreenState extends State<JobsScreen> {
       list = provider.jobOffers;
       isLoading = provider.isLoadingOffers;
       emptyMessage = "No job offers at the moment.";
+    } else if (mainTab == 3) {
+      if (_selectedJobForApplicants != null) {
+        return JobApplicantsView(
+          jobId: _selectedJobForApplicants!.id,
+          jobTitle: _selectedJobForApplicants!.title,
+        );
+      }
+      return JobPostsDashboard(
+        postedJobs: provider.myPostedJobs,
+        onViewApplicants: (job) {
+          setState(() {
+            _selectedJobForApplicants = job;
+          });
+        },
+      );
     }
 
     if (isLoading) {
@@ -821,7 +818,7 @@ class _JobsScreenState extends State<JobsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _PostJobModal(
+      builder: (context) => PostJobModal(
         theme: theme,
         onJobPosted: (newJob) async {
           try {
@@ -1339,516 +1336,4 @@ class _SearchModalState extends State<_SearchModal> {
   }
 }
 
-class _PostJobModal extends StatefulWidget {
-  final ThemeData theme;
-  final Function(Map<String, dynamic>) onJobPosted;
-  const _PostJobModal({required this.theme, required this.onJobPosted});
-  @override
-  State<_PostJobModal> createState() => _PostJobModalState();
-}
 
-class _PostJobModalState extends State<_PostJobModal> {
-  String empType = "Full-time";
-  String workMode = "Onsite";
-  String industryType = "Technology";
-  String companyType = "MNC";
-  bool enableEasyApply = true;
-  bool activelyHiring = true;
-  String experienceLevel = "Entry Level";
-  final titleController = TextEditingController();
-  final locationController = TextEditingController();
-  final minSalaryController = TextEditingController();
-  final maxSalaryController = TextEditingController();
-  final experienceYearsController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final skillsController = TextEditingController();
-  final companyController = TextEditingController();
-  final aboutCompanyController = TextEditingController();
-
-  bool _isPosting = false;
-
-  // Error states
-  String? _titleError;
-  String? _companyError;
-  String? _locationError;
-  String? _empTypeError;
-  String? _workModeError;
-  String? _salaryError;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: BoxDecoration(
-        color: widget.theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Post a Job",
-                style: widget.theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.close,
-                  color: widget.theme.textTheme.bodySmall?.color,
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Create a new job listing to find the best talent.",
-            style: widget.theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionHeader("Job Details"),
-                  _inputLabel("Job Title *"),
-                  _textField(
-                    titleController,
-                    "e.g. Senior Frontend Engineer",
-                    errorText: _titleError,
-                  ),
-                  _inputLabel("Employment Type *"),
-                  _dropdown(
-                    empType,
-                    [
-                      "Full-time",
-                      "Part-time",
-                      "Contract",
-                      "Freelancer",
-                      "Internship",
-                    ],
-                    (v) => setState(() => empType = v!),
-                    errorText: _empTypeError,
-                  ),
-                  _inputLabel("Location *"),
-                  _textField(
-                    locationController,
-                    "e.g. San Francisco, CA",
-                    errorText: _locationError,
-                  ),
-                  _inputLabel("Work Mode *"),
-                  _dropdown(
-                    workMode,
-                    [
-                      "Onsite",
-                      "Hybrid",
-                      "Remote",
-                    ],
-                    (v) => setState(() => workMode = v!),
-                    errorText: _workModeError,
-                  ),
-                  _inputLabel("Salary Range"),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _textField(
-                          minSalaryController,
-                          "Min",
-                        ),
-
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _textField(
-                          maxSalaryController,
-                          "Max",
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_salaryError != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _salaryError!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-
-
-                  _inputLabel("Experience Level"),
-                  _dropdown(
-                    experienceLevel,
-                    ["Entry Level", "Mid Level", "Senior"],
-                        (v) => setState(() => experienceLevel = v!),
-                  ),
-
-                  if (experienceLevel != "Entry Level") ...[
-                    const SizedBox(height: 12),
-                    _inputLabel("Years of Experience"),
-                    _textField(
-                      experienceYearsController,
-                      "e.g. 3",
-                    ),
-                  ],
-
-
-                  _inputLabel("Description"),
-                  _textField(
-                    descriptionController,
-                    "Describe the role, responsibilities, and requirements...",
-                    maxLines: 4,
-                  ),
-                  _inputLabel("Skills"),
-                  _textField(
-                    skillsController,
-                    "e.g. React, TypeScript, Tailwind CSS",
-                  ),
-                  const SizedBox(height: 32),
-                  _sectionHeader("Company Information"),
-                  _inputLabel("Company Name *"),
-                  _textField(
-                    companyController,
-                    "e.g. Google",
-                    errorText: _companyError,
-                  ),
-                  _inputLabel("Company Type"),
-                  Wrap(
-                    spacing: 10,
-                    children: ["Startup", "MNC"].map((type) {
-                      final selected = companyType == type;
-                      return ChoiceChip(
-                        label: Text(type),
-                        selected: selected,
-                        onSelected: (_) => setState(() => companyType = type),
-                        selectedColor: widget.theme.primaryColor,
-                        labelStyle: TextStyle(
-                          color: selected
-                              ? widget.theme.colorScheme.onPrimary
-                              : widget.theme.textTheme.bodyMedium?.color,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  _inputLabel("Industry"),
-                  Wrap(
-                    spacing: 10,
-                    children: ["Technology", "Healthcare", "Finance"].map((type) {
-                      final selected = industryType == type;
-                      return ChoiceChip(
-                        label: Text(type),
-                        selected: selected,
-                        onSelected: (_) => setState(() => industryType = type),
-                        selectedColor: widget.theme.primaryColor,
-                        labelStyle: TextStyle(
-                          color: selected
-                              ? widget.theme.colorScheme.onPrimary
-                              : widget.theme.textTheme.bodyMedium?.color,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  _inputLabel("About Company"),
-                  _textField(
-                    aboutCompanyController,
-                    "Brief description about the company...",
-                    maxLines: 4,
-                  ),
-
-                  const SizedBox(height: 32),
-                  _sectionHeader("Settings"),
-                  _checkboxOption(
-                    "Enable Easy Apply",
-                    "Allow candidates to apply with one click",
-                    enableEasyApply,
-                    (v) => setState(() => enableEasyApply = v!),
-                  ),
-                  _checkboxOption(
-                    "Actively Hiring Badge",
-                    "Show an 'Actively Hiring' badge on the job card",
-                    activelyHiring,
-                    (v) => setState(() => activelyHiring = v!),
-                  ),
-                  const SizedBox(height: 40),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(color: widget.theme.dividerColor),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            "Cancel",
-                            style: TextStyle(
-                              color: widget.theme.textTheme.bodyLarge?.color,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isPosting ? null : () {
-                            // Validation
-                            bool isValid = true;
-                            setState(() {
-                              _titleError = titleController.text.isEmpty ? "Title is required" : null;
-                              _companyError = companyController.text.isEmpty ? "Company is required" : null;
-                              _locationError = locationController.text.isEmpty ? "Location is required" : null;
-                              _empTypeError = empType.isEmpty ? "Employment Type is required" : null;
-                              _workModeError = workMode.isEmpty ? "Work Mode is required" : null;
-                              final min = int.tryParse(minSalaryController.text);
-                              final max = int.tryParse(maxSalaryController.text);
-
-                              if (min == null || max == null) {
-                                _salaryError = "Salary Range is required";
-                              } else{
-                              if (min > max) {
-                                _salaryError = "Minimum salary cannot be greater than maximum salary";
-                              } else {
-                                _salaryError = null;
-                              }
-                              }
-                            });
-
-                            if (_titleError != null ||
-                                _companyError != null ||
-                                _locationError != null ||
-                                _empTypeError != null ||
-                                _workModeError != null ||
-                                _salaryError != null) {
-                              return;
-                            }
-
-
-                            setState(() => _isPosting = true);
-
-                            // Simple parsing of salary for now
-                            int minSal = 0;
-                            int maxSal = 0;
-                            try {
-                              minSal = int.parse(minSalaryController.text);
-                              maxSal = int.parse(maxSalaryController.text); // Simplification
-                            } catch (_) {}
-
-                            final newJob = {
-                              'title': titleController.text,
-                              'company_name': companyController.text,
-                              'location': locationController.text,
-                              'description': descriptionController.text,
-                              'minSalary': minSal,
-                              'maxSalary': maxSal,
-                              'job_type': empType,
-                              'work_mode': workMode,
-                              'company_type': companyType, // Default
-                              'experience_level': experienceLevel, // Default
-                              'about_company': aboutCompanyController.text,
-                              'industry': industryType, // Default
-                              'easy_apply': enableEasyApply,
-                              'actively_hiring': activelyHiring,
-                              'skills': skillsController.text.split(',').map((e) => e.trim()).toList(),
-                            };
-
-                            widget.onJobPosted(newJob);
-                            // Navigator.pop handled in callback
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: widget.theme.primaryColor,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isPosting
-                            ? SizedBox(
-    height: 20,
-    width: 20,
-    child: CircularProgressIndicator(
-    // Use onPrimary so it contrasts with the primary button color
-    color: theme.colorScheme.onPrimary,
-    strokeWidth: 2,
-    ),
-    )
-
-                            : Text(
-                            "Post Job",
-                            style: TextStyle(
-                              color: widget.theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            text,
-            style: widget.theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Divider(color: widget.theme.dividerColor, height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _inputLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 16),
-      child: Text(
-        text,
-        style: widget.theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _textField(
-    TextEditingController controller,
-    String hint, {
-    int maxLines = 1,
-    String? errorText,
-  }) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      style: widget.theme.textTheme.bodyLarge,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: widget.theme.textTheme.bodySmall,
-        filled: true,
-        fillColor: widget.theme.colorScheme.surfaceContainer.withValues(
-          alpha: 0.5,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.theme.dividerColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: widget.theme.dividerColor),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        errorText: errorText,
-      ),
-    );
-  }
-
-  Widget _dropdown(
-    String value,
-    List<String> items,
-    Function(String?) onChanged, {
-    String? errorText,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: errorText != null ? Colors.red : widget.theme.dividerColor,
-            ),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              items: items
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: widget.theme.textTheme.bodyLarge),
-                    ),
-                  )
-                  .toList(),
-              onChanged: onChanged,
-              dropdownColor: widget.theme.cardColor,
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: widget.theme.textTheme.bodySmall?.color,
-              ),
-              isExpanded: true,
-            ),
-          ),
-        ),
-        if (errorText != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8, left: 12),
-            child: Text(
-              errorText,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _checkboxOption(
-    String title,
-    String sub,
-    bool value,
-    Function(bool?) onChanged,
-  ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.theme.dividerColor),
-      ),
-      child: CheckboxListTile(
-        value: value,
-        onChanged: onChanged,
-        title: Text(
-          title,
-          style: widget.theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Text(sub, style: widget.theme.textTheme.bodySmall),
-        activeColor: widget.theme.primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-}

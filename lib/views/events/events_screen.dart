@@ -48,7 +48,9 @@ class _EventsScreenState extends State<EventsScreen>
 
   void _loadAllData() {
     setState(() {
-      _discoverEvents = EventService.getEvents();
+      _discoverEvents = EventService.getEvents(
+        startDate: DateTime.now().toIso8601String(),
+      );
       _registeredEvents = EventService.getMyRegisteredEvents();
       _savedEvents = EventService.getMySavedEvents();
       _myEvents = EventService.getMyCreatedEvents();
@@ -61,6 +63,7 @@ class _EventsScreenState extends State<EventsScreen>
         case 0:
           _discoverEvents = EventService.getEvents(
             type: fOnline ? 'Online' : (fInPerson ? 'InPerson' : null),
+            startDate: DateTime.now().toIso8601String(),
             // Pass other filters if backend supported them
           );
           break;
@@ -211,6 +214,7 @@ class _EventsScreenState extends State<EventsScreen>
                               type: fOnline
                                   ? 'Online'
                                   : (fInPerson ? 'InPerson' : null),
+                              startDate: DateTime.now().toIso8601String(),
                             );
                           },
                           style: ElevatedButton.styleFrom(
@@ -619,7 +623,7 @@ class _EventsScreenState extends State<EventsScreen>
       itemCount: events.length,
       itemBuilder: (context, i) => EventCard(
         event: events[i],
-        isMyEvent: events[i].createdByMe,
+        isMyEvent: isMy || events[i].createdByMe,
         isRegistered: events[i].isRegistered,
         isSaved: events[i].isSaved,
         onSaveToggle: () async {
@@ -633,7 +637,60 @@ class _EventsScreenState extends State<EventsScreen>
           _refreshCurrentTab();
         },
         onTap: () => _onEventTap(events[i]),
+        onEdit: () => _handleEdit(events[i]),
+        onDelete: () => _handleDelete(events[i]),
       ),
     );
+  }
+
+  void _handleEdit(EventModel event) async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateEventScreen(event: event),
+      ),
+    );
+    if (res != null) {
+      _loadAllData();
+    }
+  }
+
+  void _handleDelete(EventModel event) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Event'),
+        content: const Text('Are you sure you want to delete this event? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await EventService.deleteEvent(event.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Event deleted successfully')),
+          );
+          _loadAllData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete event: $e')),
+          );
+        }
+      }
+    }
   }
 }

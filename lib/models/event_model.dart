@@ -51,24 +51,34 @@ class EventModel {
   }) : _category = category, _isFree = isFree;
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
-
+    final now = DateTime.now();
     return EventModel(
-      id: json['event_id'].toString(),
-      title: json['title'],
-      description: json['description'],
-      eventType: json['event_type'],
+      id: json['event_id']?.toString() ?? '',
+      title: json['title'] ?? 'Untitled Event',
+      description: json['description'] ?? '',
+      eventType: json['event_type'] ?? 'Online',
       location: json['location'],
-      category: json['category'],
+      category: json['category'] ?? 'Tech',
       virtualLink: json['virtual_link'],
-      startTimeDt: DateTime.parse(json['start_time']),
-      endTimeDt: DateTime.parse(json['end_time']),
+      startTimeDt: json['start_time'] != null 
+          ? (DateTime.tryParse(json['start_time'].toString()) ?? now) 
+          : now,
+      endTimeDt: json['end_time'] != null 
+          ? (DateTime.tryParse(json['end_time'].toString()) ?? now) 
+          : now,
       bannerUrl: json['banner_url'],
-      maxAttendees: json['max_attendees'] != null ? int.tryParse(json['max_attendees'].toString()) : null,
+      maxAttendees: json['max_attendees'] != null 
+          ? int.tryParse(json['max_attendees'].toString()) 
+          : null,
       waitlistEnabled: json['waitlist_enabled'] ?? false,
-      registrationDeadline: DateTime.parse(json['registration_deadline']),
-      organizerId: json['organizer_id'].toString(),
+      registrationDeadline: json['registration_deadline'] != null 
+          ? (DateTime.tryParse(json['registration_deadline'].toString()) ?? now) 
+          : now,
+      organizerId: json['organizer_id']?.toString() ?? '',
       organizerName: json['organizer_name'],
-      registeredCount: json['registered_count'] != null ? int.parse(json['registered_count'].toString()) : 0,
+      registeredCount: json['registered_count'] != null 
+          ? (int.tryParse(json['registered_count'].toString()) ?? 0) 
+          : 0,
       isRegistered: json['isRegistered'] ?? false,
       isSaved: json['isSaved'] ?? false,
       createdByMe: false,

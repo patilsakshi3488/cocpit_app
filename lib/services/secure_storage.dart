@@ -73,4 +73,24 @@ class AppSecureStorage {
       return null;
     }
   }
+
+  /// 🕵️ Helper to extract name from stored user JSON
+  static Future<String?> getUserName() async {
+    try {
+      final userJson = await getUser();
+      if (userJson == null) return null;
+      final Map<String, dynamic> raw = jsonDecode(userJson);
+
+      // Handle potential nesting
+      final user = raw['user'] ?? raw['data'] ?? raw;
+
+      // Check all common name fields
+      return user['name']?.toString() ??
+          user['username']?.toString() ??
+          user['display_name']?.toString() ??
+          user['displayName']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
 }

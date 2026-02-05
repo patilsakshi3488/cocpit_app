@@ -16,6 +16,9 @@ class PublicUserService {
       if (response.statusCode == 200) {
         try {
           final data = jsonDecode(response.body);
+          print("🔍 PUBLIC PROFILE RAW DATA: $data"); // DEBUG LOG
+          print("🔍 Resume Section: ${data['resume']}");
+          print("🔍 Root Resume Keys: url=${data['resume_url']}, file=${data['resume_file']}, cv=${data['cv']}");
           // If the backend returns { "user": ... } or straight object
           return PublicUser.fromJson(data);
         } catch (e) {

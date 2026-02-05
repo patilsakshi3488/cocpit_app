@@ -4,6 +4,8 @@ import '../../services/public_user_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/feed_service.dart';
 import '../../services/secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../config/api_config.dart';
 import '../../views/profile/profile_posts_section.dart';
 import '../../views/feed/chat_screen.dart';
 import 'profile_header.dart';
@@ -96,6 +98,36 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Action failed")));
+    }
+  }
+
+  Future<void> _handleResumeDownload() async {
+    if (user?.resumeUrl == null || user!.resumeUrl!.isEmpty) return;
+
+    String fullUrl = user!.resumeUrl!;
+    // Handle relative URLs
+    if (!fullUrl.startsWith('http')) {
+      if (fullUrl.startsWith('/') && ApiConfig.baseUrl.endsWith('/')) {
+        fullUrl = '${ApiConfig.baseUrl}${fullUrl.substring(1)}';
+      } else if (!fullUrl.startsWith('/') && !ApiConfig.baseUrl.endsWith('/')) {
+        fullUrl = '${ApiConfig.baseUrl}/$fullUrl';
+      } else {
+        fullUrl = '${ApiConfig.baseUrl}$fullUrl';
+      }
+    }
+
+    try {
+       final Uri url = Uri.parse(fullUrl);
+       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+          throw 'Could not launch $fullUrl';
+       }
+    } catch (e) {
+      debugPrint("Resume launch error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to open resume: $e")),
+        );
+      }
     }
   }
 
@@ -236,12 +268,71 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 );
               },
               onFollow: _toggleFollow,
+              email: user!.email,
+              mobileNumber: user!.mobileNumber,
+              profileUrl: "https://frontend.cocpit.in/profile/${widget.userId}",
             ),
             _buildDivider(theme),
             ProfileStats(connectionCount: connectionCount),
             _buildDivider(theme),
 
             _buildDivider(theme),
+            
+            // Living Resume Section (Read-Only)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                "Living Resume",
+                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            if (user!.resumeUrl != null && user!.resumeUrl!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleResumeDownload,
+                    icon: Icon(Icons.description, color: theme.primaryColor),
+                    label: const Text("View Resume"),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: theme.primaryColor),
+                      foregroundColor: theme.primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.dividerColor),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "No resume uploaded",
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.textTheme.bodySmall?.color,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            _buildDivider(theme),
+
             ProfileAboutSection(
               about: user!.about ?? "No about information provided.",
             ),

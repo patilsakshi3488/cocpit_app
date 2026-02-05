@@ -73,10 +73,11 @@ class ApiClient {
     File? file,
     List<File>? files,
     Map<String, String>? fields,
+    String method = "POST",
   }) async {
     final token = await AppSecureStorage.getAccessToken();
     final request = http.MultipartRequest(
-      "POST",
+      method,
       Uri.parse("${ApiConfig.baseUrl}$path"),
     );
 

@@ -28,7 +28,7 @@ dependencies:
 
   # 🖼 Media
   image_picker: ^1.1.2
-  video_player: ^2.8.2
+
   chewie: ^1.7.4
 
   # 😊 Emoji picker
@@ -46,6 +46,7 @@ dependencies:
   wechat_assets_picker: ^10.1.0
   file_picker: ^8.0.0
   socket_io_client: ^3.1.4
+  url_launcher: ^6.3.2
   image_cropper: ^11.0.0
   screenshot: ^3.0.0
   flutter_colorpicker: ^1.1.0

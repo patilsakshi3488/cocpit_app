@@ -11,15 +11,21 @@ class EventService {
   static Future<List<EventModel>> getEvents({
     String? location,
     String? type,
+    String? category,
     String? date,
+    String? startDate,
+    String? endDate,
     int limit = 50,
+
   }) async {
     String query = "";
     List<String> params = [];
-    if (location != null && location.isNotEmpty) params.add(
-        "location=$location");
+    if (location != null && location.isNotEmpty) params.add("location=$location");
     if (type != null && type.isNotEmpty) params.add("type=$type");
+    if (category != null && category.isNotEmpty) params.add("category=$category");
     if (date != null && date.isNotEmpty) params.add("date=$date");
+    if (startDate != null && startDate.isNotEmpty) params.add("startDate=$startDate");
+    if (endDate != null && endDate.isNotEmpty) params.add("endDate=$endDate");
     params.add("limit=$limit");
 
     if (params.isNotEmpty) {
@@ -44,7 +50,7 @@ class EventService {
     }
   }
 
-  /// Get event details by ID
+    /// Get event details by ID
   static Future<EventModel> getEventById(String id) async {
     final response = await ApiClient.get("${ApiConfig.events}/$id");
 
@@ -132,7 +138,7 @@ class EventService {
           "organizerEmail": organizerEmail,
         },
       );
-      if (response.statusCode == 201) {
+       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return data['eventId'].toString();
       }
@@ -228,5 +234,62 @@ class EventService {
       return data.cast<Map<String, dynamic>>();
     }
     return [];
+  }
+
+  /// Update an existing event
+  static Future<bool> updateEvent(String eventId, {
+    String? title,
+    String? description,
+    String? eventType,
+    String? category,
+    String? virtualLink,
+    String? location,
+    DateTime? startTime,
+    DateTime? endTime,
+    int? maxAttendees,
+    DateTime? registrationDeadline,
+    bool? waitlist,
+    File? banner,
+  }) async {
+    final Map<String, String> fields = {};
+
+    if (title != null) fields["title"] = title;
+    if (description != null) fields["description"] = description;
+    if (category != null) fields["category"] = category;
+    if (eventType != null) fields["eventType"] = eventType;
+    if (startTime != null) fields["startTime"] = startTime.toIso8601String();
+    if (endTime != null) fields["endTime"] = endTime.toIso8601String();
+    if (registrationDeadline != null) {
+      fields["registrationDeadline"] = registrationDeadline.toIso8601String();
+    }
+    if (waitlist != null) fields["waitlist"] = waitlist.toString();
+    if (virtualLink != null) fields["virtualLink"] = virtualLink;
+    if (location != null) fields["location"] = location;
+    if (maxAttendees != null) fields["maxAttendees"] = maxAttendees.toString();
+
+    // If banner is provided, use multipart
+    if (banner != null) {
+      final response = await ApiClient.multipart(
+        "${ApiConfig.events}/$eventId",
+        fileField: "banner",
+        file: banner,
+        fields: fields,
+        method: "PUT",
+      );
+      return response.statusCode == 200;
+    } else {
+      // Use standard PUT request
+      final response = await ApiClient.put(
+        "${ApiConfig.events}/$eventId",
+        body: fields,
+      );
+      return response.statusCode == 200;
+    }
+  }
+
+  /// Delete an event
+  static Future<bool> deleteEvent(String eventId) async {
+    final response = await ApiClient.delete("${ApiConfig.events}/$eventId");
+    return response.statusCode == 200;
   }
 }

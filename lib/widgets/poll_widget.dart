@@ -188,29 +188,11 @@ class _PollWidgetState extends State<PollWidget> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Determine background color: subtly distinct from the main surface
-    // If we are on a "surface", we might want a slightly different shade.
-    // Using surfaceContainer if available or cardColor.
-    final backgroundColor = theme.cardColor;
-
     return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          if (filterShadow(theme))
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-        ],
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.transparent, // Let PostCard handle background
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +246,7 @@ class _PollWidgetState extends State<PollWidget> {
 
     return InkWell(
       onTap: () => _onVotePressed(opt.id),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       child: Stack(
         children: [
           // 1. Container Frame (Background & Border)
@@ -272,11 +254,12 @@ class _PollWidgetState extends State<PollWidget> {
             height: 48,
             width: double.infinity,
             decoration: BoxDecoration(
-              // Default background is transparent so progress bar shows up clearly
-              // or match the "unfilled" portion
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+              color: theme.cardColor.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: borderColor,
+                width: isSelected ? 1.5 : 1,
+              ),
             ),
           ),
 
@@ -294,20 +277,9 @@ class _PollWidgetState extends State<PollWidget> {
                       width: constraints.maxWidth * value,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.primary.withValues(
-                                alpha: 0.2,
-                              ) // Highlighted fill
-                            : theme.dividerColor.withValues(
-                                alpha: 0.3,
-                              ), // Neutral fill
-                        borderRadius: BorderRadius.horizontal(
-                          left: const Radius.circular(
-                            10,
-                          ), // slightly less than container to fit inside border
-                          right: value >= 0.98
-                              ? const Radius.circular(10)
-                              : Radius.zero,
-                        ),
+                            ? colorScheme.primary.withOpacity(0.15)
+                            : theme.dividerColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     );
                   },

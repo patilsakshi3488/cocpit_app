@@ -144,7 +144,11 @@ class ApiClient {
 
     print("Making request to: ${ApiConfig.baseUrl}"); // Debug URL
     try {
-      http.Response response = await request(headers());
+      // ⏱️ Add 10s timeout (Chat needs faster feedback)
+      http.Response response = await request(
+        headers(),
+      ).timeout(const Duration(seconds: 10));
+
       print("Response status: ${response.statusCode}");
       print("Response body: ${response.body}");
 
@@ -154,7 +158,9 @@ class ApiClient {
         final newToken = await AuthService().refreshAccessToken();
         if (newToken != null) {
           token = newToken;
-          response = await request(headers());
+          response = await request(
+            headers(),
+          ).timeout(const Duration(seconds: 10));
         }
       }
 

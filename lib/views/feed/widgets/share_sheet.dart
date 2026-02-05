@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/share_service.dart';
 import '../../story/share_to_story_screen.dart';
+import '../../post/create_post_screen.dart';
 
 class ShareSheet extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -167,6 +168,44 @@ class _ShareSheetState extends State<ShareSheet> {
             child: Row(
               children: [
                 _optionButton(
+                  icon: Icons.repeat,
+                  label: "Share to Feed",
+                  onTap: () async {
+                    final result = await showModalBottomSheet<bool>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) =>
+                          CreatePostScreen(sharedPost: widget.post),
+                    );
+                    if (mounted && result == true) {
+                      Navigator.pop(
+                        context,
+                        true,
+                      ); // Close share sheet with success
+                    }
+                  },
+                ),
+                const SizedBox(width: 16),
+                _optionButton(
+                  icon: Icons.add_circle_outline,
+                  label: "Share to Story",
+                  onTap: () async {
+                    // Navigate to ShareToStoryScreen
+                    final result = await showModalBottomSheet<bool>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) =>
+                          ShareToStoryScreen(post: widget.post),
+                    );
+                    if (mounted && result == true) {
+                      Navigator.pop(context); // Close share sheet
+                    }
+                  },
+                ),
+                const SizedBox(width: 16),
+                _optionButton(
                   icon: Icons.link,
                   label: "Copy Link",
                   onTap: () {
@@ -181,29 +220,6 @@ class _ShareSheetState extends State<ShareSheet> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Link copied to clipboard")),
                     );
-                  },
-                ),
-                const SizedBox(width: 16),
-                _optionButton(
-                  icon: Icons.add_circle_outline,
-                  label: "Add to Story",
-                  onTap: () {
-                    // Navigate to ShareToStoryScreen
-                    Navigator.pop(context); // Close share sheet
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ShareToStoryScreen(post: widget.post),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 16),
-                _optionButton(
-                  icon: Icons.share_outlined,
-                  label: "External",
-                  onTap: () {
-                    // Logic for external share
                   },
                 ),
               ],

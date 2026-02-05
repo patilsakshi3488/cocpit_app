@@ -128,23 +128,22 @@ class _StoryTrayState extends State<StoryTray> {
     String? videoUrl;
 
     if (hasStories) {
-      final latest = group.stories.last;
+      // ✅ FIX: Backend order != display order. Use reduce to find actual latest.
+      final latest = group.stories.reduce(
+        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+      );
 
       if (latest.mediaType == 'image') {
         thumbUrl = latest.mediaUrl;
       } else if (latest.mediaType == 'video') {
-        // Use video thumbnail widget later
         thumbUrl = null;
         videoUrl = latest.mediaUrl;
-      } else if (latest.sharedPost != null &&
-          latest.sharedPost!.media.isNotEmpty) {
-        // Shared post preview image
-        final media = latest.sharedPost!.media.first;
-        if (media is Map) {
-          thumbUrl = media['url'];
-        } else if (media is String) {
-          thumbUrl = media;
-        }
+      }
+
+      // ✅ FIX: Shared Posts = No Image (Blur/Color fallback)
+      if (latest.sharedPost != null) {
+        thumbUrl = null;
+        videoUrl = null;
       }
     }
 

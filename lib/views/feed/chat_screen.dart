@@ -9,7 +9,11 @@ import '../../services/presence_service.dart'; // Import PresenceService
 import '../../services/secure_storage.dart'; // Helpful for user ID
 import '../../widgets/time_ago_widget.dart';
 import '../profile/public_profile_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'widgets/shared_post_preview.dart';
+import 'dart:io';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -18,7 +22,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
   final SocialService _socialService = SocialService();
   final SocketService _socketService = SocketService();
@@ -33,6 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadConversations();
     _setupSocketListeners();
   }
@@ -102,9 +107,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _msgSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("📱 [ChatScreen] Resumed from background. Resyncing...");
+      _loadConversations();
+      ChatService().resync();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      ChatService().pause();
+    }
   }
 
   @override
@@ -468,38 +486,142 @@ class PersonalChatScreen extends StatefulWidget {
   State<PersonalChatScreen> createState() => _PersonalChatScreenState();
 }
 
-class _PersonalChatScreenState extends State<PersonalChatScreen> {
+class _PersonalChatScreenState extends State<PersonalChatScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   final ChatService _chatService = ChatService();
+  final ScrollController _scrollController = ScrollController();
 
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoadingMore = false;
+  StreamSubscription? _msgSub;
   String? _myUserId;
   Timer? _typingTimer;
   DateTime? _lastTypingTime;
+  Map<String, dynamic>? _replyingToMessage;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initChat();
   }
 
   Future<void> _initChat() async {
     _myUserId = await AppSecureStorage.getCurrentUserId();
-    _chatService.enterChat(widget.conversationId);
+    await _chatService.enterChat(widget.conversationId);
+
+    // Initial Load
+    _messages = _chatService
+        .currentMessages; // Ensure getter exists or use activeMessages.first
+    if (mounted) setState(() {});
+
+    // Jump to bottom initially
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+
+    // Listen to updates
+    _msgSub = _chatService.activeMessages.listen((updatedMessages) {
+      if (!mounted) return;
+
+      // Detect if we added older messages (History Load)
+      // Heuristic: If count increased and last message is same, we added to top.
+      final bool isHistoryLoad =
+          updatedMessages.length > _messages.length &&
+          updatedMessages.isNotEmpty &&
+          _messages.isNotEmpty &&
+          updatedMessages.last['message_id'] == _messages.last['message_id'];
+
+      // Detect if new message arrived (at bottom)
+      final bool isNewMessage =
+          updatedMessages.length > _messages.length &&
+          updatedMessages.isNotEmpty &&
+          _messages.isNotEmpty &&
+          updatedMessages.last['message_id'] != _messages.last['message_id'];
+
+      // Capture pre-update scroll extent
+      final double oldMaxScroll = _scrollController.hasClients
+          ? _scrollController.position.maxScrollExtent
+          : 0;
+      final double currentScroll = _scrollController.hasClients
+          ? _scrollController.offset
+          : 0;
+
+      // Check if we were at the bottom (sticky logic)
+      final bool wasAtBottom =
+          _scrollController.hasClients && (oldMaxScroll - currentScroll) < 50;
+
+      setState(() {
+        _messages = updatedMessages;
+        _isLoadingMore = _chatService.isLoadingMore;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+
+        if (isHistoryLoad) {
+          // Calculate height difference
+          final double newMaxScroll =
+              _scrollController.position.maxScrollExtent;
+          final double heightDiff = newMaxScroll - oldMaxScroll;
+
+          // Maintain visual position by jumping down by heightDiff
+          _scrollController.jumpTo(currentScroll + heightDiff);
+        } else if (isNewMessage) {
+          // If was at bottom or it's my message, scroll to bottom
+          final bool isMe =
+              updatedMessages.last['sender_id'] == _myUserId ||
+              updatedMessages.last['sender_id'] == 'me';
+          if (wasAtBottom || isMe) {
+            _scrollToBottom();
+          }
+        }
+      });
+    });
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _chatService.leaveChat();
+    _msgSub?.cancel();
     _typingTimer?.cancel();
+    _messageFocusNode.dispose();
     _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onTextChanged(String text) {
-    if (text.isEmpty) {
-      // Logic for empty could be handled, but stopTyping usually via timer
-      return;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint("📱 [PersonalChat] Resumed. Resyncing data...");
+      _chatService.resync();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // Clear typing indicator when leaving app
+      _typingTimer?.cancel();
+      _chatService.sendStopTyping();
+      _chatService.pause();
     }
+  }
+
+  void _onTextChanged(String text) {
+    if (text.isEmpty) return;
 
     final now = DateTime.now();
     if (_lastTypingTime == null ||
@@ -515,6 +637,318 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     });
   }
 
+  void _showMessageActions(Map<String, dynamic> msg) {
+    showModalBottomSheet(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: const Text('Copy'),
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: msg['text_content'] ?? ''),
+                  );
+                  if (mounted) {
+                    Navigator.pop(sheetContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Copied to clipboard'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.reply),
+                title: const Text('Reply'),
+                onTap: () {
+                  setState(() {
+                    _replyingToMessage = msg;
+                  });
+                  Navigator.pop(sheetContext);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickMedia() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? media = await showModalBottomSheet<XFile?>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Photo Library'),
+                onTap: () async {
+                  final XFile? image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (context.mounted) Navigator.pop(context, image);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.video_library),
+                title: const Text('Video Library'),
+                onTap: () async {
+                  final XFile? video = await picker.pickVideo(
+                    source: ImageSource.gallery,
+                  );
+                  if (context.mounted) Navigator.pop(context, video);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Camera'),
+                onTap: () async {
+                  final XFile? image = await picker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  if (context.mounted) Navigator.pop(context, image);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (media != null) {
+      final file = File(media.path);
+      final String path = media.path.toLowerCase();
+      final String mediaType = path.endsWith('.mp4') || path.endsWith('.mov')
+          ? 'video'
+          : 'image';
+
+      _chatService.sendMediaMessage(
+        targetUserId: widget.otherUser['id'],
+        file: file,
+        mediaType: mediaType,
+      );
+    }
+  }
+
+  Widget _buildMediaPreview(
+    Map<String, dynamic> msg,
+    bool isMe,
+    ThemeData theme,
+  ) {
+    final String? mediaUrl = msg['media_url'];
+    final String? localPath = msg['local_media_path'];
+    final String? mediaType = msg['media_type'];
+    final bool isVideo = mediaType == 'video';
+
+    return GestureDetector(
+      onTap: () => _openFullScreenMedia(msg),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        constraints: const BoxConstraints(maxHeight: 200, minWidth: 150),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.black.withOpacity(0.05),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (localPath != null && File(localPath).existsSync())
+              Image.file(
+                File(localPath),
+                fit: BoxFit.cover,
+                width: double.infinity,
+              )
+            else if (mediaUrl != null)
+              Image.network(
+                mediaUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                errorBuilder: (ctx, err, stack) {
+                  return const Center(
+                    child: Icon(Icons.broken_image, size: 40),
+                  );
+                },
+              )
+            else
+              const Center(child: CircularProgressIndicator()),
+            if (isVideo)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openFullScreenMedia(Map<String, dynamic> msg) {
+    // Basic full screen viewer
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+          body: Center(
+            child: InteractiveViewer(
+              child:
+                  msg['local_media_path'] != null &&
+                      File(msg['local_media_path']).existsSync()
+                  ? Image.file(File(msg['local_media_path']))
+                  : msg['media_url'] != null
+                  ? Image.network(msg['media_url'])
+                  : const Icon(
+                      Icons.broken_image,
+                      color: Colors.white,
+                      size: 100,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNestedReply(
+    Map<String, dynamic> msg,
+    bool isMe,
+    ThemeData theme,
+  ) {
+    if (msg['reply_to'] == null) return const SizedBox.shrink();
+
+    final reply = msg['reply_to'];
+    final senderName = reply['author_name'] ?? 'User';
+    final text = reply['text_content'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isMe
+            ? Colors.black.withOpacity(0.1)
+            : theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(
+            color: isMe ? Colors.white : theme.primaryColor,
+            width: 3,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            senderName,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: isMe ? Colors.white70 : theme.primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: isMe ? Colors.white60 : null,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyPreview(ThemeData theme) {
+    if (_replyingToMessage == null) return const SizedBox.shrink();
+
+    final isMe =
+        _replyingToMessage!['sender_id'] == 'me' ||
+        _replyingToMessage!['sender_id'] == _myUserId;
+    final senderName = isMe ? 'You' : (widget.otherUser['name'] ?? 'User');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+        border: Border(left: BorderSide(color: theme.primaryColor, width: 4)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.reply,
+            size: 16,
+            color: theme.primaryColor.withOpacity(0.7),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  senderName,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  _replyingToMessage!['text_content'] ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.close,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            onPressed: () {
+              setState(() {
+                _replyingToMessage = null;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
@@ -526,6 +960,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
 
     // Delegate to ChatService (Optimistic + API)
     await _chatService.sendMessage(widget.otherUser['id'], text);
+    // Force scroll to bottom immediately on send (optimistic)
+    _scrollToBottom();
+    setState(() {
+      _replyingToMessage = null;
+    });
   }
 
   bool _isSameDay(DateTime d1, DateTime d2) {
@@ -654,13 +1093,33 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        isOnline ? "Online" : "Offline",
-                        style: TextStyle(
-                          color: isOnline ? Colors.green : Colors.grey,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      StreamBuilder<Set<String>>(
+                        stream: _chatService.typingUsers,
+                        builder: (context, snapshot) {
+                          final typingUsers = snapshot.data ?? {};
+                          final isTyping =
+                              otherId != null && typingUsers.contains(otherId);
+
+                          if (isTyping) {
+                            return Text(
+                              "Typing...",
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          }
+
+                          return Text(
+                            isOnline ? "Online" : "Offline",
+                            style: TextStyle(
+                              color: isOnline ? Colors.green : Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -683,243 +1142,514 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _chatService.activeMessages,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (ScrollNotification scrollInfo) {
+                // Detect TOP scroll (pixels close to 0) to load MORE HISTORY
+                if (!_isLoadingMore &&
+                    scrollInfo.metrics.pixels < 100 && // 100px from top
+                    _chatService.hasMore) {
+                  _isLoadingMore = true; // Local lock
+                  _chatService.loadMoreMessages();
                 }
+                return false;
+              },
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                reverse: false, // 🛑 Standard Top-Down
+                // +1 for loader at Top (Index 0) if hasMore
+                itemCount: _messages.length + (_chatService.hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  final bool hasMore = _chatService.hasMore;
 
-                final messages = snapshot.data ?? [];
+                  // If hasMore, Index 0 is Loader
+                  if (hasMore && index == 0) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
 
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Text("Say hi!", style: theme.textTheme.bodyMedium),
-                  );
-                }
+                  // Adjust index: If hasMore, Msg Index 0 is Widget Index 1
+                  final msgIndex = hasMore ? index - 1 : index;
+                  final msg = _messages[msgIndex];
 
-                // Show latest messages at the bottom (reverse view)
-                // Assuming API returns [Oldest -> Newest]
-                // We reverse the list for the UI so Index 0 is Newest (Bottom)
-                final reversedMessages = messages.reversed.toList();
+                  final bool isMe =
+                      msg['sender_id'] == _myUserId || msg['sender_id'] == 'me';
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  reverse: true, // Auto-scroll to bottom behavior
-                  itemCount: reversedMessages.length,
-                  itemBuilder: (context, index) {
-                    final msg = reversedMessages[index];
-                    // Determine if 'Me' based on sender_id == _myUserId
-                    final bool isMe =
-                        msg['sender_id'] == _myUserId ||
-                        msg['sender_id'] == 'me';
+                  // Format time
+                  String time = '';
+                  if (msg['created_at'] != null) {
+                    try {
+                      final dt = DateTime.parse(msg['created_at']).toLocal();
+                      final hour = dt.hour > 12
+                          ? dt.hour - 12
+                          : (dt.hour == 0 ? 12 : dt.hour);
+                      final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+                      final minute = dt.minute.toString().padLeft(2, '0');
+                      time = "$hour:$minute $amPm";
+                    } catch (e) {}
+                  }
 
-                    // Format time properly (UTC -> Local)
-                    String time = '';
-                    if (msg['created_at'] != null) {
-                      try {
-                        final dt = DateTime.parse(msg['created_at']).toLocal();
-                        final hour = dt.hour > 12
-                            ? dt.hour - 12
-                            : (dt.hour == 0 ? 12 : dt.hour);
-                        final amPm = dt.hour >= 12 ? 'PM' : 'AM';
-                        final minute = dt.minute.toString().padLeft(2, '0');
-                        time = "$hour:$minute $amPm";
-                      } catch (e) {
-                        // Fallback
-                      }
-                    }
+                  // Date Header Logic (Compare with PREVIOUS message in list order)
+                  bool showDateHeader = false;
+                  DateTime? msgDate;
+                  if (msg['created_at'] != null) {
+                    msgDate = DateTime.parse(msg['created_at']).toLocal();
+                  }
 
-                    // Date Header Logic
-                    bool showDateHeader = false;
-                    DateTime? msgDate;
-
-                    if (msg['created_at'] != null) {
-                      msgDate = DateTime.parse(msg['created_at']).toLocal();
-                    }
-
-                    if (msgDate != null) {
-                      // Check if next item (which is OLDER, index + 1) is different day
-                      if (index == reversedMessages.length - 1) {
-                        showDateHeader = true; // Oldest message
-                      } else {
-                        final nextMsg = reversedMessages[index + 1];
-                        if (nextMsg['created_at'] != null) {
-                          final nextDate = DateTime.parse(
-                            nextMsg['created_at'],
-                          ).toLocal();
-                          if (!_isSameDay(msgDate, nextDate)) {
-                            showDateHeader = true;
-                          }
+                  if (msgDate != null) {
+                    if (msgIndex == 0) {
+                      showDateHeader = true; // First message always shows date
+                    } else {
+                      final prevMsg = _messages[msgIndex - 1];
+                      if (prevMsg['created_at'] != null) {
+                        final prevDate = DateTime.parse(
+                          prevMsg['created_at'],
+                        ).toLocal();
+                        if (!_isSameDay(msgDate, prevDate)) {
+                          showDateHeader = true;
                         }
                       }
                     }
+                  }
 
-                    return Column(
-                      crossAxisAlignment: isMe
-                          ? CrossAxisAlignment.end
-                          : CrossAxisAlignment.start,
-                      children: [
-                        if (showDateHeader && msgDate != null)
-                          _buildDateHeader(msgDate, theme),
-                        Container(
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.7,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isMe
-                                ? theme.primaryColor
-                                : colorScheme.surfaceContainer,
-                            borderRadius: BorderRadius.circular(16),
-                            border: isMe
-                                ? null
-                                : Border.all(color: theme.dividerColor),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: isMe
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              if (msg['shared_post'] != null)
-                                SharedPostPreview(
-                                  sharedPost: msg['shared_post'],
-                                  isMe: isMe,
-                                  messageText: msg['text_content'],
-                                ),
-                              if (msg['shared_post'] == null)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        msg['text_content'] ?? '',
-                                        style: TextStyle(
-                                          color: isMe
-                                              ? Colors.white
-                                              : colorScheme.onSurface,
-                                          fontSize: 15,
+                  // Grouping Logic
+                  bool isFirstInGroup = true;
+                  bool isLastInGroup = true;
+                  const groupingThreshold = Duration(minutes: 5);
+
+                  if (msgIndex > 0) {
+                    final prevMsg = _messages[msgIndex - 1];
+                    final bool sameSender =
+                        prevMsg['sender_id'] == msg['sender_id'] ||
+                        (prevMsg['sender_id'] == 'me' && isMe);
+                    DateTime? prevDate;
+                    if (prevMsg['created_at'] != null) {
+                      prevDate = DateTime.parse(
+                        prevMsg['created_at'],
+                      ).toLocal();
+                    }
+                    if (sameSender && msgDate != null && prevDate != null) {
+                      final diff = msgDate.difference(prevDate).abs();
+                      if (diff < groupingThreshold &&
+                          _isSameDay(msgDate, prevDate)) {
+                        isFirstInGroup = false;
+                      }
+                    }
+                  }
+
+                  if (msgIndex < _messages.length - 1) {
+                    final nextMsg = _messages[msgIndex + 1];
+                    final bool sameSender =
+                        nextMsg['sender_id'] == msg['sender_id'] ||
+                        (nextMsg['sender_id'] == 'me' && isMe);
+                    DateTime? nextDate;
+                    if (nextMsg['created_at'] != null) {
+                      nextDate = DateTime.parse(
+                        nextMsg['created_at'],
+                      ).toLocal();
+                    }
+                    if (sameSender && msgDate != null && nextDate != null) {
+                      final diff = nextDate.difference(msgDate).abs();
+                      if (diff < groupingThreshold &&
+                          _isSameDay(msgDate, nextDate)) {
+                        isLastInGroup = false;
+                      }
+                    }
+                  }
+
+                  return Column(
+                    children: [
+                      if (isFirstInGroup && showDateHeader && msgDate != null)
+                        _buildDateHeader(msgDate, theme),
+
+                      Align(
+                        alignment: isMe
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: isMe
+                              ? MainAxisAlignment.end
+                              : MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Status Indicator (Left of bubble for 'me')
+                            if (isMe &&
+                                (msg['status'] == 'sending' ||
+                                    msg['status'] == 'failed'))
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: msg['status'] == 'failed'
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          if (msg['message_id'] != null) {
+                                            _chatService.retryMessage(
+                                              msg['message_id'],
+                                            );
+                                          }
+                                        },
+                                        child: const Icon(
+                                          Icons.error_outline,
+                                          color: Colors.red,
+                                          size: 20,
+                                        ),
+                                      )
+                                    : SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: theme.primaryColor.withOpacity(
+                                            0.5,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    if (isMe) ...[
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.done_all,
-                                        size: 16,
-                                        color: msg['read_at'] != null
-                                            ? Colors.white
-                                            : Colors.white.withOpacity(0.5),
+                              ),
+
+                            Flexible(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (msg['status'] == 'failed' &&
+                                      msg['message_id'] != null) {
+                                    _chatService.retryMessage(
+                                      msg['message_id'],
+                                    );
+                                  }
+                                },
+                                onLongPress: () => _showMessageActions(msg),
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width * 0.7,
+                                  ),
+                                  margin: EdgeInsets.only(
+                                    bottom: isLastInGroup ? 8 : 2,
+                                    top: isFirstInGroup ? 4 : 0,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: isMe && msg['status'] != 'failed'
+                                        ? LinearGradient(
+                                            colors: [
+                                              theme.primaryColor,
+                                              theme.primaryColor
+                                                  .withBlue(255)
+                                                  .withGreen(100),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : null,
+                                    color: isMe
+                                        ? (msg['status'] == 'failed'
+                                              ? Colors.red.withOpacity(0.1)
+                                              : (msg['status'] == 'sending'
+                                                    ? theme.primaryColor
+                                                          .withOpacity(0.7)
+                                                    : null)) // Null because gradient is used
+                                        : colorScheme.surfaceContainer,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: Radius.circular(
+                                        !isMe && !isFirstInGroup ? 6 : 20,
                                       ),
+                                      bottomLeft: Radius.circular(
+                                        !isMe && !isLastInGroup ? 6 : 20,
+                                      ),
+                                      topRight: Radius.circular(
+                                        isMe && !isFirstInGroup ? 6 : 20,
+                                      ),
+                                      bottomRight: Radius.circular(
+                                        isMe && !isLastInGroup ? 6 : 20,
+                                      ),
+                                    ),
+                                    boxShadow: [
+                                      if (!isMe)
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 2,
+                                          offset: const Offset(0, 1),
+                                        ),
                                     ],
-                                  ],
+                                    border: isMe
+                                        ? (msg['status'] == 'failed'
+                                              ? Border.all(color: Colors.red)
+                                              : null)
+                                        : Border.all(
+                                            color: theme.dividerColor
+                                                .withOpacity(0.5),
+                                          ),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: isMe
+                                        ? CrossAxisAlignment.end
+                                        : CrossAxisAlignment.start,
+                                    children: [
+                                      if (msg['reply_to'] != null)
+                                        _buildNestedReply(msg, isMe, theme),
+                                      if (msg['media_url'] != null ||
+                                          msg['local_media_path'] != null)
+                                        _buildMediaPreview(msg, isMe, theme),
+                                      if (msg['shared_post'] != null)
+                                        Column(
+                                          crossAxisAlignment: isMe
+                                              ? CrossAxisAlignment.end
+                                              : CrossAxisAlignment.start,
+                                          children: [
+                                            SharedPostPreview(
+                                              sharedPost: msg['shared_post'],
+                                              isMe: isMe,
+                                              messageText: msg['text_content'],
+                                            ),
+                                            if (isLastInGroup)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 4,
+                                                  right: 12,
+                                                  left: 12,
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      time,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: isMe
+                                                            ? theme
+                                                                  .colorScheme
+                                                                  .onPrimary
+                                                                  .withOpacity(
+                                                                    0.7,
+                                                                  )
+                                                            : theme
+                                                                  .colorScheme
+                                                                  .onSurface
+                                                                  .withOpacity(
+                                                                    0.5,
+                                                                  ),
+                                                      ),
+                                                    ),
+                                                    if (isMe &&
+                                                        msg['status'] !=
+                                                            'sending' &&
+                                                        msg['status'] !=
+                                                            'failed') ...[
+                                                      const SizedBox(width: 4),
+                                                      Icon(
+                                                        msg['read_at'] != null
+                                                            ? Icons.done_all
+                                                            : Icons.done,
+                                                        size: 15,
+                                                        color:
+                                                            msg['read_at'] !=
+                                                                null
+                                                            ? Colors.blueAccent
+                                                            : Colors.white
+                                                                  .withOpacity(
+                                                                    0.8,
+                                                                  ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      if (msg['shared_post'] == null)
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                msg['text_content'] ?? '',
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: isMe
+                                                          ? (msg['status'] ==
+                                                                    'failed'
+                                                                ? Colors.red
+                                                                : theme
+                                                                      .colorScheme
+                                                                      .onPrimary)
+                                                          : theme
+                                                                .colorScheme
+                                                                .onSurface,
+                                                    ),
+                                              ),
+                                            ),
+                                            if (isLastInGroup) ...[
+                                              const SizedBox(width: 8),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    time,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: isMe
+                                                          ? (msg['status'] ==
+                                                                    'failed'
+                                                                ? Colors.red
+                                                                : theme
+                                                                      .colorScheme
+                                                                      .onPrimary
+                                                                      .withOpacity(
+                                                                        0.7,
+                                                                      ))
+                                                          : theme
+                                                                .colorScheme
+                                                                .onSurface
+                                                                .withOpacity(
+                                                                  0.5,
+                                                                ),
+                                                    ),
+                                                  ),
+                                                  if (isMe &&
+                                                      msg['status'] !=
+                                                          'sending' &&
+                                                      msg['status'] !=
+                                                          'failed') ...[
+                                                    const SizedBox(width: 4),
+                                                    Icon(
+                                                      msg['read_at'] != null
+                                                          ? Icons.done_all
+                                                          : Icons.done,
+                                                      size: 15,
+                                                      color:
+                                                          msg['read_at'] != null
+                                                          ? Colors.blueAccent
+                                                          : Colors.white
+                                                                .withOpacity(
+                                                                  0.8,
+                                                                ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                            ],
-                          ),
+                              ),
+                            ),
+                          ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 12,
-                            left: 4,
-                            right: 4,
-                          ),
-                          child: Text(time, style: theme.textTheme.bodySmall),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
-          StreamBuilder<Set<String>>(
-            stream: _chatService.typingUsers,
-            builder: (context, snapshot) {
-              final typingUsers = snapshot.data ?? {};
-              // Filter out 'me' just in case, though backend/service logic handles it
-              if (typingUsers.isEmpty) return const SizedBox.shrink();
-
-              // For 1-on-1, ideally check if otherUser.id is in set
-              // But 'typingUsers' from service logic already filters to active conversation events
-              // And service logic *currently* adds *senderId*.
-              // So we check if our friend is typing.
-
-              final isFriendTyping = typingUsers.contains(
-                widget.otherUser['id'],
-              );
-
-              if (!isFriendTyping) return const SizedBox.shrink();
-
-              return Padding(
-                padding: const EdgeInsets.only(left: 24, bottom: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "${widget.otherUser['name']} is typing...",
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
+          // Reply Preview
+          _buildReplyPreview(theme),
+          // Input Area
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: theme.scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.add_circle,
+                      color: theme.primaryColor.withOpacity(0.8),
+                      size: 28,
+                    ),
+                    onPressed: _pickMedia,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: theme.dividerColor.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: TextField(
+                          controller: _messageController,
+                          focusNode: _messageFocusNode,
+                          onChanged: _onTextChanged,
+                          style: theme.textTheme.bodyMedium,
+                          enableInteractiveSelection: true,
+                          minLines: 1,
+                          maxLines: 5,
+                          decoration: InputDecoration(
+                            hintText: "Type a message...",
+                            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withOpacity(0.5),
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-          _buildMessageInput(theme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageInput(ThemeData theme) {
-    final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.dividerColor)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.add, color: theme.primaryColor),
-            onPressed: () {},
-          ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: theme.dividerColor),
-              ),
-              child: TextField(
-                controller: _messageController,
-                style: theme.textTheme.bodyLarge,
-                decoration: InputDecoration(
-                  hintText: "Write a message...",
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.4),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
                   ),
-                  border: InputBorder.none,
-                ),
-                onChanged: _onTextChanged,
-                onSubmitted: (_) => _sendMessage(),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(Icons.send, color: theme.primaryColor),
-            onPressed: _sendMessage,
           ),
         ],
       ),

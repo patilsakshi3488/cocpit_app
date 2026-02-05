@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:cocpit_app/views/story/editor/story_editor_screen.dart';
+import 'package:cocpit_app/views/story/preview/story_preview_screen.dart'; // ✅ ADDED
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -51,7 +52,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
       final file = File(picked.path);
 
       if (mounted) {
-        _launchEditor(file: file, isVideo: video);
+        // ✅ SIMPLE PATH: Bypass Editor for direct gallery picks
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoryPreviewScreen(
+              storyFile: file,
+              isVideo: video,
+              isSimple: true, // ✅ New flag to avoid baking
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Error picking media: $e");

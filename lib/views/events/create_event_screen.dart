@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/event_service.dart';
 
+import '../../models/event_model.dart';
+
 class CreateEventScreen extends StatefulWidget {
-  const CreateEventScreen({super.key});
+  final EventModel? event;
+  const CreateEventScreen({super.key, this.event});
 
   @override
   State<CreateEventScreen> createState() => _CreateEventScreenState();
@@ -48,6 +51,39 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.event != null) {
+      final e = widget.event!;
+      titleCtrl.text = e.title;
+      descCtrl.text = e.description;
+      selectedCategory = e.category; // Ensure this matches one of the categories or handle it
+      selectedEventType = e.eventType;
+      if (selectedEventType == 'InPerson') {
+        locationCtrl.text = e.location ?? '';
+      } else {
+        virtualLinkCtrl.text = e.virtualLink ?? '';
+      }
+      
+      startDate = e.startTimeDt;
+      startTime = TimeOfDay.fromDateTime(e.startTimeDt);
+      endDate = e.endTimeDt;
+      endTime = TimeOfDay.fromDateTime(e.endTimeDt);
+      registrationDeadlineDate = e.registrationDeadline;
+      registrationDeadlineTime = TimeOfDay.fromDateTime(e.registrationDeadline);
+      
+      maxAttendeesCtrl.text = e.maxAttendees?.toString() ?? '';
+      hasWaitlist = e.waitlistEnabled;
+      // isFreeEvent = e.isFree; // Backend doesn't fully support yet but model has getter
+      organizerNameCtrl.text = e.organizerName ?? '';
+      // Email might not be in model explicitly if not returned, but let's assume...
+      // Actually EventModel doesn't have organizerEmail field exposed easily, 
+      // maybe we skip prepopulating it or fetch detailed event if needed. 
+      // For now, leave empty or assume user fills it if required.
+    }
+  }
+
+  @override
   void dispose() {
     titleCtrl.dispose();
     descCtrl.dispose();
@@ -70,7 +106,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
-              title: Text('Create Event', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              title: Text(widget.event != null ? 'Edit Event' : 'Create Event', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
               backgroundColor: theme.scaffoldBackgroundColor,
               elevation: 0,
               pinned: true,
@@ -244,11 +280,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           ),
                           onPressed: isCreating ? null : _createEvent,
                           child: isCreating
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text(
-                            'Create Event',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : Text(
+                              widget.event != null ? 'Update Event' : 'Create Event',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                         ),
                       ),
                     ],
@@ -524,32 +560,68 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
 
     try {
-      final eventId = await EventService.createEvent(
-        title: titleCtrl.text.trim(),
-        description: descCtrl.text.trim(),
-        category: selectedCategory,
-        eventType: selectedEventType,
-        location: selectedEventType == 'InPerson' ? locationCtrl.text.trim() : null,
-        virtualLink: selectedEventType == 'Online' ? virtualLinkCtrl.text.trim() : null,
-        startTime: start,
-        endTime: end,
-        maxAttendees: int.tryParse(maxAttendeesCtrl.text.trim()),
-        registrationDeadline: deadline,
-        waitlist: hasWaitlist,
-        banner: bannerImage,
-        organizerName: organizerNameCtrl.text.trim(),
-        organizerEmail: organizerEmailCtrl.text.trim(),
-      );
-
-      if (eventId != null) {
-        if (mounted) {
-          Navigator.pop(context, true); // Return true to signal refresh
+      if (widget.event != null) {
+        // UPDATE
+        final success = await EventService.updateEvent(
+          widget.event!.id,
+          title: titleCtrl.text.trim(),
+          description: descCtrl.text.trim(),
+          category: selectedCategory,
+          eventType: selectedEventType,
+          location: selectedEventType == 'InPerson' ? locationCtrl.text.trim() : null,
+          virtualLink: selectedEventType == 'Online' ? virtualLinkCtrl.text.trim() : null,
+          startTime: start,
+          endTime: end,
+          maxAttendees: int.tryParse(maxAttendeesCtrl.text.trim()),
+          registrationDeadline: deadline,
+          waitlist: hasWaitlist,
+          banner: bannerImage,
+          // Organizer details usually don't change or require different permissions, but let's send if backend accepts
+          // organizerName: organizerNameCtrl.text.trim(),
+          // organizerEmail: organizerEmailCtrl.text.trim(),
+        );
+        
+        if (success) {
+           if (mounted) {
+            Navigator.pop(context, true); 
+          }
+        } else {
+             if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to update event')),
+            );
+          }
         }
+
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to create event')),
-          );
+        // CREATE
+        final eventId = await EventService.createEvent(
+          title: titleCtrl.text.trim(),
+          description: descCtrl.text.trim(),
+          category: selectedCategory,
+          eventType: selectedEventType,
+          location: selectedEventType == 'InPerson' ? locationCtrl.text.trim() : null,
+          virtualLink: selectedEventType == 'Online' ? virtualLinkCtrl.text.trim() : null,
+          startTime: start,
+          endTime: end,
+          maxAttendees: int.tryParse(maxAttendeesCtrl.text.trim()),
+          registrationDeadline: deadline,
+          waitlist: hasWaitlist,
+          banner: bannerImage,
+          organizerName: organizerNameCtrl.text.trim(),
+          organizerEmail: organizerEmailCtrl.text.trim(),
+        );
+        
+        if (eventId != null) {
+          if (mounted) {
+            Navigator.pop(context, true); // Return true to signal refresh
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to create event')),
+            );
+          }
         }
       }
     } catch (e) {

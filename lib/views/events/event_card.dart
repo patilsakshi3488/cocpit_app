@@ -7,6 +7,8 @@ class EventCard extends StatelessWidget {
   final bool isMyEvent;
   final bool isRegistered;
   final bool isSaved;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final VoidCallback onSaveToggle;
 
   const EventCard({
@@ -17,12 +19,15 @@ class EventCard extends StatelessWidget {
     this.isMyEvent = false,
     this.isRegistered = false,
     this.isSaved = false,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
 
     return GestureDetector(
       onTap: onTap,
@@ -104,6 +109,7 @@ class EventCard extends StatelessWidget {
                   ),
                 ),
 
+
                 if (isRegistered)
                   Positioned(
                     bottom: 12,
@@ -124,6 +130,8 @@ class EventCard extends StatelessWidget {
                       ),
                     ),
                   ),
+
+
               ],
             ),
             const SizedBox(height: 16), // Spacing after the image
@@ -180,6 +188,42 @@ class EventCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (isMyEvent)
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: Icon(Icons.more_vert, color: theme.colorScheme.onSurface),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          color: const Color(0xFF1E1E2E),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              onEdit?.call();
+                            } else if (value == 'delete') {
+                              onDelete?.call();
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Edit Event', style: TextStyle(color: Colors.white)),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Delete Event', style: TextStyle(color: Colors.redAccent)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),

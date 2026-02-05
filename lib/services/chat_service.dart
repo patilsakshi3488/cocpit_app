@@ -310,6 +310,37 @@ class ChatService {
     }
   }
 
+  /// Resync state on app foreground (called from WidgetsBindingObserver)
+  Future<void> resync() async {
+    debugPrint("🔄 [ChatService] Resyncing state...");
+
+    // 0. Ensure Socket is resumed
+    _socketService.resume();
+
+    // 1. Refresh total unread count
+    await fetchTotalUnreadCount();
+
+    // 2. If in a chat, refresh messages to catch anything socket missed while paused
+    if (_activeConversationId != null) {
+      debugPrint(
+        "🔄 [ChatService] Refreshing active chat: $_activeConversationId",
+      );
+      // Re-join socket room
+      _socketService.joinConversation(_activeConversationId!);
+
+      // Load latest messages
+      await _loadMessages(initial: true);
+    }
+  }
+
+  /// Pause socket on background
+  void pause() {
+    debugPrint("⏸️ [ChatService] Pausing...");
+    _socketService.pause();
+    _currentTypingUsers.clear();
+    _typingUsersController.add({});
+  }
+
   /// Leave a chat: Clears active state
   void leaveChat() {
     _activeConversationId = null;
@@ -385,7 +416,7 @@ class ChatService {
       'sender_id': 'me',
       'target_user_id': targetUserId,
       'created_at': DateTime.now().toIso8601String(),
-      'status': 'sending',
+      'status': 'uploading',
       'local_media_path': file.path,
       'media_type': mediaType,
     };
@@ -475,45 +506,32 @@ class ChatService {
 
     final targetUserId = msg['target_user_id'];
     final content = msg['text_content'];
-    final localPath = msg['local_media_path'];
-    final mediaType = msg['media_type'];
+
+    if (targetUserId == null || content == null) {
+      // Cannot retry without data.
+      debugPrint("⚠️ Cannot retry message: missing targetId or content");
+      _markAsFailed(tempId);
+      _activeMessagesController.add(List.from(_currentMessages));
+      return;
+    }
 
     try {
-      if (localPath != null && File(localPath).existsSync()) {
-        // --- RETRY MEDIA ---
-        final result = await _socialService.sendMediaMessage(
-          targetUserId: targetUserId ?? '',
-          file: File(localPath),
-          mediaType: mediaType ?? 'image',
-        );
-        if (result != null) {
-          final idx = _currentMessages.indexWhere(
-            (m) => m['message_id'] == tempId,
-          );
-          if (idx != -1) _currentMessages[idx] = result;
-        } else {
-          _markAsFailed(tempId);
-        }
-      } else if (content != null) {
-        // --- RETRY TEXT ---
-        final result = await _socialService.sendMessage(
-          targetUserId: targetUserId ?? '',
-          content: content,
-        );
+      final result = await _socialService.sendMessage(
+        targetUserId: targetUserId,
+        content: content,
+      );
 
-        if (result != null) {
-          final idx = _currentMessages.indexWhere(
-            (m) => m['message_id'] == tempId,
-          );
-          if (idx != -1) _currentMessages[idx] = result;
-        } else {
-          _markAsFailed(tempId);
+      if (result != null) {
+        final idx = _currentMessages.indexWhere(
+          (m) => m['message_id'] == tempId,
+        );
+        if (idx != -1) {
+          _currentMessages[idx] = result;
         }
       } else {
         _markAsFailed(tempId);
       }
     } catch (e) {
-      debugPrint("❌ Retry failed: $e");
       _markAsFailed(tempId);
     }
     _activeMessagesController.add(List.from(_currentMessages));

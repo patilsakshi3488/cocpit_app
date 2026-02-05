@@ -253,12 +253,22 @@ class SocketService {
     if (_socket != null) {
       debugPrint('🔌 [Socket] Disconnecting...');
       _socket!.disconnect();
-      // Do NOT close/nullify the socket immediately if you want to keep listeners?
-      // Actually, for a clean slate, let's keep the object but clear the token.
-      // But _socket.close() destroys it.
-      // Better to just disconnect.
       _currentToken = null;
       _connectionStatusController.add(false);
+    }
+  }
+
+  void pause() {
+    if (_socket != null && _socket!.connected) {
+      debugPrint('⏸️ [Socket] Pausing (disconnecting)...');
+      _socket!.disconnect();
+    }
+  }
+
+  void resume() {
+    if (_socket != null && !_socket!.connected) {
+      debugPrint('▶️ [Socket] Resuming (connecting)...');
+      _socket!.connect();
     }
   }
 

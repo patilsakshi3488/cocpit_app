@@ -13,6 +13,11 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'widgets/shared_post_preview.dart';
 import 'dart:io';
+import 'group_chat_screen.dart';
+import 'create_group_screen.dart';
+import '../../services/group_chat_service.dart';
+
+enum ChatFilter { all, personal, groups }
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -23,7 +28,6 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _searchController = TextEditingController();
-  final SocialService _socialService = SocialService();
   final SocketService _socketService = SocketService();
   final PresenceService _presenceService =
       PresenceService(); // Init PresenceService
@@ -31,7 +35,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // final String _currentUserId = "";
 
   List<Map<String, dynamic>> _conversations = [];
+  List<Map<String, dynamic>> _invitations = [];
   bool _isLoading = true;
+  ChatFilter _currentFilter = ChatFilter.all;
+  StreamSubscription? _socketSub;
 
   @override
   void initState() {
@@ -42,10 +49,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadConversations() async {
-    final data = await _socialService.getConversations();
+    setState(() => _isLoading = true);
+    final convs = await SocialService().getConversations();
+    final invites = await GroupChatService().getPendingInvitations();
     if (mounted) {
       setState(() {
-        _conversations = data;
+        _conversations = convs;
+        _invitations = invites;
         _isLoading = false;
       });
     }
@@ -56,6 +66,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _msgSub = _socketService.onNewMessage.listen((data) {
       if (!mounted) return;
       _handleNewMessage(data);
+    });
+
+    // 🔔 Listen for invitations
+    _socketSub = _socketService.onNotification.listen((data) {
+      if (!mounted) return;
+      if (data['type'] == 'group_invitation') {
+        _loadConversations();
+      }
     });
   }
 
@@ -109,6 +127,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     _msgSub?.cancel();
+    _socketSub?.cancel();
     super.dispose();
   }
 
@@ -124,6 +143,116 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  Widget _buildInvitationsSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            "Group Invitations",
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+        ..._invitations.map((invite) {
+          return ListTile(
+            leading: CircleAvatar(child: Text(invite['group_name'][0])),
+            title: Text(invite['group_name']),
+            subtitle: Text('Invited by ${invite['inviter_name']}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.check, color: Colors.green),
+                  onPressed: () async {
+                    final groupId = invite['group_id']?.toString();
+                    if (groupId == null) return;
+
+                    final success = await GroupChatService().acceptInvitation(
+                      groupId,
+                    );
+                    if (success) {
+                      await _loadConversations();
+                      // Find the new conversation and navigate
+                      final newConv = _conversations.firstWhere(
+                        (c) =>
+                            c['is_group'] == true &&
+                            c['conversation_id'] == groupId,
+                        orElse: () => {},
+                      );
+                      if (newConv.isNotEmpty && mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                GroupChatScreen(conversation: newConv),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () async {
+                    final groupId = invite['group_id']?.toString();
+                    if (groupId != null) {
+                      await GroupChatService().rejectInvitation(groupId);
+                      _loadConversations();
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        const Divider(),
+      ],
+    );
+  }
+
+  Widget _buildFilterTabs(ThemeData theme) {
+    return Row(
+      children: [
+        _buildFilterChip("All", ChatFilter.all, theme),
+        const SizedBox(width: 8),
+        _buildFilterChip("Chats", ChatFilter.personal, theme),
+        const SizedBox(width: 8),
+        _buildFilterChip("Groups", ChatFilter.groups, theme),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, ChatFilter filter, ThemeData theme) {
+    final isSelected = _currentFilter == filter;
+    final colorScheme = theme.colorScheme;
+
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.primaryColor
+              : colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: isSelected
+                ? theme.colorScheme.onPrimary
+                : colorScheme.onSurfaceVariant,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -131,6 +260,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+          ).then((_) => _loadConversations());
+        },
+        backgroundColor: theme.primaryColor,
+        child: const Icon(Icons.group_add, color: Colors.white),
+      ),
       // Removed AppTopBar to match custom design
       body: SafeArea(
         child: Column(
@@ -141,12 +280,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Messages",
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Messages",
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.add_circle_outline_rounded,
+                          color: theme.primaryColor,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const CreateGroupScreen(),
+                            ),
+                          ).then((_) => _loadConversations());
+                        },
+                        tooltip: "Create Group",
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Container(
@@ -168,6 +328,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           Icons.search,
                           color: colorScheme.onSurfaceVariant,
                         ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: colorScheme.onSurfaceVariant,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -177,6 +350,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       onChanged: (v) => setState(() {}),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _buildFilterTabs(theme),
                 ],
               ),
             ),
@@ -188,9 +363,70 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       stream: _presenceService.onlineUsers,
                       builder: (context, snapshot) {
                         final onlineUsers = snapshot.data ?? {};
+                        final searchQuery = _searchController.text
+                            .toLowerCase()
+                            .trim();
+
+                        final filteredConversations = _conversations.where((c) {
+                          // 1. Tab Filtering
+                          final isGroup = c['is_group'] == true;
+                          bool matchesTab = true;
+                          if (_currentFilter == ChatFilter.personal)
+                            matchesTab = !isGroup;
+                          else if (_currentFilter == ChatFilter.groups)
+                            matchesTab = isGroup;
+
+                          if (!matchesTab) return false;
+
+                          // 2. Search Filtering
+                          if (searchQuery.isEmpty) return true;
+
+                          final name =
+                              (isGroup
+                                      ? (c['conversation_name'] ??
+                                            c['group_name'] ??
+                                            'Group Chat')
+                                      : (c['other_user_name'] ?? 'Unknown'))
+                                  .toString()
+                                  .toLowerCase();
+
+                          return name.contains(searchQuery);
+                        }).toList();
+
+                        if (filteredConversations.isEmpty &&
+                            _invitations.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  searchQuery.isEmpty
+                                      ? Icons.chat_bubble_outline
+                                      : Icons.search_off,
+                                  size: 64,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withOpacity(0.2),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  searchQuery.isEmpty
+                                      ? "No conversations yet"
+                                      : "No results for \"$searchQuery\"",
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: colorScheme.onSurfaceVariant
+                                        .withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
                         return RefreshIndicator(
                           onRefresh: _loadConversations,
-                          child: _conversations.isEmpty
+                          child:
+                              filteredConversations.isEmpty &&
+                                  _invitations.isEmpty
                               ? Center(
                                   child: Text(
                                     "No conversations yet",
@@ -201,17 +437,43 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                 )
                               : ListView.builder(
                                   padding: EdgeInsets.zero,
-                                  itemCount: _conversations.length,
+                                  itemCount:
+                                      filteredConversations.length +
+                                      (_invitations.isNotEmpty ? 1 : 0),
                                   itemBuilder: (context, index) {
-                                    final conv = _conversations[index];
-                                    final otherUser = {
-                                      'id': conv['other_user_id']?.toString(),
-                                      'name':
-                                          conv['other_user_name'] ?? 'Unknown',
-                                      'avatar': conv['other_user_avatar'],
-                                      'headline':
-                                          conv['other_user_headline'] ?? '',
-                                    };
+                                    if (_invitations.isNotEmpty && index == 0) {
+                                      return _buildInvitationsSection(theme);
+                                    }
+
+                                    final convIndex = _invitations.isNotEmpty
+                                        ? index - 1
+                                        : index;
+                                    final conv =
+                                        filteredConversations[convIndex];
+                                    final bool isGroup =
+                                        conv['is_group'] == true;
+                                    final Map<String, dynamic> otherUser =
+                                        isGroup
+                                        ? {
+                                            'id': conv['conversation_id'],
+                                            'name':
+                                                conv['conversation_name'] ??
+                                                conv['group_name'] ??
+                                                'Group Chat',
+                                            'avatar': conv['group_avatar'],
+                                            'headline': 'Group',
+                                          }
+                                        : {
+                                            'id': conv['other_user_id']
+                                                ?.toString(),
+                                            'name':
+                                                conv['other_user_name'] ??
+                                                'Unknown',
+                                            'avatar': conv['other_user_avatar'],
+                                            'headline':
+                                                conv['other_user_headline'] ??
+                                                '',
+                                          };
 
                                     return _ChatTile(
                                       name: otherUser['name'],
@@ -236,26 +498,23 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                                             ?.toString()
                                             .trim()
                                             .toLowerCase(),
-                                      ), // Connect Presence
+                                      ),
                                       onTap: () async {
                                         await Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => PersonalChatScreen(
-                                              conversationId:
-                                                  conv['conversation_id'],
-                                              otherUser: otherUser,
-                                            ),
+                                            builder: (_) => isGroup
+                                                ? GroupChatScreen(
+                                                    conversation: conv,
+                                                  )
+                                                : PersonalChatScreen(
+                                                    conversationId:
+                                                        conv['conversation_id'],
+                                                    otherUser: otherUser,
+                                                  ),
                                           ),
                                         );
-                                        // Reset unread count locally since user just read it
-                                        if (mounted) {
-                                          setState(() {
-                                            _conversations[index]['unread_count'] =
-                                                0;
-                                          });
-                                        }
-                                        _loadConversations(); // Refresh from server to sync
+                                        _loadConversations();
                                       },
                                     );
                                   },
@@ -501,6 +760,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
   Timer? _typingTimer;
   DateTime? _lastTypingTime;
   Map<String, dynamic>? _replyingToMessage;
+  bool _isOtherTyping = false;
+  StreamSubscription? _typingSub;
 
   @override
   void initState() {
@@ -583,6 +844,16 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
         }
       });
     });
+
+    _typingSub = _chatService.typingUsers.listen((typingIds) {
+      if (mounted) {
+        setState(() {
+          _isOtherTyping = typingIds.contains(
+            widget.otherUser['id'].toString(),
+          );
+        });
+      }
+    });
   }
 
   void _scrollToBottom() {
@@ -600,6 +871,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
     WidgetsBinding.instance.removeObserver(this);
     _chatService.leaveChat();
     _msgSub?.cancel();
+    _typingSub?.cancel();
     _typingTimer?.cancel();
     _messageFocusNode.dispose();
     _messageController.dispose();
@@ -949,7 +1221,32 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
     );
   }
 
-  Future<void> _sendMessage() async {
+  Widget _buildTypingIndicator(ThemeData theme) {
+    if (!_isOtherTyping) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "${widget.otherUser['name']} is typing...",
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontStyle: FontStyle.italic,
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
@@ -1569,6 +1866,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
           ),
           // Reply Preview
           _buildReplyPreview(theme),
+          _buildTypingIndicator(theme),
           // Input Area
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
 
 import '../config/api_config.dart';
 import 'api_client.dart';
@@ -193,6 +192,6 @@ class JobService {
 
     if (validParams.isEmpty) return "";
 
-    return "?" + validParams.entries.map((e) => "${e.key}=${Uri.encodeComponent(e.value)}").join("&");
+    return "?${validParams.entries.map((e) => "${e.key}=${Uri.encodeComponent(e.value)}").join("&")}";
   }
 }

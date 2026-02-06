@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../services/post_provider.dart';
 import '../../../../services/feed_service.dart';
@@ -124,7 +123,7 @@ class _PostCardState extends State<PostCard> {
 
     if (id == null) {
       debugPrint(
-        "⚠️ [PostCard] No Author ID found in post: ${post.keys.toList()}",
+        "âš ï¸ [PostCard] No Author ID found in post: ${post.keys.toList()}",
       );
     }
     return id;
@@ -200,7 +199,10 @@ class _PostCardState extends State<PostCard> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
+          bottom: BorderSide(
+            color: Colors.grey.withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
       ),
       child: Column(
@@ -230,7 +232,7 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
           _postStats(theme),
-          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
           _postActions(theme),
         ],
       ),
@@ -262,7 +264,7 @@ class _PostCardState extends State<PostCard> {
             onTap: _navigateToProfile,
             child: CircleAvatar(
               radius: 20,
-              backgroundColor: theme.primaryColor.withOpacity(0.1),
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
               backgroundImage: authorAvatar != null
                   ? NetworkImage(authorAvatar)
                   : null,
@@ -296,11 +298,12 @@ class _PostCardState extends State<PostCard> {
                       ),
                       if (post["created_at"] != null) ...[
                         Text(
-                          " • ",
+                          " â€¢ ",
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontSize: 11,
-                            color: theme.textTheme.bodySmall?.color
-                                ?.withOpacity(0.5),
+                            color: theme.textTheme.bodySmall?.color?.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                         TimeAgoWidget(
@@ -309,8 +312,9 @@ class _PostCardState extends State<PostCard> {
                           ),
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontSize: 11,
-                            color: theme.textTheme.bodySmall?.color
-                                ?.withOpacity(0.5),
+                            color: theme.textTheme.bodySmall?.color?.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -320,8 +324,8 @@ class _PostCardState extends State<PostCard> {
                     Text(
                       category,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.textTheme.bodySmall?.color?.withOpacity(
-                          0.6,
+                        color: theme.textTheme.bodySmall?.color?.withValues(
+                          alpha: 0.6,
                         ),
                         fontSize: 12,
                       ),
@@ -345,6 +349,8 @@ class _PostCardState extends State<PostCard> {
       myId = await AppSecureStorage.getCurrentUserId();
       if (mounted) setState(() => currentUserId = myId);
     }
+
+    if (!mounted) return;
 
     final bool amIOwner = myId != null && authorId == myId;
 
@@ -436,7 +442,7 @@ class _PostCardState extends State<PostCard> {
         ],
         child: Icon(
           Icons.more_horiz,
-          color: theme.iconTheme.color?.withOpacity(0.6),
+          color: theme.iconTheme.color?.withValues(alpha: 0.6),
           size: 20,
         ),
       );
@@ -459,23 +465,23 @@ class _PostCardState extends State<PostCard> {
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'save',
           child: Row(
             children: [
               Icon(Icons.star_border, size: 18),
-              const SizedBox(width: 8),
-              const Text("Add to favorites"),
+              SizedBox(width: 8),
+              Text("Add to favorites"),
             ],
           ),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'share',
           child: Row(
             children: [
               Icon(Icons.link, size: 18),
-              const SizedBox(width: 8),
-              const Text("Copy link"),
+              SizedBox(width: 8),
+              Text("Copy link"),
             ],
           ),
         ),
@@ -492,7 +498,7 @@ class _PostCardState extends State<PostCard> {
       ],
       child: Icon(
         Icons.more_horiz,
-        color: theme.iconTheme.color?.withOpacity(0.6),
+        color: theme.iconTheme.color?.withValues(alpha: 0.6),
         size: 20,
       ),
     );
@@ -551,9 +557,9 @@ class _PostCardState extends State<PostCard> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Text(
-        "$likeCount likes · $commentCount comments",
+        "$likeCount likes Â· $commentCount comments",
         style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
           fontSize: 12,
         ),
       ),
@@ -570,7 +576,7 @@ class _PostCardState extends State<PostCard> {
 
         return Column(
           children: [
-            Divider(height: 1, color: Colors.grey.withOpacity(0.1)),
+            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -579,7 +585,7 @@ class _PostCardState extends State<PostCard> {
                   "Like",
                   color: isLiked
                       ? theme.primaryColor
-                      : theme.iconTheme.color?.withOpacity(0.7),
+                      : theme.iconTheme.color?.withValues(alpha: 0.7),
                   onTap: () {
                     if (postId.isNotEmpty) provider.toggleLike(postId);
                   },
@@ -653,7 +659,7 @@ class _PostCardState extends State<PostCard> {
         child: Icon(
           icon,
           size: 20, // Website icon size
-          color: color ?? theme.iconTheme.color?.withOpacity(0.8),
+          color: color ?? theme.iconTheme.color?.withValues(alpha: 0.8),
         ),
       ),
     );

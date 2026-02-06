@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../post_detail_screen.dart';
 import '../../profile/public_profile_screen.dart';
 
@@ -112,8 +112,8 @@ class NestedPostPreview extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
-        color: theme.cardColor.withOpacity(0.5),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+        color: theme.cardColor.withValues(alpha: 0.5),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
       ),
       child: Center(
         child: Column(
@@ -123,7 +123,7 @@ class NestedPostPreview extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -167,7 +167,7 @@ class NestedPostPreview extends StatelessWidget {
                   "This content is no longer available.",
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 height: 1.5,
               ),
             ),
@@ -199,8 +199,8 @@ class NestedPostPreview extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: theme.cardColor.withOpacity(0.3),
-          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          color: theme.cardColor.withValues(alpha: 0.3),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -224,7 +224,7 @@ class NestedPostPreview extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundColor: theme.primaryColor.withOpacity(0.1),
+                      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                       backgroundImage: authorAvatar != null
                           ? NetworkImage(authorAvatar)
                           : null,
@@ -248,10 +248,10 @@ class NestedPostPreview extends StatelessWidget {
                               ),
                             ),
                             TextSpan(
-                              text: " · Reposted",
+                              text: " Â· Reposted",
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.textTheme.bodySmall?.color
-                                    ?.withOpacity(0.5),
+                                    ?.withValues(alpha: 0.5),
                                 fontSize: 11,
                               ),
                             ),
@@ -265,7 +265,7 @@ class NestedPostPreview extends StatelessWidget {
                       Text(
                         timestamp,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 
                             0.4,
                           ),
                           fontSize: 10,
@@ -284,7 +284,7 @@ class NestedPostPreview extends StatelessWidget {
                   postImage,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
-                    color: theme.dividerColor.withOpacity(0.1),
+                    color: theme.dividerColor.withValues(alpha: 0.1),
                     child: const Icon(Icons.broken_image, size: 20),
                   ),
                 ),
@@ -310,3 +310,4 @@ class NestedPostPreview extends StatelessWidget {
     );
   }
 }
+

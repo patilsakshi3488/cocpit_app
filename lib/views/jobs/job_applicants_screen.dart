@@ -1,11 +1,8 @@
-  import 'dart:convert';
-
+﻿
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/applicant_model.dart';
 import '../../services/job_provider.dart';
-import '../../services/secure_storage.dart';
-import '../profile/profile_screen.dart';
 import '../profile/public_profile_screen.dart';
 
 class JobApplicantsScreen extends StatefulWidget {
@@ -106,7 +103,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
             ),
           ),
         );
-        debugPrint("🔍 Applicant ID: ${applicant.id}");
+        debugPrint("ðŸ” Applicant ID: ${applicant.id}");
       },
 
       // child: Container(
@@ -120,12 +117,12 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //   child: Column(
       //     crossAxisAlignment: CrossAxisAlignment.start,
       //     children: [
-      //       // ───────── HEADER ─────────
+      //       // â”€â”€â”€â”€â”€â”€â”€â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€
       //       Row(
       //         children: [
       //           CircleAvatar(
       //             radius: 24,
-      //             backgroundColor: theme.primaryColor.withOpacity(0.1),
+      //             backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
       //             backgroundImage: (applicant.avatarUrl != null &&
       //                 applicant.avatarUrl!.isNotEmpty)
       //                 ? NetworkImage(applicant.avatarUrl!)
@@ -169,7 +166,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //             padding:
       //             const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       //             decoration: BoxDecoration(
-      //               color: theme.dividerColor.withOpacity(0.2),
+      //               color: theme.dividerColor.withValues(alpha: 0.2),
       //               borderRadius: BorderRadius.circular(8),
       //             ),
       //             child: Text(
@@ -183,7 +180,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //
       //       const SizedBox(height: 16),
       //
-      //       // ───────── CONTACT ─────────
+      //       // â”€â”€â”€â”€â”€â”€â”€â”€â”€ CONTACT â”€â”€â”€â”€â”€â”€â”€â”€â”€
       //       Row(
       //         children: [
       //           Icon(Icons.email_outlined,
@@ -209,7 +206,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //
       //       const SizedBox(height: 16),
       //
-      //       // ───────── SKILLS ─────────
+      //       // â”€â”€â”€â”€â”€â”€â”€â”€â”€ SKILLS â”€â”€â”€â”€â”€â”€â”€â”€â”€
       //       if (applicant.skills.isNotEmpty)
       //         Wrap(
       //           spacing: 8,
@@ -220,10 +217,10 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //               const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       //               decoration: BoxDecoration(
       //                 color:
-      //                 theme.colorScheme.surface.withOpacity(0.5),
+      //                 theme.colorScheme.surface.withValues(alpha: 0.5),
       //                 borderRadius: BorderRadius.circular(6),
       //                 border: Border.all(
-      //                   color: theme.dividerColor.withOpacity(0.5),
+      //                   color: theme.dividerColor.withValues(alpha: 0.5),
       //                 ),
       //               ),
       //               child: Text(
@@ -237,7 +234,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //
       //       const SizedBox(height: 16),
       //
-      //       // ───────── ACTION ─────────
+      //       // â”€â”€â”€â”€â”€â”€â”€â”€â”€ ACTION â”€â”€â”€â”€â”€â”€â”€â”€â”€
       //       SizedBox(
       //         width: double.infinity,
       //         child: OutlinedButton(
@@ -246,7 +243,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
       //               context,
       //               MaterialPageRoute(
       //                 builder: (_) => PublicProfileScreen(
-      //                   userId: applicant.id, // ✅ USER ID
+      //                   userId: applicant.id, // âœ… USER ID
       //                 ),
       //               ),
       //             );
@@ -273,10 +270,10 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(24), // Smoother corners
-          border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -286,17 +283,17 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ───────── HEADER ─────────
+            // â”€â”€â”€â”€â”€â”€â”€â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Row(
               children: [
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: theme.primaryColor.withOpacity(0.1), width: 2),
+                    border: Border.all(color: theme.primaryColor.withValues(alpha: 0.1), width: 2),
                   ),
                   child: CircleAvatar(
                     radius: 26, // Slightly larger for better focus
-                    backgroundColor: theme.primaryColor.withOpacity(0.1),
+                    backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                     backgroundImage: (applicant.avatarUrl != null &&
                         applicant.avatarUrl!.isNotEmpty)
                         ? NetworkImage(applicant.avatarUrl!)
@@ -334,7 +331,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
                           child: Text(
                             applicant.headline,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -347,7 +344,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: theme.primaryColor.withOpacity(0.1), // Themed highlight
+                    color: theme.primaryColor.withValues(alpha: 0.1), // Themed highlight
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -363,11 +360,11 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
 
             const SizedBox(height: 20),
 
-            // ───────── CONTACT ─────────
+            // â”€â”€â”€â”€â”€â”€â”€â”€â”€ CONTACT â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withOpacity(0.5),
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -376,7 +373,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
                     children: [
                       Icon(Icons.email_outlined,
                           size: 16,
-                          color: theme.primaryColor.withOpacity(0.6)),
+                          color: theme.primaryColor.withValues(alpha: 0.6)),
                       const SizedBox(width: 10),
                       Text(applicant.email, style: theme.textTheme.bodySmall),
                     ],
@@ -387,7 +384,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
                       children: [
                         Icon(Icons.phone_outlined,
                             size: 16,
-                            color: theme.primaryColor.withOpacity(0.6)),
+                            color: theme.primaryColor.withValues(alpha: 0.6)),
                         const SizedBox(width: 10),
                         Text(applicant.phone, style: theme.textTheme.bodySmall),
                       ],
@@ -399,7 +396,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
 
             const SizedBox(height: 20),
 
-            // ───────── SKILLS ─────────
+            // â”€â”€â”€â”€â”€â”€â”€â”€â”€ SKILLS â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (applicant.skills.isNotEmpty)
               Wrap(
                 spacing: 8,
@@ -427,7 +424,7 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
 
             const SizedBox(height: 24),
 
-            // ───────── ACTION ─────────
+            // â”€â”€â”€â”€â”€â”€â”€â”€â”€ ACTION â”€â”€â”€â”€â”€â”€â”€â”€â”€
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -466,3 +463,4 @@ class _JobApplicantsScreenState extends State<JobApplicantsScreen> {
     );
   }
 }
+

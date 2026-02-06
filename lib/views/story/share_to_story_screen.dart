@@ -1,9 +1,9 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:cocpit_app/services/story_service.dart';
-import 'package:cocpit_app/services/cloudinary_service.dart'; // ✅ ADDED
+import 'package:cocpit_app/services/cloudinary_service.dart'; // âœ… ADDED
 import 'package:cocpit_app/utils/story_upload_mapper.dart';
 import 'editor/draggable_resizable_widget.dart';
 
@@ -57,7 +57,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
   double _scale = 1.0;
   bool _isSharing = false;
 
-  List<Widget> _textOverlays = [];
+  final List<Widget> _textOverlays = [];
 
   @override
   void dispose() {
@@ -131,14 +131,14 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
 
       if (postId == null) throw Exception("shared_post_id missing");
 
-      // ✅ 1. BAKE (Capture Screenshot of Shared Post Composition)
+      // âœ… 1. BAKE (Capture Screenshot of Shared Post Composition)
       // This ensures Web compatibility even for text-only posts or complex overlays.
       final Uint8List? bakedBytes = await _screenshotController.capture(
         delay: const Duration(milliseconds: 100),
       );
       if (bakedBytes == null) throw Exception("Failed to capture story image");
 
-      // ✅ 2. SAVE & UPLOAD
+      // âœ… 2. SAVE & UPLOAD
       final tempFile = File(
         '${Directory.systemTemp.path}/shared_baked_${DateTime.now().millisecondsSinceEpoch}.png',
       );
@@ -148,7 +148,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
       final mediaUrl = uploadResult['url'];
       final publicId = uploadResult['public_id'];
 
-      // ✅ 3. BUILD PAYLOAD
+      // âœ… 3. BUILD PAYLOAD
       final payload = StoryUploadMapper.buildPayload(
         cloudinaryUrl: mediaUrl,
         mediaType: "image",
@@ -430,10 +430,11 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
     final media = widget.post['media'] ?? widget.post['media_urls'] ?? [];
     String? imageUrl;
     if (media is List && media.isNotEmpty) {
-      if (media.first is String)
+      if (media.first is String) {
         imageUrl = media.first;
-      else if (media.first is Map)
+      } else if (media.first is Map) {
         imageUrl = media.first['url'];
+      }
     }
 
     return Container(
@@ -444,7 +445,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -518,7 +519,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -538,10 +539,10 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
           const SizedBox(height: 12),
 
           // Footer
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Tap to view post",
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),

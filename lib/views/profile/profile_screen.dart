@@ -154,21 +154,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             '';
         debugPrint("🔍 Full Profile Data: $data");
         debugPrint("🔍 User Object: $user");
-        debugPrint("🔍 Resume keys check: resume_url=${user['resume_url']}, resume=${user['resume']}, resume_file=${user['resume_file']}");
-        
+        debugPrint(
+          "🔍 Resume keys check: resume_url=${user['resume_url']}, resume=${user['resume']}, resume_file=${user['resume_file']}",
+        );
+
         // Check for resume in top-level 'resume' object (returned by getProfile)
         if (data['resume'] != null && data['resume'] is Map) {
           resumeUrl = data['resume']['url'] ?? data['resume']['file_url'];
         } else {
-           // Fallback to checking inside user object (legacy or alternative structure)
-           resumeUrl = user['resume_url'] ?? 
-                      user['resume'] ?? 
-                      user['resume_file'] ?? 
-                      user['cv'] ?? 
-                      user['cv_url'] ?? 
-                      user['document_url'];
+          // Fallback to checking inside user object (legacy or alternative structure)
+          resumeUrl =
+              user['resume_url'] ??
+              user['resume'] ??
+              user['resume_file'] ??
+              user['cv'] ??
+              user['cv_url'] ??
+              user['document_url'];
         }
-        
+
         debugPrint("📄 Parsed Resume URL: $resumeUrl");
 
         experiences = fetchedExperiences;
@@ -298,10 +301,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (result != null && result.files.single.path != null) {
         if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Uploading resume...")),
-        );
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Uploading resume...")));
 
         File file = File(result.files.single.path!);
         try {
@@ -318,23 +321,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Do not reload profile immediately to avoid overwriting the local URL with potentially stale server data
               // _loadProfile();
             } else {
-               // Should be caught by catch block if it throws, but handle empty just in case
-               throw "Unknown error (empty result)";
+              // Should be caught by catch block if it throws, but handle empty just in case
+              throw "Unknown error (empty result)";
             }
           }
         } catch (e) {
           debugPrint("Resume upload error: $e");
           if (mounted) {
-             // Show the specific error from the service!
-             ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(
-                 content: Text(e.toString().replaceAll("Exception:", "").trim()),
-                 duration: const Duration(seconds: 5), // Longer duration to read
-                 action: SnackBarAction(label: "Copy", onPressed: (){
-                     // Optional: Copy to clipboard if needed
-                 }),
-               ),
-             );
+            // Show the specific error from the service!
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.toString().replaceAll("Exception:", "").trim()),
+                duration: const Duration(seconds: 5), // Longer duration to read
+                action: SnackBarAction(
+                  label: "Copy",
+                  onPressed: () {
+                    // Optional: Copy to clipboard if needed
+                  },
+                ),
+              ),
+            );
           }
         }
       }
@@ -347,9 +353,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     debugPrint("📥 Downloading Resume. Current URL: $resumeUrl");
     if (resumeUrl == null || resumeUrl!.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No resume found")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("No resume found")));
       }
       return;
     }
@@ -367,9 +373,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Opening: $fullUrl")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Opening: $fullUrl")));
 
     final Uri url = Uri.parse(fullUrl);
     try {
@@ -380,7 +386,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       debugPrint("Error launching resume: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Could not download resume. Check link.")),
+          const SnackBar(
+            content: Text("Could not download resume. Check link."),
+          ),
         );
       }
     }
@@ -579,9 +587,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (result == true) {
       _loadProfile();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Post updated successfully")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Post updated successfully")),
+        );
+      }
     }
   }
 
@@ -633,9 +643,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       RepaintBoundary(
-
                         child: ProfileHeader(
-
                           user: profile!['user'],
                           profileImage: profileImage,
                           coverImage: coverImage,
@@ -649,7 +657,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   imagePath: profileImage,
                                   heroTag: 'profile_hero',
                                   isCurrentUser:
-                                  true, // Since this is ProfileScreen (my profile)
+                                      true, // Since this is ProfileScreen (my profile)
                                   onUpdate: _handleAvatarUpdate,
                                   onDelete: _handleAvatarDelete,
                                 ),
@@ -689,7 +697,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Pass contact info
                         email: profile?['user']?['email'],
                         mobileNumber: profile?['user']?['mobile_number'],
-                        profileUrl: "https://frontend.cocpit.in/profile/${profile?['user']?['id'] ?? profile?['user']?['user_id'] ?? ''}",
+                        profileUrl:
+                            "https://frontend.cocpit.in/profile/${profile?['user']?['id'] ?? profile?['user']?['user_id'] ?? ''}",
                       ),
                       _divider(theme),
 
@@ -698,9 +707,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       _divider(theme),
-                        ProfileLivingResume(
+                      ProfileLivingResume(
                         isOverviewSelected: isOverviewSelected,
-                        onTabChanged: (v) => setState(() => isOverviewSelected = v),
+                        onTabChanged: (v) =>
+                            setState(() => isOverviewSelected = v),
                         onUploadResume: _handleResumeUpload,
                         onDownloadPDF: _handleResumeDownload,
                         resumeUrl: resumeUrl,
@@ -749,7 +759,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   top: 0,
                   left: 0,
                   right: 0,
-                  child: IgnorePointer( // 3. Allow touches to pass through if necessary
+                  child: IgnorePointer(
+                    // 3. Allow touches to pass through if necessary
                     ignoring: true,
                     child: Container(
                       height: topInset,
@@ -764,7 +775,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
-
   }
 
   Widget _divider(ThemeData theme) {

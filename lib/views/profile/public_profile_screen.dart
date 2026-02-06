@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/public_user.dart';
 import '../../services/public_user_service.dart';
 import '../../services/profile_service.dart';
@@ -54,7 +54,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     try {
       final data = await PublicUserService.getUserProfile(widget.userId);
 
-      debugPrint("load profile"+widget.userId);
+      debugPrint("load profile${widget.userId}");
       // Fetch Posts
       final postsData = await FeedApi.fetchUserPosts(userId: widget.userId);
       final fetchedPosts = List<Map<String, dynamic>>.from(
@@ -72,7 +72,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         isLoading = false;
       });
     } catch (e) {
-      debugPrint("❌ Public profile load error: $e");
+      debugPrint("âŒ Public profile load error: $e");
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -315,7 +315,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: theme.dividerColor),
                   ),
@@ -356,7 +356,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ),
             _buildDivider(theme),
 
-            // 🔥 Posts Section (Moved to bottom)
+            // ðŸ”¥ Posts Section (Moved to bottom)
             if (_posts.isNotEmpty)
               ProfileLatestPostsSection(
                 posts: _posts,
@@ -382,3 +382,4 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 }
+

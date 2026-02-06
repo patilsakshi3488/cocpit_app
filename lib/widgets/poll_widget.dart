@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/feed_service.dart';
 
 // ==========================================
@@ -110,14 +110,11 @@ class _PollWidgetState extends State<PollWidget> {
   }
 
   Future<void> _onVotePressed(String selectedId) async {
-    print(
-      "DEBUG: _onVotePressed id=$selectedId. isActive=${_data.isActive}, isLoading=$_isLoading",
-    );
+    // print("DEBUG: Vote pressed");
     if (_isLoading || !_data.isActive) return;
 
     final previous = _data;
     final previousVote = _data.userVote;
-    print("DEBUG: previousVote=$previousVote");
 
     setState(() {
       _isLoading = true;
@@ -127,17 +124,13 @@ class _PollWidgetState extends State<PollWidget> {
           final newCount = previousVote == selectedId
               ? opt.voteCount - 1
               : opt.voteCount + 1;
-          print(
-            "DEBUG: Updating Option ${opt.id}: ${opt.voteCount} -> $newCount",
-          );
+          // print("DEBUG: Updating Option");
           return opt.copyWith(voteCount: newCount);
         }
 
         if (opt.id == previousVote) {
           final newCount = opt.voteCount - 1;
-          print(
-            "DEBUG: Decrementing Prev Option ${opt.id}: ${opt.voteCount} -> $newCount",
-          );
+          // print("DEBUG: Decrementing");
           return opt.copyWith(voteCount: newCount);
         }
 
@@ -148,26 +141,20 @@ class _PollWidgetState extends State<PollWidget> {
         options: updatedOptions,
         userVote: previousVote == selectedId ? null : selectedId,
       );
-      print(
-        "DEBUG: Optimistic State: userVote=${_data.userVote}, totalVotes=${_data.totalVotes}",
-      );
+      // print("DEBUG: Optimistic State");
     });
 
     try {
       if (previousVote == selectedId) {
-        print("DEBUG: calling DELETE API");
         await FeedApi.removePollVote(widget.postId);
       } else {
-        print("DEBUG: calling POST API");
         await FeedApi.votePoll(widget.postId, selectedId);
       }
 
-      print("DEBUG: fetching fresh POll");
       final postData = await FeedApi.fetchSinglePost(widget.postId);
 
       if (mounted && postData != null) {
         if (postData["poll"] != null) {
-          print("DEBUG: New Poll Data: ${postData["poll"]}");
           setState(() {
             _data = PollModel.fromJson(postData["poll"]);
           });
@@ -175,7 +162,6 @@ class _PollWidgetState extends State<PollWidget> {
         }
       }
     } catch (e) {
-      print("DEBUG: Error $e");
       if (mounted) setState(() => _data = previous);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -186,7 +172,7 @@ class _PollWidgetState extends State<PollWidget> {
   Widget build(BuildContext context) {
     // Current Theme Data
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    // final colorScheme = theme.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -235,11 +221,7 @@ class _PollWidgetState extends State<PollWidget> {
     // If voted, valid results are shown.
     // If selected, use primary color for highlight.
     // Progress Bar color: Light primary or subtle surface variant
-    final progressColor = isSelected
-        ? colorScheme.primary.withValues(alpha: 0.15)
-        : colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ); // Fallback for visibility
+    // final progressColor removed
 
     // Border Color: Primary if selected, otherwise subtle outline
     final borderColor = isSelected ? colorScheme.primary : theme.dividerColor;
@@ -254,7 +236,7 @@ class _PollWidgetState extends State<PollWidget> {
             height: 48,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: theme.cardColor.withOpacity(0.5),
+              color: theme.cardColor.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: borderColor,
@@ -277,8 +259,8 @@ class _PollWidgetState extends State<PollWidget> {
                       width: constraints.maxWidth * value,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.primary.withOpacity(0.15)
-                            : theme.dividerColor.withOpacity(0.1),
+                            ? colorScheme.primary.withValues(alpha: 0.15)
+                            : theme.dividerColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     );

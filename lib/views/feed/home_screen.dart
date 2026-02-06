@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For Clipboard
+// For Clipboard
 import 'dart:async';
-import 'dart:convert';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
@@ -11,17 +10,11 @@ import '../../main.dart'; // To access routeObserver
 import '../bottom_navigation.dart';
 import '../../services/notification_service.dart';
 import 'widgets/edit_post_modal.dart';
-import 'widgets/share_sheet.dart';
 import 'widgets/post_card.dart';
-import '../../models/search_user.dart';
-import '../../services/user_search_service.dart';
-import '../../services/secure_storage.dart';
+
 import '../story/story_tray.dart';
-import '../profile/public_profile_screen.dart';
 import '../../widgets/app_top_bar.dart';
-import '../../widgets/poll_widget.dart';
 import 'search_screen.dart';
-import '../profile/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,20 +36,6 @@ class _HomeScreenState extends State<HomeScreen>
   String? cursorPostId;
 
   final ScrollController _scrollController = ScrollController();
-
-  // =========================
-  // 🔍 SEARCH STATE
-  // =========================
-  late TextEditingController _searchController;
-  late FocusNode _searchFocusNode;
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
-
-  List<SearchUser> _searchResults = [];
-  bool _isSearching = false;
-  bool _hasError = false;
-  String _lastQuery = "";
-  Timer? _debounce;
 
   // =========================
   // 🔁 INIT
@@ -236,6 +215,8 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => EditPostModal(post: feedPosts[postIndex]),
     );
+
+    if (!mounted) return;
 
     if (result == true) {
       _refreshPost(feedPosts[postIndex]);

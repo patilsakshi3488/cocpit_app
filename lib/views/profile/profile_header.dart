@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../config/api_config.dart';
 
 class ProfileHeader extends StatelessWidget {
@@ -76,7 +76,7 @@ class ProfileHeader extends StatelessWidget {
     //   children: [
     //     Container(
     //       width: double.infinity,
-    //       color: Colors.white, // ✅ correct
+    //       color: Colors.white, // âœ… correct
     //       child: Container(
     //         height: 40,
     //         alignment: Alignment.centerLeft,
@@ -130,7 +130,7 @@ class ProfileHeader extends StatelessWidget {
     //                       height: 40,
     //                       width: 40,
     //                       decoration: BoxDecoration(
-    //                         color: Colors.black.withOpacity(0.5),
+    //                         color: Colors.black.withValues(alpha: 0.5),
     //                         shape: BoxShape.circle,
     //                       ),                          child: IconButton(
     //                         icon: Icon(
@@ -153,7 +153,7 @@ class ProfileHeader extends StatelessWidget {
     //                       child: Container(
     //                         padding: const EdgeInsets.all(8),
     //                         decoration: BoxDecoration(
-    //                           color: Colors.black.withOpacity(0.5),
+    //                           color: Colors.black.withValues(alpha: 0.5),
     //                           shape: BoxShape.circle,
     //                         ),
     //                         child: const Icon(
@@ -216,11 +216,11 @@ class ProfileHeader extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        /// 🔹 BACKGROUND STRIP (theme aware)
+        /// ðŸ”¹ BACKGROUND STRIP (theme aware)
         // Container(
         //   width: double.infinity,
         //   height: 200, // must cover cover image height
-        //   color: Colors.black, // ✅ theme safe
+        //   color: Colors.black, // âœ… theme safe
         // ),
 
         /// ================= COVER PHOTO =================
@@ -236,7 +236,7 @@ class ProfileHeader extends StatelessWidget {
                     ? LinearGradient(
                   colors: [
                     theme.primaryColor,
-                    theme.primaryColor.withOpacity(0.7),
+                    theme.primaryColor.withValues(alpha: 0.7),
                   ],
                 )
                     : null,
@@ -251,7 +251,7 @@ class ProfileHeader extends StatelessWidget {
               child: SafeArea(
                 child: Stack(
                   children: [
-                    /// ☰ MENU
+                    /// â˜° MENU
                     if (!isReadOnly)
                                       Align(
                                         alignment: Alignment.topRight,
@@ -261,10 +261,10 @@ class ProfileHeader extends StatelessWidget {
                                           height: 40,
                                           width: 40,
                                           decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.5),
+                                            color: Colors.black.withValues(alpha: 0.5),
                                             shape: BoxShape.circle,
                                           ),                          child: IconButton(
-                                            icon: Icon(
+                                            icon: const Icon(
                                               Icons.menu,
                                               color: Colors.white,
                                               size: 20,
@@ -284,7 +284,7 @@ class ProfileHeader extends StatelessWidget {
                                           child: Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(0.5),
+                                              color: Colors.black.withValues(alpha: 0.5),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
@@ -313,7 +313,7 @@ class ProfileHeader extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: theme.scaffoldBackgroundColor, // ✅ blends perfectly
+                  color: theme.scaffoldBackgroundColor, // âœ… blends perfectly
                   shape: BoxShape.circle,
                 ),
                 child: CircleAvatar(
@@ -339,3 +339,4 @@ class ProfileHeader extends StatelessWidget {
 
   }
 }
+

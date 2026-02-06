@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import '../bottom_navigation.dart';
 // import '../../widgets/app_top_bar.dart'; // Removed
@@ -9,7 +9,6 @@ import '../../services/presence_service.dart'; // Import PresenceService
 import '../../services/secure_storage.dart'; // Helpful for user ID
 import '../../widgets/time_ago_widget.dart';
 import '../profile/public_profile_screen.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'widgets/shared_post_preview.dart';
@@ -53,7 +52,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _setupSocketListeners() {
-    // 📨 Listen for new messages globally to update the list
+    // ðŸ“¨ Listen for new messages globally to update the list
     _msgSub = _socketService.onNewMessage.listen((data) {
       if (!mounted) return;
       _handleNewMessage(data);
@@ -116,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint("📱 [ChatScreen] Resumed from background. Resyncing...");
+      debugPrint("ðŸ“± [ChatScreen] Resumed from background. Resyncing...");
       _loadConversations();
       ChatService().resync();
     } else if (state == AppLifecycleState.paused ||
@@ -136,7 +135,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       body: SafeArea(
         child: Column(
           children: [
-            // 🏷️ Custom Header & Search
+            // ðŸ·ï¸ Custom Header & Search
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: Column(
@@ -152,8 +151,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 16),
                   Container(
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withOpacity(
-                        0.3,
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.3,
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -315,7 +314,7 @@ class _ChatTile extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: color.withOpacity(0.2),
+                  backgroundColor: color.withValues(alpha: 0.2),
                   backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
                       ? NetworkImage(avatarUrl!)
                       : null,
@@ -383,7 +382,9 @@ class _ChatTile extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: theme.primaryColor.withOpacity(0.15),
+                                  color: theme.primaryColor.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -609,7 +610,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint("📱 [PersonalChat] Resumed. Resyncing data...");
+      debugPrint("ðŸ“± [PersonalChat] Resumed. Resyncing data...");
       _chatService.resync();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
@@ -651,14 +652,13 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                   await Clipboard.setData(
                     ClipboardData(text: msg['text_content'] ?? ''),
                   );
-                  if (mounted) {
+                  if (sheetContext.mounted) {
                     Navigator.pop(sheetContext);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copied to clipboard'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard')),
+                      );
+                    }
                   }
                 },
               ),
@@ -755,7 +755,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
         constraints: const BoxConstraints(maxHeight: 200, minWidth: 150),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withValues(alpha: 0.05),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -784,7 +784,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -843,8 +843,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isMe
-            ? Colors.black.withOpacity(0.1)
-            : theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+            ? Colors.black.withValues(alpha: 0.1)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border(
           left: BorderSide(
@@ -893,7 +893,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -905,7 +905,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
           Icon(
             Icons.reply,
             size: 16,
-            color: theme.primaryColor.withOpacity(0.7),
+            color: theme.primaryColor.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1006,7 +1006,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
         margin: const EdgeInsets.symmetric(vertical: 16),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: theme.dividerColor.withOpacity(0.1),
+          color: theme.dividerColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -1156,7 +1156,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                reverse: false, // 🛑 Standard Top-Down
+                reverse: false, // ðŸ›‘ Standard Top-Down
                 // +1 for loader at Top (Index 0) if hasMore
                 itemCount: _messages.length + (_chatService.hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
@@ -1307,8 +1307,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                         height: 12,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: theme.primaryColor.withOpacity(
-                                            0.5,
+                                          color: theme.primaryColor.withValues(
+                                            alpha: 0.5,
                                           ),
                                         ),
                                       ),
@@ -1353,10 +1353,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                         : null,
                                     color: isMe
                                         ? (msg['status'] == 'failed'
-                                              ? Colors.red.withOpacity(0.1)
+                                              ? Colors.red.withValues(
+                                                  alpha: 0.1,
+                                                )
                                               : (msg['status'] == 'sending'
                                                     ? theme.primaryColor
-                                                          .withOpacity(0.7)
+                                                          .withValues(
+                                                            alpha: 0.7,
+                                                          )
                                                     : null)) // Null because gradient is used
                                         : colorScheme.surfaceContainer,
                                     borderRadius: BorderRadius.only(
@@ -1376,7 +1380,9 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                     boxShadow: [
                                       if (!isMe)
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.05),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
                                           blurRadius: 2,
                                           offset: const Offset(0, 1),
                                         ),
@@ -1387,7 +1393,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                               : null)
                                         : Border.all(
                                             color: theme.dividerColor
-                                                .withOpacity(0.5),
+                                                .withValues(alpha: 0.5),
                                           ),
                                   ),
                                   child: Column(
@@ -1431,14 +1437,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                                             ? theme
                                                                   .colorScheme
                                                                   .onPrimary
-                                                                  .withOpacity(
-                                                                    0.7,
+                                                                  .withValues(
+                                                                    alpha: 0.7,
                                                                   )
                                                             : theme
                                                                   .colorScheme
                                                                   .onSurface
-                                                                  .withOpacity(
-                                                                    0.5,
+                                                                  .withValues(
+                                                                    alpha: 0.5,
                                                                   ),
                                                       ),
                                                     ),
@@ -1458,8 +1464,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                                                 null
                                                             ? Colors.blueAccent
                                                             : Colors.white
-                                                                  .withOpacity(
-                                                                    0.8,
+                                                                  .withValues(
+                                                                    alpha: 0.8,
                                                                   ),
                                                       ),
                                                     ],
@@ -1510,14 +1516,15 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                                                 : theme
                                                                       .colorScheme
                                                                       .onPrimary
-                                                                      .withOpacity(
-                                                                        0.7,
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.7,
                                                                       ))
                                                           : theme
                                                                 .colorScheme
                                                                 .onSurface
-                                                                .withOpacity(
-                                                                  0.5,
+                                                                .withValues(
+                                                                  alpha: 0.5,
                                                                 ),
                                                     ),
                                                   ),
@@ -1536,8 +1543,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                                                           msg['read_at'] != null
                                                           ? Colors.blueAccent
                                                           : Colors.white
-                                                                .withOpacity(
-                                                                  0.8,
+                                                                .withValues(
+                                                                  alpha: 0.8,
                                                                 ),
                                                     ),
                                                   ],
@@ -1569,7 +1576,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
               color: theme.scaffoldBackgroundColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -1581,7 +1588,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                   IconButton(
                     icon: Icon(
                       Icons.add_circle,
-                      color: theme.primaryColor.withOpacity(0.8),
+                      color: theme.primaryColor.withValues(alpha: 0.8),
                       size: 28,
                     ),
                     onPressed: _pickMedia,
@@ -1592,10 +1599,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerHighest
-                            .withOpacity(0.2),
+                            .withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(28),
                         border: Border.all(
-                          color: theme.dividerColor.withOpacity(0.1),
+                          color: theme.dividerColor.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Material(
@@ -1612,7 +1619,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                             hintText: "Type a message...",
                             hintStyle: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant
-                                  .withOpacity(0.5),
+                                  .withValues(alpha: 0.5),
                             ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
@@ -1634,7 +1641,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: theme.primaryColor.withOpacity(0.3),
+                            color: theme.primaryColor.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),

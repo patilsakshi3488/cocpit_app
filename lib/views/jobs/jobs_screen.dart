@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -21,7 +20,8 @@ class JobsScreen extends StatefulWidget {
 
 class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers
-  int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
+  int subTab =
+      0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
   bool _isAdmin = false;
 
   Map<String, dynamic> _currentFilters = {};
@@ -40,10 +40,11 @@ class _JobsScreenState extends State<JobsScreen> {
 
       if (currentUserJson != null) {
         final Map<String, dynamic> user = jsonDecode(currentUserJson);
-        debugPrint("user : "+user.toString());
+        debugPrint("user : $user");
 
-        final accountType = user['profile']?['accountType'] ?? user['account_type'];
-        debugPrint("account type of user : "+accountType);
+        final accountType =
+            user['profile']?['accountType'] ?? user['account_type'];
+        debugPrint("account type of user : " + accountType);
         if (accountType != null &&
             accountType.toString().toLowerCase() == 'admin') {
           setState(() {
@@ -62,14 +63,14 @@ class _JobsScreenState extends State<JobsScreen> {
       provider.fetchJobs();
     } else if (mainTab == 1) {
       if (subTab == 0 || subTab == 1 || subTab == 2) {
-         // All these are applications with different statuses
-         // API supports filtering by status, but for simplicity we fetch all apps and filter locally if needed
-         // or specific statuses.
-         String? status;
-         if (subTab == 0) status = "in progress";
-         if (subTab == 1) status = "applied";
-         if (subTab == 2) status = "in past";
-         provider.fetchMyApplications(status: status);
+        // All these are applications with different statuses
+        // API supports filtering by status, but for simplicity we fetch all apps and filter locally if needed
+        // or specific statuses.
+        String? status;
+        if (subTab == 0) status = "in progress";
+        if (subTab == 1) status = "applied";
+        if (subTab == 2) status = "in past";
+        provider.fetchMyApplications(status: status);
       } else if (subTab == 3) {
         provider.fetchMySavedJobs();
       } else if (subTab == 4) {
@@ -114,9 +115,10 @@ class _JobsScreenState extends State<JobsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTap: ()  {  debugPrint("POST JOB HEADER TAPPED");
+        onTap: () {
+          debugPrint("POST JOB HEADER TAPPED");
           _showPostJobModal(context);
-          },
+        },
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -148,7 +150,6 @@ class _JobsScreenState extends State<JobsScreen> {
                         fontWeight: FontWeight.bold,
                         color: theme.primaryColor,
                       ),
-
                     ),
                     Text(
                       "Find the right talent for your team",
@@ -169,8 +170,6 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-
-
   Widget _tabs(ThemeData theme, JobProvider provider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
@@ -183,7 +182,14 @@ class _JobsScreenState extends State<JobsScreen> {
               children: [
                 _tabPill(theme, "View Jobs", 0),
                 _tabPill(theme, "My Jobs", 1),
-                _tabPill(theme, "Offers", 2, badge: provider.jobOffers.length > 0 ? "${provider.jobOffers.length}" : null),
+                _tabPill(
+                  theme,
+                  "Offers",
+                  2,
+                  badge: provider.jobOffers.isNotEmpty
+                      ? "${provider.jobOffers.length}"
+                      : null,
+                ),
               ],
             ),
           ),
@@ -324,9 +330,9 @@ class _JobsScreenState extends State<JobsScreen> {
     }
 
     if (isLoading) {
-       return const SliverFillRemaining(
-         child: Center(child: CircularProgressIndicator()),
-       );
+      return const SliverFillRemaining(
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (list.isEmpty) {
@@ -337,8 +343,12 @@ class _JobsScreenState extends State<JobsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) =>
-              _jobCard(theme, list[index], provider, isHiringView: isHiringView),
+          (context, index) => _jobCard(
+            theme,
+            list[index],
+            provider,
+            isHiringView: isHiringView,
+          ),
           childCount: list.length,
         ),
       ),
@@ -369,7 +379,10 @@ class _JobsScreenState extends State<JobsScreen> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () {
-                  Provider.of<JobProvider>(context, listen: false).fetchJobs(); // Fetch all
+                  Provider.of<JobProvider>(
+                    context,
+                    listen: false,
+                  ).fetchJobs(); // Fetch all
                 },
                 child: Text(
                   "Clear filters",
@@ -411,8 +424,8 @@ class _JobsScreenState extends State<JobsScreen> {
                 height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                   color: theme.primaryColor.withValues(alpha: 0.1),
-                   shape: BoxShape.circle,
+                  color: theme.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
                 child: Text(
                   job.initials,
@@ -483,7 +496,9 @@ class _JobsScreenState extends State<JobsScreen> {
                             decoration: BoxDecoration(
                               // color: theme.primaryColor,
                               // shape: BoxShape.circle,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -508,12 +523,16 @@ class _JobsScreenState extends State<JobsScreen> {
                       ? theme.colorScheme.secondary
                       : theme.textTheme.bodySmall?.color,
                 ),
-                onPressed: () {
-                    provider.toggleSaveJob(job.id, isSaved).catchError((e) {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(content: Text("Error: $e")),
-                         );
-                    });
+                onPressed: () async {
+                  try {
+                    await provider.toggleSaveJob(job.id, isSaved);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                    }
+                  }
                 },
               ),
             ],
@@ -538,7 +557,6 @@ class _JobsScreenState extends State<JobsScreen> {
       ),
     );
   }
-
 
   Widget _infoRow(ThemeData theme, Job job) {
     return Wrap(
@@ -578,7 +596,10 @@ class _JobsScreenState extends State<JobsScreen> {
           children: [
             const Icon(Icons.circle, color: Colors.greenAccent, size: 8),
             const SizedBox(width: 10),
-            Text("Active", style: theme.textTheme.bodyMedium), // Or use job status if available
+            Text(
+              "Active",
+              style: theme.textTheme.bodyMedium,
+            ), // Or use job status if available
           ],
         ),
         // const SizedBox(height: 8),
@@ -589,7 +610,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _actionButtons(ThemeData theme, Job job) {
     if (job.hasApplied) {
-       return Row(
+      return Row(
         children: [
           Expanded(child: _detailsBtn(theme, job)),
           const SizedBox(width: 16),
@@ -617,7 +638,7 @@ class _JobsScreenState extends State<JobsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: BorderSide(color: theme.dividerColor),
               shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
             child: Text(
@@ -654,11 +675,7 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  Widget _detailsBtn(
-    ThemeData theme,
-    Job job, {
-    bool fullWidth = false,
-  }) {
+  Widget _detailsBtn(ThemeData theme, Job job, {bool fullWidth = false}) {
     var btn = OutlinedButton(
       onPressed: () => _showJobDetails(context, job),
       style: OutlinedButton.styleFrom(
@@ -699,7 +716,8 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _quickApplyBtn(ThemeData theme, Job job) {
     return ElevatedButton(
-      onPressed: () => _showJobDetails(context, job), // Redirect to details to apply
+      onPressed: () =>
+          _showJobDetails(context, job), // Redirect to details to apply
       style: ElevatedButton.styleFrom(
         backgroundColor: theme.primaryColor,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -736,25 +754,32 @@ class _JobsScreenState extends State<JobsScreen> {
         onApply: (filters) {
           setState(() => _currentFilters = filters);
           Provider.of<JobProvider>(context, listen: false).fetchJobs(
-            easyApply: filters['easyApply']!= true ?filters['easyApply']:null,
-            activelyHiring: filters['activelyHiring']!= true ?filters['activeHiring']:null,
-            location: filters['location'] != null && filters['location'].toString().isNotEmpty
+            easyApply: filters['easyApply'] != true
+                ? filters['easyApply']
+                : null,
+            activelyHiring: filters['activelyHiring'] != true
+                ? filters['activeHiring']
+                : null,
+            location:
+                filters['location'] != null &&
+                    filters['location'].toString().isNotEmpty
                 ? filters['location']
                 : null,
             workMode: filters['workMode'],
-            experienceLevel:
-            filters['expLevel'] != 'All Levels' ? filters['expLevel'] : null,
-            jobType:
-            filters['jobType'] != 'Full-time' ? filters['jobType'] : null,
+            experienceLevel: filters['expLevel'] != 'All Levels'
+                ? filters['expLevel']
+                : null,
+            jobType: filters['jobType'] != 'Full-time'
+                ? filters['jobType']
+                : null,
             companyType: filters['companyType'],
             industry: filters['industryType'],
             minSalary:
-            (filters['salaryRange'] as RangeValues).start.round() * 1000,
+                (filters['salaryRange'] as RangeValues).start.round() * 1000,
             maxSalary:
-            (filters['salaryRange'] as RangeValues).end.round() * 1000,
+                (filters['salaryRange'] as RangeValues).end.round() * 1000,
           );
         },
-
       ),
     );
   }
@@ -768,10 +793,10 @@ class _JobsScreenState extends State<JobsScreen> {
       builder: (context) => _SearchModal(
         theme: theme,
         onSearch: (keywords, location) {
-           Provider.of<JobProvider>(context, listen: false).fetchJobs(
-             title: keywords,
-             location: location,
-           );
+          Provider.of<JobProvider>(
+            context,
+            listen: false,
+          ).fetchJobs(title: keywords, location: location);
         },
       ),
     );
@@ -841,7 +866,9 @@ class _JobsScreenState extends State<JobsScreen> {
             if (!context.mounted) return;
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+              SnackBar(
+                content: Text(e.toString().replaceFirst('Exception: ', '')),
+              ),
             );
           }
         },
@@ -849,20 +876,19 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-
   void _showAnalyticsModal(BuildContext context, Job job) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => JobApplicantsScreen(
-      jobId: job.id,
-      jobTitle: job.title,
-    )));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => JobApplicantsScreen(jobId: job.id, jobTitle: job.title),
+      ),
+    );
   }
 
   void _showJobDetails(BuildContext context, Job job) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => JobDetailsScreen(job: job),
-      ),
+      MaterialPageRoute(builder: (_) => JobDetailsScreen(job: job)),
     );
   }
 }
@@ -871,7 +897,11 @@ class _FilterModal extends StatefulWidget {
   final ThemeData theme;
   final Map<String, dynamic>? initialFilters;
   final Function(Map<String, dynamic>) onApply;
-  const _FilterModal({required this.theme, this.initialFilters, required this.onApply});
+  const _FilterModal({
+    required this.theme,
+    this.initialFilters,
+    required this.onApply,
+  });
 
   @override
   State<_FilterModal> createState() => _FilterModalState();
@@ -881,12 +911,12 @@ class _FilterModalState extends State<_FilterModal> {
   bool easyApply = true;
   bool activelyHiring = true;
   String experienceLevel = "All Levels";
-  String location ="";
-  String workMode="";
+  String location = "";
+  String workMode = "";
   String jobType = "";
   String companyType = "";
   String industryType = "";
-  List<Skill> Skills=[];
+  List<Skill> Skills = [];
   RangeValues salaryRange = const RangeValues(50, 500);
 
   late TextEditingController _locationController;
@@ -1081,46 +1111,65 @@ class _FilterModalState extends State<_FilterModal> {
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Work Mode",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["Onsite", "Remote", "Hybrid"].map((e) => _choiceChip(
-                      e,
-                      workMode == e,
-                          (s) => setState(() => workMode = e),
-                    )).toList(),
+                    children: ["Onsite", "Remote", "Hybrid"]
+                        .map(
+                          (e) => _choiceChip(
+                            e,
+                            workMode == e,
+                            (s) => setState(() => workMode = e),
+                          ),
+                        )
+                        .toList(),
                   ),
 
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Company Type",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["MNC", "Startup", "Government", "NGO"].map((e) => _choiceChip(
-                      e,
-                      companyType == e,
-                          (s) => setState(() => companyType = e),
-                    )).toList(),
+                    children: ["MNC", "Startup", "Government", "NGO"]
+                        .map(
+                          (e) => _choiceChip(
+                            e,
+                            companyType == e,
+                            (s) => setState(() => companyType = e),
+                          ),
+                        )
+                        .toList(),
                   ),
 
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Industry",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["Technology", "Finance", "Healthcare", "Education"].map((e) => _choiceChip(
-                      e,
-                      industryType == e,
-                          (s) => setState(() => industryType = e),
-                    )).toList(),
+                    children:
+                        ["Technology", "Finance", "Healthcare", "Education"]
+                            .map(
+                              (e) => _choiceChip(
+                                e,
+                                industryType == e,
+                                (s) => setState(() => industryType = e),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ],
               ),
@@ -1129,7 +1178,6 @@ class _FilterModalState extends State<_FilterModal> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: ElevatedButton(
-
               onPressed: () {
                 widget.onApply({
                   'easyApply': easyApply,
@@ -1447,31 +1495,16 @@ class _PostJobModalState extends State<_PostJobModal> {
                   _inputLabel("Work Mode *"),
                   _dropdown(
                     workMode,
-                    [
-                      "Onsite",
-                      "Hybrid",
-                      "Remote",
-                    ],
+                    ["Onsite", "Hybrid", "Remote"],
                     (v) => setState(() => workMode = v!),
                     errorText: _workModeError,
                   ),
                   _inputLabel("Salary Range"),
                   Row(
                     children: [
-                      Expanded(
-                        child: _textField(
-                          minSalaryController,
-                          "Min",
-                        ),
-
-                      ),
+                      Expanded(child: _textField(minSalaryController, "Min")),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _textField(
-                          maxSalaryController,
-                          "Max",
-                        ),
-                      ),
+                      Expanded(child: _textField(maxSalaryController, "Max")),
                     ],
                   ),
                   if (_salaryError != null) ...[
@@ -1485,23 +1518,18 @@ class _PostJobModalState extends State<_PostJobModal> {
                     ),
                   ],
 
-
                   _inputLabel("Experience Level"),
-                  _dropdown(
-                    experienceLevel,
-                    ["Entry Level", "Mid Level", "Senior"],
-                        (v) => setState(() => experienceLevel = v!),
-                  ),
+                  _dropdown(experienceLevel, [
+                    "Entry Level",
+                    "Mid Level",
+                    "Senior",
+                  ], (v) => setState(() => experienceLevel = v!)),
 
                   if (experienceLevel != "Entry Level") ...[
                     const SizedBox(height: 12),
                     _inputLabel("Years of Experience"),
-                    _textField(
-                      experienceYearsController,
-                      "e.g. 3",
-                    ),
+                    _textField(experienceYearsController, "e.g. 3"),
                   ],
-
 
                   _inputLabel("Description"),
                   _textField(
@@ -1543,7 +1571,9 @@ class _PostJobModalState extends State<_PostJobModal> {
                   _inputLabel("Industry"),
                   Wrap(
                     spacing: 10,
-                    children: ["Technology", "Healthcare", "Finance"].map((type) {
+                    children: ["Technology", "Healthcare", "Finance"].map((
+                      type,
+                    ) {
                       final selected = industryType == type;
                       return ChoiceChip(
                         label: Text(type),
@@ -1605,70 +1635,97 @@ class _PostJobModalState extends State<_PostJobModal> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _isPosting ? null : () {
-                            // Validation
-                            bool isValid = true;
-                            setState(() {
-                              _titleError = titleController.text.isEmpty ? "Title is required" : null;
-                              _companyError = companyController.text.isEmpty ? "Company is required" : null;
-                              _locationError = locationController.text.isEmpty ? "Location is required" : null;
-                              _empTypeError = empType.isEmpty ? "Employment Type is required" : null;
-                              _workModeError = workMode.isEmpty ? "Work Mode is required" : null;
-                              final min = int.tryParse(minSalaryController.text);
-                              final max = int.tryParse(maxSalaryController.text);
+                          onPressed: _isPosting
+                              ? null
+                              : () {
+                                  // Validation
+                                  bool isValid = true;
+                                  setState(() {
+                                    _titleError = titleController.text.isEmpty
+                                        ? "Title is required"
+                                        : null;
+                                    _companyError =
+                                        companyController.text.isEmpty
+                                        ? "Company is required"
+                                        : null;
+                                    _locationError =
+                                        locationController.text.isEmpty
+                                        ? "Location is required"
+                                        : null;
+                                    _empTypeError = empType.isEmpty
+                                        ? "Employment Type is required"
+                                        : null;
+                                    _workModeError = workMode.isEmpty
+                                        ? "Work Mode is required"
+                                        : null;
+                                    final min = int.tryParse(
+                                      minSalaryController.text,
+                                    );
+                                    final max = int.tryParse(
+                                      maxSalaryController.text,
+                                    );
 
-                              if (min == null || max == null) {
-                                _salaryError = "Salary Range is required";
-                              } else{
-                              if (min > max) {
-                                _salaryError = "Minimum salary cannot be greater than maximum salary";
-                              } else {
-                                _salaryError = null;
-                              }
-                              }
-                            });
+                                    if (min == null || max == null) {
+                                      _salaryError = "Salary Range is required";
+                                    } else {
+                                      if (min > max) {
+                                        _salaryError =
+                                            "Minimum salary cannot be greater than maximum salary";
+                                      } else {
+                                        _salaryError = null;
+                                      }
+                                    }
+                                  });
 
-                            if (_titleError != null ||
-                                _companyError != null ||
-                                _locationError != null ||
-                                _empTypeError != null ||
-                                _workModeError != null ||
-                                _salaryError != null) {
-                              return;
-                            }
+                                  if (_titleError != null ||
+                                      _companyError != null ||
+                                      _locationError != null ||
+                                      _empTypeError != null ||
+                                      _workModeError != null ||
+                                      _salaryError != null) {
+                                    return;
+                                  }
 
+                                  setState(() => _isPosting = true);
 
-                            setState(() => _isPosting = true);
+                                  // Simple parsing of salary for now
+                                  int minSal = 0;
+                                  int maxSal = 0;
+                                  try {
+                                    minSal = int.parse(
+                                      minSalaryController.text,
+                                    );
+                                    maxSal = int.parse(
+                                      maxSalaryController.text,
+                                    ); // Simplification
+                                  } catch (_) {}
 
-                            // Simple parsing of salary for now
-                            int minSal = 0;
-                            int maxSal = 0;
-                            try {
-                              minSal = int.parse(minSalaryController.text);
-                              maxSal = int.parse(maxSalaryController.text); // Simplification
-                            } catch (_) {}
+                                  final newJob = {
+                                    'title': titleController.text,
+                                    'company_name': companyController.text,
+                                    'location': locationController.text,
+                                    'description': descriptionController.text,
+                                    'minSalary': minSal,
+                                    'maxSalary': maxSal,
+                                    'job_type': empType,
+                                    'work_mode': workMode,
+                                    'company_type': companyType, // Default
+                                    'experience_level':
+                                        experienceLevel, // Default
+                                    'about_company':
+                                        aboutCompanyController.text,
+                                    'industry': industryType, // Default
+                                    'easy_apply': enableEasyApply,
+                                    'actively_hiring': activelyHiring,
+                                    'skills': skillsController.text
+                                        .split(',')
+                                        .map((e) => e.trim())
+                                        .toList(),
+                                  };
 
-                            final newJob = {
-                              'title': titleController.text,
-                              'company_name': companyController.text,
-                              'location': locationController.text,
-                              'description': descriptionController.text,
-                              'minSalary': minSal,
-                              'maxSalary': maxSal,
-                              'job_type': empType,
-                              'work_mode': workMode,
-                              'company_type': companyType, // Default
-                              'experience_level': experienceLevel, // Default
-                              'about_company': aboutCompanyController.text,
-                              'industry': industryType, // Default
-                              'easy_apply': enableEasyApply,
-                              'actively_hiring': activelyHiring,
-                              'skills': skillsController.text.split(',').map((e) => e.trim()).toList(),
-                            };
-
-                            widget.onJobPosted(newJob);
-                            // Navigator.pop handled in callback
-                          },
+                                  widget.onJobPosted(newJob);
+                                  // Navigator.pop handled in callback
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: widget.theme.primaryColor,
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1677,23 +1734,22 @@ class _PostJobModalState extends State<_PostJobModal> {
                             ),
                           ),
                           child: _isPosting
-                            ? SizedBox(
-    height: 20,
-    width: 20,
-    child: CircularProgressIndicator(
-    // Use onPrimary so it contrasts with the primary button color
-    color: theme.colorScheme.onPrimary,
-    strokeWidth: 2,
-    ),
-    )
-
-                            : Text(
-                            "Post Job",
-                            style: TextStyle(
-                              color: widget.theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                              ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    // Use onPrimary so it contrasts with the primary button color
+                                    color: theme.colorScheme.onPrimary,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(
+                                  "Post Job",
+                                  style: TextStyle(
+                                    color: widget.theme.colorScheme.onPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -1784,7 +1840,9 @@ class _PostJobModalState extends State<_PostJobModal> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: widget.theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
+            color: widget.theme.colorScheme.surfaceContainer.withValues(
+              alpha: 0.5,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: errorText != null ? Colors.red : widget.theme.dividerColor,

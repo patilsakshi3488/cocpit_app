@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../post_detail_screen.dart';
 import '../../profile/public_profile_screen.dart';
 
@@ -97,8 +97,8 @@ class SharedPostPreview extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
           decoration: BoxDecoration(
-            color: theme.cardColor.withOpacity(0.5),
-            border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+            color: theme.cardColor.withValues(alpha: 0.5),
+            border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
           ),
           child: Center(
             child: Column(
@@ -107,7 +107,7 @@ class SharedPostPreview extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -145,7 +145,7 @@ class SharedPostPreview extends StatelessWidget {
                       : "This content is no longer available.",
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 11,
                     height: 1.4,
                   ),
@@ -162,14 +162,14 @@ class SharedPostPreview extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: BoxDecoration(
-          color: theme.cardColor.withOpacity(0.3),
-          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+          color: theme.cardColor.withValues(alpha: 0.3),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1️⃣ HEADER: Author Info (Target: Profile)
+            // 1ï¸âƒ£ HEADER: Author Info (Target: Profile)
             InkWell(
               onTap: () {
                 if (authorId != null && authorId.isNotEmpty) {
@@ -190,7 +190,7 @@ class SharedPostPreview extends StatelessWidget {
                       backgroundImage: authorAvatar != null
                           ? NetworkImage(authorAvatar)
                           : null,
-                      backgroundColor: theme.primaryColor.withOpacity(0.1),
+                      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                       child: authorAvatar == null
                           ? Text(
                               authorName.isNotEmpty ? authorName[0] : '?',
@@ -211,10 +211,10 @@ class SharedPostPreview extends StatelessWidget {
                               ),
                             ),
                             TextSpan(
-                              text: " · Reposted",
+                              text: " Â· Reposted",
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.textTheme.bodySmall?.color
-                                    ?.withOpacity(0.5),
+                                    ?.withValues(alpha: 0.5),
                                 fontSize: 11,
                               ),
                             ),
@@ -229,7 +229,7 @@ class SharedPostPreview extends StatelessWidget {
               ),
             ),
 
-            // 2️⃣ BODY: Media & Caption (Target: Post Detail)
+            // 2ï¸âƒ£ BODY: Media & Caption (Target: Post Detail)
             InkWell(
               onTap: () {
                 // Ensure we have a valid post ID or payload
@@ -266,7 +266,7 @@ class SharedPostPreview extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -285,10 +285,10 @@ class SharedPostPreview extends StatelessWidget {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                         ),
                       ),
                       child: const Center(
@@ -329,15 +329,15 @@ class SharedPostPreview extends StatelessWidget {
               ),
             ),
 
-            // 3️⃣ FOOTER / MESSAGE (Optional message sent with post)
+            // 3ï¸âƒ£ FOOTER / MESSAGE (Optional message sent with post)
             if (messageText != null && messageText!.isNotEmpty)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: Colors.white.withOpacity(0.05)),
+                    top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
                   ),
-                  color: Colors.white.withOpacity(0.01),
+                  color: Colors.white.withValues(alpha: 0.01),
                 ),
                 child: Text(
                   messageText!,
@@ -348,7 +348,7 @@ class SharedPostPreview extends StatelessWidget {
                 ),
               ),
 
-            // 4️⃣ VIEW DETAILS CTA
+            // 4ï¸âƒ£ VIEW DETAILS CTA
             InkWell(
               onTap: () {
                 Navigator.push(
@@ -364,9 +364,9 @@ class SharedPostPreview extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.02),
+                  color: Colors.white.withValues(alpha: 0.02),
                   border: Border(
-                    top: BorderSide(color: Colors.white.withOpacity(0.05)),
+                    top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                 ),
                 child: Row(
@@ -396,3 +396,4 @@ class SharedPostPreview extends StatelessWidget {
     );
   }
 }
+

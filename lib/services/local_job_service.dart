@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cocpit_app/services/secure_storage.dart';
 
@@ -19,7 +19,6 @@ class LocalJobService {
         final Map<String, dynamic> user = jsonDecode(userJson);
         userId = user['_id'] ?? user['id'] ?? "guest";
       } catch (e) {
-        print("Error parsing user for key: $e");
       }
     }
     return "${userId}_$baseKey";

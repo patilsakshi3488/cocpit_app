@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class ProfilePostSummaryWidget extends StatelessWidget {
   final Map<String, dynamic> post;
@@ -51,15 +51,15 @@ class ProfilePostSummaryWidget extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isPoll
-              ? theme.primaryColor.withOpacity(0.1)
-              : theme.cardColor.withOpacity(0.5),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+              ? theme.primaryColor.withValues(alpha: 0.1)
+              : theme.cardColor.withValues(alpha: 0.5),
+          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
           image: bgImage != null
               ? DecorationImage(
                   image: NetworkImage(bgImage),
                   fit: BoxFit.cover,
                   colorFilter: ColorFilter.mode(
-                    Colors.black.withOpacity(0.3),
+                    Colors.black.withValues(alpha: 0.3),
                     BlendMode.darken,
                   ),
                 )
@@ -149,7 +149,7 @@ class ProfilePostSummaryWidget extends StatelessWidget {
                     Icons.more_horiz,
                     color: (bgImage != null || isPoll)
                         ? Colors.white
-                        : theme.iconTheme.color?.withOpacity(0.6),
+                        : theme.iconTheme.color?.withValues(alpha: 0.6),
                     size: 18,
                   ),
                   onSelected: (value) {
@@ -219,3 +219,4 @@ class ProfilePostSummaryWidget extends StatelessWidget {
     );
   }
 }
+

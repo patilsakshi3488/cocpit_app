@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'package:flutter/material.dart';
 
 class PollAnalyticsDialog extends StatefulWidget {
@@ -80,7 +80,7 @@ class _PollAnalyticsDialogState extends State<PollAnalyticsDialog>
                         options: widget.options,
                         totalVotes: _totalVotes,
                         progress: _animation.value,
-                        bgColor: theme.dividerColor.withOpacity(0.1),
+                        bgColor: theme.dividerColor.withValues(alpha: 0.1),
                       ),
                       child: Center(
                         child: Column(
@@ -151,7 +151,7 @@ class _PollAnalyticsDialogState extends State<PollAnalyticsDialog>
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: animatedPercent,
-                              backgroundColor: theme.dividerColor.withOpacity(
+                              backgroundColor: theme.dividerColor.withValues(alpha: 
                                 0.1,
                               ),
                               color: _getColor(index),
@@ -222,7 +222,7 @@ class _PieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = min(size.width / 2, size.height / 2);
-    final strokeWidth = 14.0;
+    const strokeWidth = 14.0;
 
     // Draw background circle
     final bgPaint = Paint()
@@ -279,3 +279,4 @@ class _PieChartPainter extends CustomPainter {
     return oldDelegate.progress != progress;
   }
 }
+

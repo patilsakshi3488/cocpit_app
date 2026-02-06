@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class TextEditorSheet extends StatefulWidget {
   final String? initialText;
@@ -75,12 +74,13 @@ class _TextEditorSheetState extends State<TextEditorSheet> {
 
   void _toggleAlign() {
     setState(() {
-      if (_align == TextAlign.left)
+      if (_align == TextAlign.left) {
         _align = TextAlign.center;
-      else if (_align == TextAlign.center)
+      } else if (_align == TextAlign.center) {
         _align = TextAlign.right;
-      else
+      } else {
         _align = TextAlign.left;
+      }
     });
   }
 

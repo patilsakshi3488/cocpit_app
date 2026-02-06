@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class DemographicsSection extends StatelessWidget {
   final Color primary;
@@ -58,7 +58,7 @@ class DemographicsSection extends StatelessWidget {
               children: [
                 Text(
                   item["label"] as String,
-                  style: TextStyle(color: textColor.withOpacity(0.7), fontSize: 14),
+                  style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 14),
                 ),
                 Text(
                   item["value"]?.toString() ?? "",
@@ -72,3 +72,4 @@ class DemographicsSection extends StatelessWidget {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/feed_service.dart';
@@ -183,7 +183,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      debugPrint("❌ Create Post Error: $e");
+      debugPrint("âŒ Create Post Error: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -195,7 +195,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   // =========================
-  // 🖥 UI BUILDERS
+  // ðŸ–¥ UI BUILDERS
   // =========================
 
   @override
@@ -301,17 +301,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User Info & Categories (Common)
-                  Row(
+                  const Row(
                     children: [
-                      const CircleAvatar(
+                      CircleAvatar(
                         backgroundImage: AssetImage("lib/images/profile.jpg"),
                         radius: 20,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             "You",
                             style: TextStyle(
                               color: Colors.white,
@@ -733,7 +733,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               children: [
                 const Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       backgroundImage: AssetImage("lib/images/profile.jpg"),
                       radius: 18,
                     ),
@@ -1125,7 +1125,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
@@ -1141,3 +1141,4 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Container(); // Deprecated helper, using _buildPollBody now
   }
 }
+

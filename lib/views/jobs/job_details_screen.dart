@@ -19,12 +19,18 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     final theme = Theme.of(context);
     final provider = Provider.of<JobProvider>(context);
     // Use the job from the list in provider if possible to get updates, otherwise widget.job
-    final job = provider.allJobs.firstWhere((j) => j.id == widget.job.id, orElse: () =>
-       provider.jobOffers.firstWhere((j) => j.id == widget.job.id, orElse: () =>
-         provider.myApplications.firstWhere((j) => j.id == widget.job.id, orElse: () =>
-           provider.mySavedJobs.firstWhere((j) => j.id == widget.job.id, orElse: () => widget.job)
-         )
-       )
+    final job = provider.allJobs.firstWhere(
+      (j) => j.id == widget.job.id,
+      orElse: () => provider.jobOffers.firstWhere(
+        (j) => j.id == widget.job.id,
+        orElse: () => provider.myApplications.firstWhere(
+          (j) => j.id == widget.job.id,
+          orElse: () => provider.mySavedJobs.firstWhere(
+            (j) => j.id == widget.job.id,
+            orElse: () => widget.job,
+          ),
+        ),
+      ),
     );
 
     bool isSaved = job.isSaved;
@@ -73,8 +79,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     height: 64,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                       color: theme.primaryColor.withValues(alpha: 0.1),
-                       shape: BoxShape.circle,
+                      color: theme.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
                     child: Text(
                       job.initials,
@@ -102,10 +108,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        job.companyName,
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                      Text(job.companyName, style: theme.textTheme.bodyLarge),
                       const SizedBox(width: 16),
                       Icon(
                         Icons.location_on_outlined,
@@ -113,10 +116,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        job.location,
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                      Text(job.location, style: theme.textTheme.bodyLarge),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -129,10 +129,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 16,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        job.postedTimeAgo,
-                        style: theme.textTheme.bodySmall,
-                      ),
+                      Text(job.postedTimeAgo, style: theme.textTheme.bodySmall),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -157,7 +154,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -204,15 +203,15 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                   const SizedBox(height: 16),
                   OutlinedButton(
                     onPressed: () async {
-                       try {
-                         await provider.toggleSaveJob(job.id, job.isSaved);
-                       } catch(e) {
-                         if(mounted) {
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             SnackBar(content: Text(e.toString())),
-                           );
-                         }
-                       }
+                      try {
+                        await provider.toggleSaveJob(job.id, job.isSaved);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(e.toString())));
+                        }
+                      }
                     },
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 56),
@@ -252,20 +251,12 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _section(
-              theme,
-              "About the Job",
-              job.description,
-            ),
+            _section(theme, "About the Job", job.description),
             if (job.aboutCompany.isNotEmpty) ...[
               const SizedBox(height: 24),
-              _section(
-                theme,
-                "About ${job.companyName}",
-                job.aboutCompany,
-              ),
+              _section(theme, "About ${job.companyName}", job.aboutCompany),
             ],
-             const SizedBox(height: 16),
+            const SizedBox(height: 16),
             _companyInfoRow(theme, "Industry", job.industry),
             _companyInfoRow(theme, "Type", job.companyType),
             _companyInfoRow(theme, "Experience", job.experienceLevel),
@@ -285,7 +276,12 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     );
   }
 
-  Widget _tag(ThemeData theme, String text, {bool isGreen = false, bool isBlue = false}) {
+  Widget _tag(
+    ThemeData theme,
+    String text, {
+    bool isGreen = false,
+    bool isBlue = false,
+  }) {
     Color bg = theme.dividerColor.withValues(alpha: 0.1);
     Color txt = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
@@ -305,11 +301,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: txt,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(color: txt, fontSize: 13, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -373,14 +365,11 @@ class _ApplyModalState extends State<_ApplyModal> {
   String? _phoneError;
   String? _resumeError;
 
-
   Future<void> _pickResume() async {
-    fp.FilePickerResult? result =
-    await fp.FilePicker.platform.pickFiles(
+    fp.FilePickerResult? result = await fp.FilePicker.platform.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx','jpeg','png','jpg'],
+      allowedExtensions: ['pdf', 'doc', 'docx', 'jpeg', 'png', 'jpg'],
     );
-
 
     if (result != null) {
       setState(() {
@@ -389,15 +378,25 @@ class _ApplyModalState extends State<_ApplyModal> {
       });
     }
   }
+
   bool _validateForm() {
     setState(() {
-      _fullNameError = _fullNameController.text.isEmpty ? "Name is required" : null;
-      _emailError = !_emailController.text.contains("@") ? "Enter a valid email" : null;
-      _phoneError = _phoneController.text.length < 10 ? "Enter a valid phone number" : null;
+      _fullNameError = _fullNameController.text.isEmpty
+          ? "Name is required"
+          : null;
+      _emailError = !_emailController.text.contains("@")
+          ? "Enter a valid email"
+          : null;
+      _phoneError = _phoneController.text.length < 10
+          ? "Enter a valid phone number"
+          : null;
       _resumeError = _resumeFile == null ? "Please upload your resume" : null;
     });
 
-    return _fullNameError == null && _emailError == null && _phoneError == null && _resumeError == null;
+    return _fullNameError == null &&
+        _emailError == null &&
+        _phoneError == null &&
+        _resumeError == null;
   }
 
   Future<void> _submitApplication() async {
@@ -424,14 +423,14 @@ class _ApplyModalState extends State<_ApplyModal> {
       if (mounted) {
         Navigator.pop(context); // Close modal
         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Application submitted successfully!")),
+          const SnackBar(content: Text("Application submitted successfully!")),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text("Failed to submit: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to submit: $e")));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -479,15 +478,30 @@ class _ApplyModalState extends State<_ApplyModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _inputLabel(theme, "Full Name"),
-                  _field(theme, _fullNameController, "John Doe", _fullNameError), // Added error var
+                  _field(
+                    theme,
+                    _fullNameController,
+                    "John Doe",
+                    _fullNameError,
+                  ), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Email"),
-                  _field(theme, _emailController, "john@example.com", _emailError), // Added error var
+                  _field(
+                    theme,
+                    _emailController,
+                    "john@example.com",
+                    _emailError,
+                  ), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Phone"),
-                  _field(theme, _phoneController, "+1 123 456 7890", _phoneError), // Added error var
+                  _field(
+                    theme,
+                    _phoneController,
+                    "+1 123 456 7890",
+                    _phoneError,
+                  ), // Added error var
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Resume"),
@@ -497,15 +511,23 @@ class _ApplyModalState extends State<_ApplyModal> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainer.withValues(alpha: 0.3),
+                        color: theme.colorScheme.surfaceContainer.withValues(
+                          alpha: 0.3,
+                        ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: theme.dividerColor),
                       ),
                       child: Column(
                         children: [
                           Icon(
-                            _resumeFile != null ? Icons.check_circle : Icons.upload_outlined,
-                            color: _resumeFile != null ? Colors.green : (_resumeError != null ? Colors.red : theme.textTheme.bodySmall?.color),
+                            _resumeFile != null
+                                ? Icons.check_circle
+                                : Icons.upload_outlined,
+                            color: _resumeFile != null
+                                ? Colors.green
+                                : (_resumeError != null
+                                      ? Colors.red
+                                      : theme.textTheme.bodySmall?.color),
                             size: 40,
                           ),
                           const SizedBox(height: 16),
@@ -534,7 +556,13 @@ class _ApplyModalState extends State<_ApplyModal> {
                   const SizedBox(height: 16),
 
                   _inputLabel(theme, "Cover Note (Optional)"),
-                  _field(theme, _coverNoteController, "Tell us why you're a good fit...",null, 4),
+                  _field(
+                    theme,
+                    _coverNoteController,
+                    "Tell us why you're a good fit...",
+                    null,
+                    4,
+                  ),
 
                   const SizedBox(height: 40),
 
@@ -550,15 +578,17 @@ class _ApplyModalState extends State<_ApplyModal> {
                         ),
                       ),
                       child: _isSubmitting
-                        ?  CircularProgressIndicator(color:theme.colorScheme.onPrimary,)
-                        : Text(
-                          "Submit Application",
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                          ? CircularProgressIndicator(
+                              color: theme.colorScheme.onPrimary,
+                            )
+                          : Text(
+                              "Submit Application",
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -583,7 +613,13 @@ class _ApplyModalState extends State<_ApplyModal> {
     );
   }
 
-  Widget _field(ThemeData theme, TextEditingController controller, String hint, [String? errorText,int maxLines = 1]) {
+  Widget _field(
+    ThemeData theme,
+    TextEditingController controller,
+    String hint, [
+    String? errorText,
+    int maxLines = 1,
+  ]) {
     return TextField(
       controller: controller,
       maxLines: maxLines,

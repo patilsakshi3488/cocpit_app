@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../services/feed_service.dart';
 import '../../widgets/time_ago_widget.dart';
 
@@ -53,8 +53,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
     try {
       await FeedApi.addComment(widget.postId, text);
 
-      debugPrint("✅ Comment API success");
-      // ✅ notify feed
+      debugPrint("âœ… Comment API success");
+      // âœ… notify feed
       widget.onCommentAdded?.call();
 
       // Refresh comments immediately after posting
@@ -67,7 +67,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
       _commentController.clear();
     } catch (e) {
-      debugPrint("❌ Comment failed: $e");
+      debugPrint("âŒ Comment failed: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -167,7 +167,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                       ),
                       filled: true,
                       fillColor: isDark
-                          ? Colors.white.withOpacity(0.05)
+                          ? Colors.white.withValues(alpha: 0.05)
                           : Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -257,3 +257,4 @@ class _CommentsSheetState extends State<CommentsSheet> {
     );
   }
 }
+

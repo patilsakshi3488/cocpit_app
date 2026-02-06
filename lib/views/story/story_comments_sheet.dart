@@ -85,9 +85,11 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
         widget.onCommentCountChanged?.call(_comments.length);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Failed to post comment")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to post comment")));
+      }
     }
   }
 
@@ -189,8 +191,8 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     // final colorScheme = theme.colorScheme;
 
     // Based on provided image design
-    final sheetBg = Color(0xFF1E1E2C);
-    final textColor = Colors.white;
+    const sheetBg = Color(0xFF1E1E2C);
+    const textColor = Colors.white;
 
     if (widget.embedInSheet) {
       return Column(
@@ -200,7 +202,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _comments.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       "No comments yet.",
                       style: TextStyle(
@@ -269,9 +271,9 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     }
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: sheetBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -332,7 +334,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _comments.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       "No comments yet.",
                       style: TextStyle(

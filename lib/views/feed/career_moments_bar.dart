@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'create_career_moment_screen.dart';
 import 'career_moment_viewer.dart';
 
@@ -44,7 +44,7 @@ class CareerMomentsBar extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
+                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
                             child: const Icon(Icons.add, color: Colors.white, size: 30),
                           ),
                           const SizedBox(height: 12),
@@ -72,3 +72,4 @@ class CareerMomentsBar extends StatelessWidget {
     );
   }
 }
+

@@ -57,15 +57,19 @@ class CloudinaryService {
     final ext = path.extension(file.path).toLowerCase();
 
     if (isVideo) {
-      if (length > _maxVideoBytes)
+      if (length > _maxVideoBytes) {
         throw Exception("Video size exceeds 50MB limit");
-      if (!_allowedVideoExts.contains(ext))
+      }
+      if (!_allowedVideoExts.contains(ext)) {
         throw Exception("Invalid video format. Allowed: $_allowedVideoExts");
+      }
     } else {
-      if (length > _maxImageBytes)
+      if (length > _maxImageBytes) {
         throw Exception("Image size exceeds 5MB limit");
-      if (!_allowedImageExts.contains(ext))
+      }
+      if (!_allowedImageExts.contains(ext)) {
         throw Exception("Invalid image format. Allowed: $_allowedImageExts");
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../widgets/app_top_bar.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/time_ago_widget.dart';
@@ -147,12 +147,12 @@ class _NotificationItem extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: unread
-              ? theme.primaryColor.withOpacity(0.05)
+              ? theme.primaryColor.withValues(alpha: 0.05)
               : theme.cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: unread
-                ? theme.primaryColor.withOpacity(0.2)
+                ? theme.primaryColor.withValues(alpha: 0.2)
                 : theme.dividerColor,
           ),
         ),
@@ -180,7 +180,7 @@ class _NotificationItem extends StatelessWidget {
                   : Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: iconColor.withOpacity(0.1),
+                        color: iconColor.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(icon, color: iconColor, size: 20),
@@ -232,3 +232,4 @@ class _NotificationItem extends StatelessWidget {
     );
   }
 }
+

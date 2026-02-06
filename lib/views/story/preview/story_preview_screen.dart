@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/cloudinary_service.dart';
 import 'package:cocpit_app/services/story_service.dart';
@@ -11,10 +11,10 @@ import 'package:screenshot/screenshot.dart';
 class StoryPreviewScreen extends StatefulWidget {
   final File storyFile;
   final bool isVideo;
-  final bool isSimple; // ✅ NEW: Skip editor logic
+  final bool isSimple; // âœ… NEW: Skip editor logic
   final Map<String, dynamic>? storyMetadata;
-  final List<TextLayer>? originalLayers; // ✅ Added for re-edit
-  final Color? originalBackgroundColor; // ✅ Added for re-edit
+  final List<TextLayer>? originalLayers; // âœ… Added for re-edit
+  final Color? originalBackgroundColor; // âœ… Added for re-edit
 
   const StoryPreviewScreen({
     super.key,
@@ -33,7 +33,7 @@ class StoryPreviewScreen extends StatefulWidget {
 class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
   final TextEditingController _captionController = TextEditingController();
   final ScreenshotController _screenshotController =
-      ScreenshotController(); // ✅ ADDED
+      ScreenshotController(); // âœ… ADDED
   bool _isUploading = false;
 
   Future<void> _uploadStory() async {
@@ -44,7 +44,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
       String mediaUrl = "";
       String? publicId;
 
-      // ✅ Website Rule: Upload clean source media, NOT baked compositions.
+      // âœ… Website Rule: Upload clean source media, NOT baked compositions.
       // Compositions are handled live via metadata layers.
       final uploadResult = await CloudinaryService.uploadFile(
         widget.storyFile,
@@ -53,7 +53,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
       mediaUrl = uploadResult['url'];
       publicId = uploadResult['public_id'];
 
-      // ✅ 3. BUILD PAYLOAD (Web-Compatible)
+      // âœ… 3. BUILD PAYLOAD (Web-Compatible)
       final payload = StoryUploadMapper.buildPayload(
         cloudinaryUrl: mediaUrl,
         mediaType: widget.isVideo ? 'video' : 'image',
@@ -112,7 +112,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: () => _handleEdit(context), // ✅ Improved Re-edit
+            onPressed: () => _handleEdit(context), // âœ… Improved Re-edit
             child: const Text(
               "Edit",
               style: TextStyle(
@@ -133,7 +133,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
               child: StoryRenderer(
                 story: previewStory,
                 previewFile: widget.storyFile,
-                isPreview: true, // ✅ Required for safety net
+                isPreview: true, // âœ… Required for safety net
               ),
             ),
           ),
@@ -155,7 +155,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black, Colors.black.withOpacity(0.0)],
+                  colors: [Colors.black, Colors.black.withValues(alpha: 0.0)],
                 ),
               ),
               child: Column(
@@ -164,7 +164,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
                   // Caption
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(
+                      color: Colors.white.withValues(alpha: 
                         0.2,
                       ), // Glassmorphism caption
                       borderRadius: BorderRadius.circular(8),
@@ -192,7 +192,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
                         flex: 1,
                         child: OutlinedButton(
                           onPressed: () =>
-                              _handleEdit(context), // ✅ Improved Re-edit
+                              _handleEdit(context), // âœ… Improved Re-edit
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.white54),
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -251,7 +251,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
   }
 
   void _handleEdit(BuildContext context) {
-    // ✅ If simple, we navigate FORWARD to the editor instead of just popping.
+    // âœ… If simple, we navigate FORWARD to the editor instead of just popping.
     // This allows transitioning from a direct pick to a rich editor session.
     if (widget.isSimple) {
       Navigator.pushReplacement(
@@ -266,7 +266,7 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
       return;
     }
 
-    // ✅ Cleanly return to editor with raw state
+    // âœ… Cleanly return to editor with raw state
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -280,3 +280,4 @@ class _StoryPreviewScreenState extends State<StoryPreviewScreen> {
     );
   }
 }
+

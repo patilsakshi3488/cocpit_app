@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../services/share_service.dart';
 import '../../story/share_to_story_screen.dart';
@@ -129,7 +129,7 @@ class _ShareSheetState extends State<ShareSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -178,7 +178,7 @@ class _ShareSheetState extends State<ShareSheet> {
                       builder: (context) =>
                           CreatePostScreen(sharedPost: widget.post),
                     );
-                    if (mounted && result == true) {
+                    if (context.mounted && result == true) {
                       Navigator.pop(
                         context,
                         true,
@@ -199,7 +199,7 @@ class _ShareSheetState extends State<ShareSheet> {
                       builder: (context) =>
                           ShareToStoryScreen(post: widget.post),
                     );
-                    if (mounted && result == true) {
+                    if (context.mounted && result == true) {
                       Navigator.pop(context); // Close share sheet
                     }
                   },

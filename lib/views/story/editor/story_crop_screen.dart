@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -50,7 +50,7 @@ class _StoryCropScreenState extends State<StoryCropScreen> {
                       alignment: Alignment.center,
                       transform: Matrix4.identity()
                         ..rotateZ(_rotation)
-                        ..scale(_scale),
+                        ..scale(_scale, _scale, 1.0),
                       child: Image.file(widget.imageFile, fit: BoxFit.contain),
                     ),
 
@@ -196,7 +196,7 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     // Horizontals

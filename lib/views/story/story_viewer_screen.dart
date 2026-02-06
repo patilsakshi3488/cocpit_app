@@ -1,13 +1,13 @@
-import 'dart:async';
-import 'dart:io'; // ✅ Added
-import 'package:http/http.dart' as http; // ✅ Added
+﻿import 'dart:async';
+import 'dart:io'; // âœ… Added
+import 'package:http/http.dart' as http; // âœ… Added
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
 import 'package:cocpit_app/utils/safe_network_image.dart';
-import 'package:cocpit_app/utils/story_state_mapper.dart'; // ✅ Added
-import 'package:cocpit_app/views/story/editor/story_editor_screen.dart'; // ✅ Added
+import 'package:cocpit_app/utils/story_state_mapper.dart'; // âœ… Added
+import 'package:cocpit_app/views/story/editor/story_editor_screen.dart'; // âœ… Added
 
 import 'package:cocpit_app/views/feed/post_detail_screen.dart';
 import 'package:cocpit_app/views/profile/public_profile_screen.dart'; // Restored
@@ -156,7 +156,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
     final story = _currentStorySafe;
     if (story == null) return; // Safety check
 
-    // ✅ VIEW TRIGGER (Fire & Forget, once per open)
+    // âœ… VIEW TRIGGER (Fire & Forget, once per open)
     if (!story.isAuthor && !_viewedStories.contains(story.storyId)) {
       _viewedStories.add(story.storyId);
       StoryService.viewStory(story.storyId);
@@ -165,7 +165,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       });
     }
 
-    // 🔥 FETCH LATEST COUNTS to CACHE (Truth from server)
+    // ðŸ”¥ FETCH LATEST COUNTS to CACHE (Truth from server)
     _fetchEngagement(story.storyId);
 
     if (story.mediaType == 'video') {
@@ -183,7 +183,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         _videoController!.play();
         _animController.forward();
       } catch (e) {
-        print("Error loading video: $e");
         _onStoryFinished(); // Skip if error
       }
     } else {
@@ -280,7 +279,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
             _engagementCache[storyId] = prev;
             setState(() {});
           }
-        } catch (_) {}
+        } catch (_) {
+          // Ignore
+        }
       }
     }
   }
@@ -341,7 +342,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
   }
 
   void _previousStory() {
-    // 1️⃣ Previous story in same user
+    // 1ï¸âƒ£ Previous story in same user
     if (_currentStoryIndex > 0) {
       setState(() {
         _currentStoryIndex--;
@@ -350,11 +351,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       return;
     }
 
-    // 2️⃣ Find previous NON-current-user group
+    // 2ï¸âƒ£ Find previous NON-current-user group
     int prevGroupIndex = _currentGroupIndex - 1;
 
     while (prevGroupIndex >= 0 && widget.groups[prevGroupIndex].isCurrentUser) {
-      prevGroupIndex--; // ⏭ skip current user
+      prevGroupIndex--; // â­ skip current user
     }
 
     if (prevGroupIndex >= 0) {
@@ -478,6 +479,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
       List<TextLayer>? layers;
       Color? bgColor;
 
+      if (!mounted) return;
       if (isEditorStory) {
         final Size canvasSize = MediaQuery.of(context).size;
         layers = StoryStateMapper.metadataToLayers(
@@ -560,9 +562,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         }
         return; // Don't resume
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed: $e")));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Failed: $e")));
+        }
       }
     }
     _resume();
@@ -582,7 +586,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
         builder: (_) => PostDetailScreen(
           post: {
             "id": postId.toString(),
-            "author": {"name": "Loading...", "id": ""},
+            "author": const {"name": "Loading...", "id": ""},
           },
         ),
       ),
@@ -632,7 +636,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withOpacity(0.3),
+                      color: colorScheme.onSurface.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -838,7 +842,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                                 backgroundImage: safeNetworkImage(
                                   group.author.avatar,
                                 ),
-                                backgroundColor: colorScheme.surfaceVariant,
+                                backgroundColor:
+                                    colorScheme.surfaceContainerHighest,
                                 child: group.author.avatar == null
                                     ? Text(
                                         group.author.name[0],
@@ -864,7 +869,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
                             Text(
                               _timeAgo(story.createdAt),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                             const Spacer(),
@@ -1010,7 +1017,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen>
 
           return LinearProgressIndicator(
             value: value,
-            backgroundColor: colorScheme.onSurface.withOpacity(0.3),
+            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.3),
             valueColor: AlwaysStoppedAnimation<Color>(colorScheme.onSurface),
           );
         },

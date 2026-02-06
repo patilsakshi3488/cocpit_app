@@ -294,7 +294,7 @@ class _ProfilePhotoViewerState extends State<ProfilePhotoViewer> {
                                 ),
                                 if (widget.isCurrentUser) ...[
                                   const SizedBox(height: 12),
-                                  Text(
+                                  const Text(
                                     "Tap button below to add cover",
                                     style: TextStyle(
                                       color: Colors.white38,

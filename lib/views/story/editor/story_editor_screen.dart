@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:cocpit_app/views/story/editor/background_picker_sheet.dart';
 import 'package:cocpit_app/views/story/editor/draggable_resizable_widget.dart';
 import 'package:cocpit_app/views/story/editor/story_crop_screen.dart';
@@ -45,11 +45,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   final List<EditorState> _undoStack = [];
 
   // Active Tool
-  StoryEditorTool _activeTool = StoryEditorTool.none;
+  final StoryEditorTool _activeTool = StoryEditorTool.none;
 
   // Canvas Key for metadata calculation
   final GlobalKey _canvasKey = GlobalKey();
-  bool _hideTextForCapture = false;
+  final bool _hideTextForCapture = false;
 
   // Deletion State
   bool _isDragging = false;
@@ -57,7 +57,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   // --- Inline Text Editor State ---
   bool _isTextEditing = false;
-  TextEditingController _textController = TextEditingController();
+  final TextEditingController _textController = TextEditingController();
   TextLayer? _editingLayer; // If null, we are creating new text
   Color _textColor = Colors.white;
   Color? _textBackgroundColor;
@@ -181,7 +181,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                                       alignment: Alignment.center,
                                       transform: Matrix4.identity()
                                         ..rotateZ(_rotation)
-                                        ..scale(_scale),
+                                        ..scale(_scale, _scale, 1.0),
                                       child: Image.file(
                                         widget.initialFile!,
                                         fit: BoxFit.contain,
@@ -281,7 +281,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _isOverDeleteZone
-              ? Colors.red.withOpacity(0.8)
+              ? Colors.red.withValues(alpha: 0.8)
               : Colors.black54,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
@@ -299,7 +299,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   Widget _buildTextEditorOverlay() {
     return Container(
-      color: Colors.black.withOpacity(0.4), // Minimal dimming to focus text
+      color: Colors.black.withValues(
+        alpha: 0.4,
+      ), // Minimal dimming to focus text
       child: Column(
         children: [
           // Editor Header
@@ -506,12 +508,13 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   void _toggleTextAlign() {
     setState(() {
-      if (_textAlign == TextAlign.left)
+      if (_textAlign == TextAlign.left) {
         _textAlign = TextAlign.center;
-      else if (_textAlign == TextAlign.center)
+      } else if (_textAlign == TextAlign.center) {
         _textAlign = TextAlign.right;
-      else
+      } else {
         _textAlign = TextAlign.left;
+      }
     });
   }
 
@@ -726,8 +729,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
               storyFile: uploadFile,
               isVideo: widget.isVideo,
               storyMetadata: metadata,
-              originalLayers: _textLayers, // ✅ Passed for Re-edit
-              originalBackgroundColor: _backgroundColor, // ✅ Passed for Re-edit
+              originalLayers: _textLayers, // âœ… Passed for Re-edit
+              originalBackgroundColor:
+                  _backgroundColor, // âœ… Passed for Re-edit
             ),
           ),
         );
@@ -790,7 +794,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         "zIndex": 10 + i,
         "style": {
           "color":
-              "#${layer.color.value.toRadixString(16).padLeft(8, '0').substring(2)}", // ARGB -> RGB(maybe with alpha?)
+              "#${layer.color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}", // ARGB -> RGB(maybe with alpha?)
           // Website uses hex code usually. substring(2) keeps RRGGBB
           // But flutter color value is AARRGGBB.
           // If alpha is involved, web hex usually handles it or uses rgba.
@@ -809,7 +813,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       "layers": layers,
       if (_backgroundColor != Colors.black)
         "background":
-            "#${_backgroundColor.value.toRadixString(16).padLeft(8, '0').substring(2)}",
+            "#${_backgroundColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}",
     };
   }
 }

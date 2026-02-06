@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 import 'package:intl/intl.dart';
@@ -176,7 +176,7 @@ class _StatCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1E1E2C) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+           BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
       ),
@@ -215,7 +215,7 @@ class _DashboardEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    final isPublished = true; // Assumed
+    const isPublished = true; // Assumed
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -293,9 +293,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -317,9 +317,9 @@ class _EventAnalyticsDetailScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     
     // Mock Data
-    final views = 1234;
-    final conversionRate = 18.4;
-    final revenue = 0;
+    const views = 1234;
+    const conversionRate = 18.4;
+    const revenue = 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -402,7 +402,7 @@ class _EventAnalyticsDetailScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   Text("Ticket Sales Progress", style: theme.textTheme.bodySmall),
                   const SizedBox(height: 8),
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text("0 / 10 sold"), // Mock
@@ -471,3 +471,4 @@ class _DetailStatCard extends StatelessWidget {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:cocpit_app/config/api_config.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/api_client.dart';
@@ -16,7 +16,7 @@ class StoryService {
   }
 
   static Future<void> createStory(Map<String, dynamic> body) async {
-    // ✅ Normalize for Backend/Web compatibility
+    // âœ… Normalize for Backend/Web compatibility
     body['title'] ??= "";
     body['description'] ??= "";
 
@@ -41,7 +41,6 @@ class StoryService {
     // 200 OK
     if (response.statusCode != 200) {
       // It might return 404 or other, but usually we just ignore errors for view tracking or log them
-      print("Failed to record view for story $storyId: ${response.statusCode}");
     }
   }
 
@@ -81,7 +80,7 @@ class StoryService {
   }
 
   // ======================
-  // 💬 COMMENTS
+  // ðŸ’¬ COMMENTS
   // ======================
 
   static Future<List<StoryComment>> fetchComments(String storyId) async {

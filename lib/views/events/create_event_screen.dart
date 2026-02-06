@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/event_service.dart';
@@ -323,7 +323,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.black.withOpacity(0.6),
+                Colors.black.withValues(alpha: 0.6),
                 Colors.transparent,
               ],
             ),
@@ -402,7 +402,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         style: theme.textTheme.bodyLarge,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+          labelStyle: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
           filled: true,
           fillColor: theme.scaffoldBackgroundColor,
           border: OutlineInputBorder(
@@ -481,7 +481,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         ),
         child: Row(
           children: [
-            Icon(icon, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 18),
+            Icon(icon, color: theme.colorScheme.onSurface.withValues(alpha: 0.6), size: 18),
             const SizedBox(width: 10),
             Text(value, style: theme.textTheme.bodyMedium),
           ],
@@ -635,3 +635,4 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 }
+

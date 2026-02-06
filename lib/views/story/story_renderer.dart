@@ -326,7 +326,7 @@ class _StoryRendererState extends State<StoryRenderer> {
         alignment: Alignment.center,
         transform: Matrix4.identity()
           ..rotateZ(layer.rotation * math.pi / 180)
-          ..scale(layer.scale),
+          ..scale(layer.scale, layer.scale, 1.0),
         child: _buildLayerContent(layer, constraints),
       ),
     );

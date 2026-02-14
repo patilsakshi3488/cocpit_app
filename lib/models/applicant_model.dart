@@ -16,7 +16,12 @@ class Applicant {
   final String status;
   final String initials;
   final String color;
+  
   final DateTime appliedAt;
+  final String? submissionUrl;
+  final String? submissionInstruction;
+  final String? taskReviewStatus;
+  final DateTime? submittedAt;
 
   Applicant({
     required this.id,
@@ -37,14 +42,24 @@ class Applicant {
     required this.initials,
     required this.color,
     required this.appliedAt,
+    this.submissionUrl,
+    this.submissionInstruction,
+    this.taskReviewStatus,
+    this.submittedAt,
   });
 
   factory Applicant.fromJson(Map<String, dynamic> json) {
+    // DEBUG: Log the incoming JSON specific fields
+    print("DEBUG Applicant ID: ${json['id']}");
+    print("DEBUG submissionUrl (top): ${json['submissionUrl']}");
+    print("DEBUG screeningResponseUrl: ${json['screeningResponseUrl']}");
+    print("DEBUG screening obj: ${json['screening']}");
+
     return Applicant(
       id: json['id']?.toString() ?? '',
       applicationId: json['applicationId']?.toString() ?? '',
       name: json['name'] ?? '',
-      avatarUrl:json['avatarUrl'],
+      avatarUrl: json['avatarUrl'],
       headline: json['headline'] ?? '',
       location: json['location'] ?? '',
       email: json['email'] ?? '',
@@ -63,7 +78,43 @@ class Applicant {
       initials: json['initials'] ?? '??',
       color: json['color'] ?? 'bg-blue-500',
       appliedAt: DateTime.tryParse(json['appliedAt']?.toString() ?? '') ?? DateTime.now(),
+      submissionUrl: _parseSubmissionUrl(json),
+      submissionInstruction: _parseSubmissionInstruction(json),
+      taskReviewStatus: json['taskReviewStatus'],
+      submittedAt: _parseSubmittedAt(json),
     );
+  }
+
+  static String? _parseSubmissionUrl(Map<String, dynamic> json) {
+    if (json['submissionUrl'] != null) return json['submissionUrl'];
+    if (json['screeningResponseUrl'] != null) return json['screeningResponseUrl'];
+    
+    final screening = json['screening'];
+    if (screening != null && screening is Map) {
+       return screening['responseUrl'] ?? screening['url'] ?? screening['screeningResponseUrl'];
+    }
+    return null;
+  }
+
+  static String? _parseSubmissionInstruction(Map<String, dynamic> json) {
+    if (json['submissionInstruction'] != null) return json['submissionInstruction'];
+    if (json['screeningQuestion'] != null) return json['screeningQuestion'];
+
+    final screening = json['screening'];
+    if (screening != null && screening is Map) {
+       return screening['question'] ?? screening['instruction'] ?? screening['screeningQuestion'];
+    }
+    return null;
+  }
+  
+  static DateTime? _parseSubmittedAt(Map<String, dynamic> json) {
+    if (json['submittedAt'] != null) return DateTime.tryParse(json['submittedAt']);
+    
+    final screening = json['screening'];
+    if (screening != null && screening is Map) {
+       if (screening['submittedAt'] != null) return DateTime.tryParse(screening['submittedAt']);
+    }
+    return null;
   }
 }
 

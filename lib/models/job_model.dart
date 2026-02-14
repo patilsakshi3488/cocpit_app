@@ -23,6 +23,17 @@ class Job {
   bool isSaved;
   bool hasApplied;
   String? applicationStatus;
+  String? applicationId;
+  
+  // Task Assignment fields
+  bool taskAssigned;
+  String? taskType;
+  String? taskInstruction;
+
+  // Applicant Submission fields
+  String? submissionUrl;
+  String? submissionType;
+  DateTime? submissionDate;
 
   Job({
     required this.id,
@@ -47,6 +58,13 @@ class Job {
     this.isSaved = false,
     this.hasApplied = false,
     this.applicationStatus,
+    this.taskAssigned = false,
+    this.taskType,
+    this.taskInstruction,
+    this.submissionUrl,
+    this.submissionType,
+    this.submissionDate,
+    this.applicationId,
   });
 
   factory Job.fromJson(Map<String, dynamic> json) {
@@ -72,7 +90,22 @@ class Job {
       applicantCount: _parseInt(json['applicant_count'] ?? json['applicants'] ?? json['applicants_count']),
       isSaved: json['isSaved'] == true,
       hasApplied: json['hasApplied'] == true,
-      applicationStatus: json['applicationStatus'],
+      applicationStatus: json['applicationStatus'] ?? json['application_status'],
+      applicationId: json['application_id']?.toString() ?? json['applicationId']?.toString() ?? (json['application'] is Map ? json['application']['_id']?.toString() : null),
+      taskAssigned: json['task_assigned'] == true || json['taskAssigned'] == true || json['screeningRequired'] == true || json['screening_required'] == true,
+      taskType: json['task_type'] ?? json['taskType'] ?? json['screeningType'] ?? json['screening_type'],
+      taskInstruction: json['task_instruction'] ?? 
+                      json['taskInstruction'] ?? 
+                      json['instruction'] ?? 
+                      json['submission_instruction'] ?? 
+                      json['submissionInstruction'] ?? 
+                      json['question'] ??
+                      json['screeningQuestion'] ??
+                      json['screening_question'] ??
+                      (json['task'] is Map ? (json['task']['instruction'] ?? json['task']['description'] ?? json['task']['question']) : null),
+      submissionUrl: json['submission_url'] ?? json['submissionUrl'],
+      submissionType: json['submission_type'] ?? json['submissionType'],
+      submissionDate: DateTime.tryParse(json['submission_date']?.toString() ?? json['submissionDate']?.toString() ?? ''),
     );
   }
 

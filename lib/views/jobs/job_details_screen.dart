@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart' as fp;
 import '../../models/job_model.dart';
 import '../../services/job_provider.dart';
 import '../../services/profile_service.dart';
+import 'widgets/applicant_submission_card.dart';
+import 'widgets/task_submission_modal.dart';
 
 class JobDetailsScreen extends StatefulWidget {
   final Job job;
@@ -20,9 +22,10 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     final theme = Theme.of(context);
     final provider = Provider.of<JobProvider>(context);
     // Use the job from the list in provider if possible to get updates, otherwise widget.job
-    final job = provider.allJobs.firstWhere((j) => j.id == widget.job.id, orElse: () =>
-       provider.jobOffers.firstWhere((j) => j.id == widget.job.id, orElse: () =>
-         provider.myApplications.firstWhere((j) => j.id == widget.job.id, orElse: () =>
+    // Prioritize checking myApplications first to ensure we get the latest application status and task details
+    final job = provider.myApplications.firstWhere((j) => j.id == widget.job.id, orElse: () =>
+       provider.allJobs.firstWhere((j) => j.id == widget.job.id, orElse: () =>
+         provider.jobOffers.firstWhere((j) => j.id == widget.job.id, orElse: () =>
            provider.mySavedJobs.firstWhere((j) => j.id == widget.job.id, orElse: () => widget.job)
          )
        )
@@ -154,6 +157,14 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     // Application Status Card
                     _applicationStatusCard(theme),
                     const SizedBox(height: 24),
+                    
+                     if (job.submissionUrl != null || job.submissionType != null) ...[
+                        ApplicantSubmissionCard(job: job),
+                        const SizedBox(height: 24),
+                     ] else if ((job.taskAssigned || job.taskType != null || ['Task Assignment', 'Task Assigned'].contains(job.applicationStatus)) && job.submissionDate == null) ...[
+                        _buildActionRequiredCard(theme, job),
+                        const SizedBox(height: 24),
+                     ],
                   ] else ...[
                     // Apply & Save Buttons
                     ElevatedButton(
@@ -335,36 +346,62 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     );
   }
   Widget _applicationStatusCard(ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Application Status",
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _statusStep(theme, "Application Sent", "Just now", isActive: true, isCompleted: true),
-              _statusStep(theme, "Application Viewed", "", isActive: false), // Mock state
-              _statusStep(theme, "Shortlisted", "", isActive: false), // Mock state
-            ],
-          ),
-        ],
-      ),
-    );
+  final job = widget.job;
+  
+  // Calculate task active state explicitly
+  bool isTaskActive = job.taskAssigned; 
+  if (job.taskType != null && job.taskType!.isNotEmpty) {
+    isTaskActive = true;
   }
+  if (['Task Assignment', 'Task Assigned'].contains(job.applicationStatus)) {
+    isTaskActive = true;
+  }
+
+  final steps = [
+    {'label': 'Application Sent', 'active': true, 'time': 'Just now'},
+    {'label': 'Application Viewed', 'active': job.applicationStatus != 'Applied', 'time': ''},
+    {'label': 'Shortlisted', 'active': ['Shortlisted', 'Task Assignment', 'Interview'].contains(job.applicationStatus), 'time': ''},
+    {'label': 'Task Assignment', 'active': isTaskActive, 'time': ''},
+  ];
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: theme.cardColor,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: theme.dividerColor),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Application Status",
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: steps.asMap().entries.map((entry) {
+             int idx = entry.key;
+             var step = entry.value;
+             return Expanded(
+               child: _statusStep(
+                 theme, 
+                 step['label'] as String, 
+                 step['time'] as String, 
+                 isActive: step['active'] as bool,
+                 isCompleted: step['active'] as bool 
+               ),
+             );
+          }).toList(),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _statusStep(ThemeData theme, String title, String subtitle, {bool isActive = false, bool isCompleted = false}) {
     // Simplified timeline step
@@ -394,6 +431,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             fontSize: 10,
           ),
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
         if (subtitle.isNotEmpty)
           Text(
@@ -401,6 +440,115 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
           ),
       ],
+    );
+  }
+
+  Widget _buildActionRequiredCard(ThemeData theme, Job job) {
+    // Fallback to "Video Task" if taskType is missing but status says assigned
+    final String effectiveTaskType = job.taskType ?? "Video Task"; 
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C1B1B), // Dark orange/red background for alert
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+           Container(
+             padding: const EdgeInsets.all(10),
+             decoration: const BoxDecoration(
+               color: Colors.orange,
+               shape: BoxShape.circle 
+             ),
+             child: const Icon(Icons.bolt, color: Colors.white, size: 20),
+           ),
+           const SizedBox(width: 16),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 const Text(
+                   "Action Required",
+                   style: TextStyle(
+                     color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 14,
+                   ),
+                 ),
+                 const SizedBox(height: 4),
+                 Text(
+                   "The recruiter has requested a $effectiveTaskType.",
+                   style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                 ),
+                 if (job.taskInstruction != null && job.taskInstruction!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                       job.taskInstruction!,
+                       maxLines: 2,
+                       overflow: TextOverflow.ellipsis,
+                       style: TextStyle(color: Colors.grey[500], fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                 ]
+               ],
+             ),
+           ),
+           ElevatedButton(
+             onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => TaskSubmissionModal(
+            taskType: effectiveTaskType,
+            instruction: job.taskInstruction ?? "",
+            onSubmit: (mode, data) async {
+               // Data is file path
+               final provider = Provider.of<JobProvider>(context, listen: false);
+               
+               print("DEBUG: Submitting task for App ID: ${job.applicationId}, File: $data");
+
+               if (job.applicationId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Error: Application ID missing")),
+                  );
+                  return;
+               }
+
+               try {
+                 await provider.submitTask(
+                   applicationId: job.applicationId!,
+                   file: File(data), 
+                 );
+                 if (context.mounted) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text("Task Submitted Successfully!")),
+                   );
+                   Navigator.pop(context); // Close details or refresh?
+                   
+                   // Refresh job details to update UI state
+                   await provider.fetchJobDetails(job.id); 
+                 }
+               } catch (e) {
+                 if (context.mounted) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     SnackBar(content: Text("Submission failed: $e")),
+                   );
+                 }
+               }
+            },
+          ),
+        );
+             },
+             style: ElevatedButton.styleFrom(
+               backgroundColor: Colors.orange,
+               foregroundColor: Colors.white,
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+             ),
+             child: const Text("Start Recording"), // Or "View Task"
+           ),
+        ],
+      ),
     );
   }
 
@@ -506,7 +654,7 @@ class _ApplyModalState extends State<_ApplyModal> {
   String? _resumeName;
   bool _isSubmitting = false;
 
-  bool _useProfileResume = true;
+  bool? _useProfileResume;
   String? _profileResumeUrl;
   String? _profileResumeName;
   bool _isLoadingProfile = true;
@@ -548,7 +696,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                 _resumeError = null; 
              } else {
                _profileResumeUrl = null;
-               _useProfileResume = false;
+               _useProfileResume = null; // Default to neither if profile resume missing, or could be false. Let's stick to null to force choice/validation as requested.
              }
              
              debugPrint("🔍 ApplyModal: Name set to: ${_fullNameController.text}, Resume: $_profileResumeUrl"); 
@@ -594,13 +742,16 @@ class _ApplyModalState extends State<_ApplyModal> {
       }
       
       // If user manually switched to profile resume but it is invalid/missing
-      if (_useProfileResume) {
+      if (_useProfileResume == true) {
         _resumeError = (_profileResumeUrl == null || _profileResumeUrl!.isEmpty) 
             ? "No profile resume found" 
             : null;
-      } else {
+      } else if (_useProfileResume == false) {
          // Using file upload
         _resumeError = _resumeFile == null ? "Please upload your resume" : null;
+      } else {
+        // Neither selected
+        _resumeError = "Please select one resume option to continue.";
       }
     });
 
@@ -613,7 +764,7 @@ class _ApplyModalState extends State<_ApplyModal> {
     setState(() => _isSubmitting = true);
 
     try {
-      if (_useProfileResume && _profileResumeUrl != null) {
+      if (_useProfileResume == true && _profileResumeUrl != null) {
          await Provider.of<JobProvider>(context, listen: false).applyJob(
           jobId: widget.job.id,
           fullName: _fullNameController.text.trim(),
@@ -622,7 +773,7 @@ class _ApplyModalState extends State<_ApplyModal> {
           coverNote: _coverNoteController.text.trim(),
           resumeUrl: _profileResumeUrl,
         );
-      } else {
+      } else if (_useProfileResume == false) {
          await Provider.of<JobProvider>(context, listen: false).applyJob(
           jobId: widget.job.id,
           fullName: _fullNameController.text.trim(),
@@ -754,8 +905,10 @@ class _ApplyModalState extends State<_ApplyModal> {
                         // Option 1: Profile Resume
                          InkWell(
                           onTap: () {
-                             // Only strictly needed if profile resume exists
-                             setState(() => _useProfileResume = true);
+                             setState(() {
+                               _useProfileResume = true;
+                               _resumeError = null; // Clear error when switching
+                             });
                           },
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
@@ -785,7 +938,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                                         "Use Profile Resume",
                                         style: theme.textTheme.bodyMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: _useProfileResume ? theme.textTheme.bodyMedium?.color : Colors.grey,
+                                          color: _useProfileResume == true ? theme.textTheme.bodyMedium?.color : Colors.grey,
                                         ),
                                       ),
                                       if (_profileResumeName != null)
@@ -797,7 +950,13 @@ class _ApplyModalState extends State<_ApplyModal> {
                                       else if (_isLoadingProfile)
                                          Text("Loading...", style: theme.textTheme.bodySmall)
                                       else
-                                         Text("No resume found", style: TextStyle(color: Colors.red, fontSize: 12)),
+                                           Text(
+                                            "No resume found",
+                                            style: TextStyle(
+                                              color: _useProfileResume == true ? Colors.red : Colors.grey,
+                                              fontSize: 12
+                                            )
+                                         ),
                                     ],
                                   ),
                                 ),
@@ -808,7 +967,10 @@ class _ApplyModalState extends State<_ApplyModal> {
                         Divider(height: 1, color: theme.dividerColor),
                          // Option 2: Upload New
                         InkWell(
-                          onTap: () => setState(() => _useProfileResume = false),
+                          onTap: () => setState(() {
+                            _useProfileResume = false;
+                            _resumeError = null; // Clear error when switching
+                          }),
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Row(
@@ -825,7 +987,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                                     "Upload New Resume",
                                      style: theme.textTheme.bodyMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
-                                          color: !_useProfileResume ? theme.textTheme.bodyMedium?.color : Colors.grey,
+                                          color: _useProfileResume == false ? theme.textTheme.bodyMedium?.color : Colors.grey,
                                         ),
                                   ),
                                 ),
@@ -836,7 +998,7 @@ class _ApplyModalState extends State<_ApplyModal> {
                       ],
                     ),
                   ),
-                   if (!_useProfileResume)
+                    if (_useProfileResume == false)
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
                       child: GestureDetector(
@@ -880,7 +1042,17 @@ class _ApplyModalState extends State<_ApplyModal> {
                         ),
                       ),
                     ),
-                   if (_resumeError != null && _useProfileResume) // Show error for profile resume selection if invalid
+                    if (_resumeError != null && _useProfileResume == false)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0, left: 16),
+                        child: Text(_resumeError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                   if (_resumeError != null && _useProfileResume == true) // Show error for profile resume selection if invalid
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0, left: 16),
+                        child: Text(_resumeError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                      ),
+                   if (_resumeError != null && _useProfileResume == null) // Show general error if neither selected
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0, left: 16),
                         child: Text(_resumeError!, style: const TextStyle(color: Colors.red, fontSize: 12)),

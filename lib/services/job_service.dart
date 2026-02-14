@@ -47,6 +47,17 @@ class JobService {
     }
   }
 
+  Future<Job> getJobById(String id) async {
+    final response = await ApiClient.get("${ApiConfig.jobs}/$id");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Job.fromJson(data);
+    } else {
+      throw Exception("Failed to load job details");
+    }
+  }
+
   Future<List<Job>> getJobOffers() async {
     final response = await ApiClient.get(ApiConfig.jobOffers);
 
@@ -142,6 +153,40 @@ class JobService {
     }
   }
 
+  Future<void> submitTask({
+    required String applicationId,
+    File? file,
+    String? url,
+  }) async {
+    if (file == null && url == null) {
+      throw Exception("Submission requires a file or URL");
+    }
+
+    if (file != null) {
+      // Use Multipart
+      final response = await ApiClient.multipart(
+        "${ApiConfig.jobs}/applications/$applicationId/submit-task",
+        fileField: "file",
+        file: file,
+        fields: {},
+      );
+      if (response.statusCode != 200) {
+        throw Exception("Failed to submit task: ${response.body}");
+      }
+    } else {
+      // Use JSON with responseUrl
+      final response = await ApiClient.post(
+        "${ApiConfig.jobs}/applications/$applicationId/submit-task",
+        body: {
+          "responseUrl": url,
+        },
+      );
+      if (response.statusCode != 200) {
+        throw Exception("Failed to submit task: ${response.body}");
+      }
+    }
+  }
+
 
   Future<bool> applyJob({
     required String jobId,
@@ -217,5 +262,39 @@ class JobService {
     if (validParams.isEmpty) return "";
 
     return "?" + validParams.entries.map((e) => "${e.key}=${Uri.encodeComponent(e.value)}").join("&");
+  }
+
+  Future<void> updateApplicationStatus(String applicationId, String status, {Map<String, dynamic>? screening}) async {
+    final body = {
+      "status": status,
+      if (screening != null) "screening": screening,
+    };
+
+    final response = await ApiClient.put(
+      "${ApiConfig.jobs}/applications/$applicationId/status",
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to update status: ${response.body}");
+    }
+  }
+  Future<void> updateJob(String jobId, Map<String, dynamic> jobData) async {
+    final response = await ApiClient.put(
+      "${ApiConfig.jobs}/$jobId",
+      body: jobData,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to update job: ${response.body}");
+    }
+  }
+
+  Future<void> deleteJob(String jobId) async {
+    final response = await ApiClient.delete("${ApiConfig.jobs}/$jobId");
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to delete job: ${response.body}");
+    }
   }
 }

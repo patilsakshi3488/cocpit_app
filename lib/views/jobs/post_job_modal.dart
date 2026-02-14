@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../models/job_model.dart';
 
 class PostJobModal extends StatefulWidget {
   final ThemeData theme;
+  final Job? job;
   final Function(Map<String, dynamic>) onJobPosted;
   
   const PostJobModal({
     super.key, 
     required this.theme, 
-    required this.onJobPosted
+    required this.onJobPosted,
+    this.job,
   });
 
   @override
@@ -24,16 +27,16 @@ class _PostJobModalState extends State<PostJobModal> {
   String companyType = "Startup";
   String industryType = "Technology";
 
-  final titleController = TextEditingController();
-  final locationController = TextEditingController();
-  final minSalaryController = TextEditingController();
-  final maxSalaryController = TextEditingController();
-  final descriptionController = TextEditingController();
-  final skillsController = TextEditingController();
+  late TextEditingController titleController;
+  late TextEditingController locationController;
+  late TextEditingController minSalaryController;
+  late TextEditingController maxSalaryController;
+  late TextEditingController descriptionController;
+  late TextEditingController skillsController;
   
   // Company Info
-  final companyController = TextEditingController();
-  final aboutCompanyController = TextEditingController();
+  late TextEditingController companyController;
+  late TextEditingController aboutCompanyController;
   
   // Settings
   bool enableEasyApply = true;
@@ -45,6 +48,43 @@ class _PostJobModalState extends State<PostJobModal> {
   String? _companyError;
 
   bool _isPosting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final j = widget.job;
+    
+    titleController = TextEditingController(text: j?.title);
+    locationController = TextEditingController(text: j?.location);
+    minSalaryController = TextEditingController(text: j != null ? j.salaryMin.toString() : '');
+    maxSalaryController = TextEditingController(text: j != null ? j.salaryMax.toString() : '');
+    descriptionController = TextEditingController(text: j?.description);
+    skillsController = TextEditingController(); // Job model lacks skills currently
+    
+    companyController = TextEditingController(text: j?.companyName);
+    aboutCompanyController = TextEditingController(text: j?.aboutCompany);
+    
+    if (j != null) {
+      if (["Full-time", "Part-time", "Contract", "Freelancer", "Internship"].contains(j.jobType)) {
+        empType = j.jobType;
+      }
+      if (["Onsite", "Hybrid", "Remote"].contains(j.workMode)) {
+        workMode = j.workMode;
+      }
+      if (["Entry Level", "Mid Level", "Senior"].contains(j.experienceLevel)) {
+        experienceLevel = j.experienceLevel;
+      }
+      if (["Startup", "MNC", "Product-based", "Service-based"].contains(j.companyType)) {
+        companyType = j.companyType;
+      }
+      if (["Technology", "Healthcare", "Finance", "Education", "Other"].contains(j.industry)) {
+        industryType = j.industry;
+      }
+      
+      enableEasyApply = j.easyApply;
+      activelyHiring = j.activelyHiring;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,14 +105,16 @@ class _PostJobModalState extends State<PostJobModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Post a Job",
+                    widget.job == null ? "Post a Job" : "Edit Job",
                     style: widget.theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Create a new job listing to find the best talent.",
+                    widget.job == null 
+                        ? "Create a new job listing to find the best talent."
+                        : "Update the job details below.",
                     style: widget.theme.textTheme.bodySmall,
                   ),
                 ],
@@ -326,7 +368,7 @@ class _PostJobModalState extends State<PostJobModal> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: widget.theme.colorScheme.onPrimary)
                       )
                     : Text(
-                        "Post Job",
+                        widget.job == null ? "Post Job" : "Update Job",
                         style: TextStyle(
                           color: widget.theme.colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,

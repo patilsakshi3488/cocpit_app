@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:convert';
 
@@ -13,6 +14,9 @@ import 'job_details_screen.dart';
 import 'job_applicants_screen.dart';
 import 'job_posts_dashboard.dart';
 import 'post_job_modal.dart';
+import '../../services/job_service.dart';
+import 'task_recording_screen.dart';
+import 'widgets/task_submission_modal.dart';
 
 class JobsScreen extends StatefulWidget {
   const JobsScreen({super.key});
@@ -23,7 +27,7 @@ class JobsScreen extends StatefulWidget {
 
 class _JobsScreenState extends State<JobsScreen> {
   int mainTab = 0; // 0: View Jobs, 1: My Jobs, 2: Offers, 3: Dashboard
-  int subTab = 0; // 0: In Progress, 1: Applied, 2: In Past, 3: Saved, 4: Hiring (Posted)
+  int subTab = 0; // 0: Applied, 1: In Past, 2: Saved, 3: Hiring (Posted)
   bool _isAdmin = false;
 
   Map<String, dynamic> _currentFilters = {};
@@ -65,18 +69,15 @@ class _JobsScreenState extends State<JobsScreen> {
     if (mainTab == 0) {
       provider.fetchJobs();
     } else if (mainTab == 1) {
-      if (subTab == 0 || subTab == 1 || subTab == 2) {
-         // All these are applications with different statuses
-         // API supports filtering by status, but for simplicity we fetch all apps and filter locally if needed
-         // or specific statuses.
+      if (subTab == 0 || subTab == 1) {
+         // 0: Applied, 1: In Past
          String? status;
-         if (subTab == 0) status = "in progress";
-         if (subTab == 1) status = "applied";
-         if (subTab == 2) status = "in past";
+         if (subTab == 0) status = "applied";
+         if (subTab == 1) status = "in past";
          provider.fetchMyApplications(status: status);
-      } else if (subTab == 3) {
+      } else if (subTab == 2) {
         provider.fetchMySavedJobs();
-      } else if (subTab == 4) {
+      } else if (subTab == 3) {
         provider.fetchMyPostedJobs();
       }
     } else if (mainTab == 2) {
@@ -98,6 +99,7 @@ class _JobsScreenState extends State<JobsScreen> {
         searchType: SearchType.jobs,
         onSearchTap: () => _showSearchModal(context),
         onFilterTap: () => _showFilterModal(context),
+        onPostJobTap: () => _showPostJobModal(context),
       ),
       bottomNavigationBar: const AppBottomNavigation(currentIndex: 3),
       body: RefreshIndicator(
@@ -107,42 +109,11 @@ class _JobsScreenState extends State<JobsScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            SliverToBoxAdapter(child: _postJobButton(theme)),
+            // Post Job button moved to FAB
             SliverToBoxAdapter(child: _tabs(theme, provider)),
             _contentArea(theme, provider),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _postJobButton(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => _showPostJobModal(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primaryColor,
-              foregroundColor: theme.colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text(
-              "Post a Job",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -172,11 +143,10 @@ class _JobsScreenState extends State<JobsScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _subTabPill(theme, "In Progress", 0),
-                  _subTabPill(theme, "Applied", 1),
-                  _subTabPill(theme, "In Past", 2),
-                  _subTabPill(theme, "Saved", 3),
-                  _subTabPill(theme, "Hiring", 4),
+                  _subTabPill(theme, "Applied", 0),
+                  _subTabPill(theme, "In Past", 1),
+                  _subTabPill(theme, "Saved", 2),
+                  _subTabPill(theme, "Hiring", 3),
                 ],
               ),
             ),
@@ -285,15 +255,15 @@ class _JobsScreenState extends State<JobsScreen> {
       isLoading = provider.isLoadingJobs;
       emptyMessage = "No jobs found matching your criteria.";
     } else if (mainTab == 1) {
-      if (subTab == 0 || subTab == 1 || subTab == 2) {
+      if (subTab == 0 || subTab == 1) {
         list = provider.myApplications;
         isLoading = provider.isLoadingMyApps;
         emptyMessage = "No applications found.";
-      } else if (subTab == 3) {
+      } else if (subTab == 2) {
         list = provider.mySavedJobs;
         isLoading = provider.isLoadingSaved;
         emptyMessage = "No saved jobs.";
-      } else if (subTab == 4) {
+      } else if (subTab == 3) {
         list = provider.myPostedJobs;
         isLoading = provider.isLoadingPosted;
         isHiringView = true;
@@ -305,9 +275,14 @@ class _JobsScreenState extends State<JobsScreen> {
       emptyMessage = "No job offers at the moment.";
     } else if (mainTab == 3) {
       if (_selectedJobForApplicants != null) {
-        return JobApplicantsView(
-          jobId: _selectedJobForApplicants!.id,
-          jobTitle: _selectedJobForApplicants!.title,
+        return SliverToBoxAdapter(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.8, // Give it substantial height
+            child: JobApplicantsView(
+              jobId: _selectedJobForApplicants!.id,
+              jobTitle: _selectedJobForApplicants!.title,
+            ),
+          ),
         );
       }
       return JobPostsDashboard(
@@ -317,6 +292,8 @@ class _JobsScreenState extends State<JobsScreen> {
             _selectedJobForApplicants = job;
           });
         },
+        onEdit: _editJob,
+        onDelete: _deleteJob,
       );
     }
 
@@ -439,13 +416,13 @@ class _JobsScreenState extends State<JobsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blueAccent.withValues(alpha: 0.1),
+                          color: _getStatusColor(job.applicationStatus).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           job.applicationStatus!,
-                          style: const TextStyle(
-                            color: Colors.blueAccent,
+                          style: TextStyle(
+                            color: _getStatusColor(job.applicationStatus),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -518,8 +495,18 @@ class _JobsScreenState extends State<JobsScreen> {
           const SizedBox(height: 20),
           _infoRow(theme, job),
           const SizedBox(height: 12),
-          // We don't have 'match' in API yet, so we can mock or hide it.
-          // _matchPill(theme, "80%"),
+          
+          if (isMyJob && !isHiringView) ...[
+             const SizedBox(height: 16),
+             _buildApplicationTimeline(theme, job),
+             
+             // Show task if assigned (flag is true OR task details exist OR status indicates assignment)
+             if ((job.taskAssigned || job.taskType != null || ['Task Assignment', 'Task Assigned'].contains(job.applicationStatus)) && job.submissionDate == null) ...[
+               const SizedBox(height: 16),
+               _buildActionRequiredCard(theme, job),
+             ],
+          ],
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Divider(color: theme.dividerColor, height: 1),
@@ -531,6 +518,171 @@ class _JobsScreenState extends State<JobsScreen> {
           else
             _actionButtons(theme, job),
           // Timeline view needs more data from API, hiding for now or simplify
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String? status) {
+    if (status == null) return Colors.blue;
+    final s = status.toLowerCase();
+    if (s == 'applied') return Colors.blue;
+    if (s == 'viewed' || s.contains('review')) return Colors.orange;
+    if (s == 'shortlisted') return Colors.green;
+    if (s == 'rejected') return Colors.red;
+    if (s.contains('task')) return Colors.purpleAccent;
+    return Colors.blue;
+  }
+  
+  Widget _buildApplicationTimeline(ThemeData theme, Job job) {
+    // Calculate task active state explicitly
+    bool isTaskActive = job.taskAssigned; 
+    if (job.taskType != null && job.taskType!.isNotEmpty) {
+      isTaskActive = true;
+    }
+    if (['Task Assignment', 'Task Assigned'].contains(job.applicationStatus)) {
+      isTaskActive = true;
+    }
+
+    final steps = [
+      {'label': 'Application Sent', 'active': true},
+      {'label': 'Application Viewed', 'active': job.applicationStatus != 'Applied'},
+      {'label': 'Shortlisted', 'active': ['Shortlisted', 'Task Assignment', 'Interview'].contains(job.applicationStatus)},
+      {'label': 'Task Assignment', 'active': isTaskActive},
+    ];
+    
+    return Row(
+      children: steps.asMap().entries.map((entry) {
+        int idx = entry.key;
+        var step = entry.value;
+        bool isActive = step['active'] as bool;
+        bool isLast = idx == steps.length - 1;
+        
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                   Expanded(child: idx == 0 ? const SizedBox() : Container(height: 2, color: isActive ? Colors.green : theme.dividerColor)),
+                   Icon(
+                     isActive ? Icons.check_circle : Icons.radio_button_unchecked,
+                     color: isActive ? Colors.green : Colors.grey,
+                     size: 20,
+                   ),
+                   Expanded(child: isLast ? const SizedBox() : Container(height: 2, color: isActive ? (steps[idx+1]['active'] as bool ? Colors.green : theme.dividerColor) : theme.dividerColor)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                step['label'] as String,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isActive ? Colors.white : Colors.grey,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  Widget _buildActionRequiredCard(ThemeData theme, Job job) {
+    // Fallback to "Video Task" if taskType is missing but status says assigned
+    final String effectiveTaskType = job.taskType ?? "Video Task"; 
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C1B1B), // Dark orange/red background for alert
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+           Container(
+             padding: const EdgeInsets.all(10),
+             decoration: const BoxDecoration(
+               color: Colors.orange,
+               shape: BoxShape.circle 
+             ),
+             child: const Icon(Icons.bolt, color: Colors.white, size: 20),
+           ),
+           const SizedBox(width: 16),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 const Text(
+                   "Action Required",
+                   style: TextStyle(
+                     color: Colors.white,
+                     fontWeight: FontWeight.bold,
+                     fontSize: 14,
+                   ),
+                 ),
+                 const SizedBox(height: 4),
+                 Text(
+                   "The recruiter has requested a $effectiveTaskType.",
+                   style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                 ),
+                 if (job.taskInstruction != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                       job.taskInstruction!,
+                       maxLines: 2,
+                       overflow: TextOverflow.ellipsis,
+                       style: TextStyle(color: Colors.grey[500], fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                 ]
+               ],
+             ),
+           ),
+           ElevatedButton(
+             onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => TaskSubmissionModal(
+                    taskType: effectiveTaskType,
+                    instruction: job.taskInstruction ?? "Please complete the task.",
+                    onSubmit: (mode, data) async {
+                       try {
+                         final provider = Provider.of<JobProvider>(context, listen: false);
+                         if (job.applicationId == null) throw Exception("Application ID missing");
+                         
+                         await provider.submitTask(
+                           applicationId: job.applicationId!,
+                           file: File(data),
+                         );
+                         
+                         if (context.mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text("Task Submitted Successfully!")),
+                           );
+                           // Refresh job data
+                           provider.fetchJobDetails(job.id);
+                         }
+                       } catch (e) {
+                         if (context.mounted) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(content: Text("Submission failed: $e")),
+                           );
+                         }
+                       }
+                    },
+                  ),
+                );
+             },
+             style: ElevatedButton.styleFrom(
+               backgroundColor: Colors.orange,
+               foregroundColor: Colors.white,
+               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+             ),
+             child: const Text("Start Recording"), // Or "View Task"
+           ),
         ],
       ),
     );
@@ -811,29 +963,37 @@ class _JobsScreenState extends State<JobsScreen> {
   //   );
   // }
 
-  void _showPostJobModal(BuildContext context) {
+  void _showPostJobModal(BuildContext context, {Job? jobToEdit}) {
     final theme = Theme.of(context);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => PostJobModal(
+      builder: (ctx) => PostJobModal(
         theme: theme,
-        onJobPosted: (newJob) async {
+        job: jobToEdit,
+        onJobPosted: (jobData) async {
           try {
-            await Provider.of<JobProvider>(
-              context,
-              listen: false,
-            ).createJob(newJob);
+            final provider = Provider.of<JobProvider>(context, listen: false);
+            
+            if (jobToEdit != null) {
+              await JobService().updateJob(jobToEdit.id, jobData);
+               // Update provider if needed, or just reload
+            } else {
+              await provider.createJob(jobData);
+            }
 
             if (!context.mounted) return;
 
-            Navigator.pop(context); // ✅ close ONLY on success
+            Navigator.pop(ctx); // ✅ close ONLY on success
 
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Job posted successfully!")),
+              SnackBar(content: Text(jobToEdit != null ? "Job updated successfully!" : "Job posted successfully!")),
             );
+            
+            // Reload data to reflect changes
+            _loadData();
           } catch (e) {
             if (!context.mounted) return;
 
@@ -846,11 +1006,57 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
+  void _editJob(Job job) {
+    _showPostJobModal(context, jobToEdit: job);
+  }
+
+  void _deleteJob(Job job) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Job'),
+        content: const Text('Are you sure you want to delete this job? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await JobService().deleteJob(job.id);
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Job deleted successfully')),
+           );
+           _loadData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete job: $e')),
+          );
+        }
+      }
+    }
+  }
+
 
   void _showAnalyticsModal(BuildContext context, Job job) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => JobApplicantsScreen(
-      jobId: job.id,
-      jobTitle: job.title,
+    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      appBar: AppBar(title: Text(job.title)),
+      body: JobApplicantsView(
+        jobId: job.id,
+        jobTitle: job.title,
+      ),
     )));
   }
 

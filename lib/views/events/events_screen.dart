@@ -371,7 +371,7 @@ class _EventsScreenState extends State<EventsScreen>
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppTopBar(
+      appBar: AppTopBar( // Rebuild
         searchType: SearchType.events,
         controller: _searchCtrl,
         onChanged: (v) => setState(

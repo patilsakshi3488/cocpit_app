@@ -322,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen>
             MaterialPageRoute(builder: (_) => const SearchScreen()),
           );
         },
-      ),
+      ), // Rebuild
       body: RefreshIndicator(
         onRefresh: () async {
           cursorCreatedAt = null;

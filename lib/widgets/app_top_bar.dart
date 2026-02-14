@@ -15,6 +15,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onSearchTap;
   final LayerLink? layerLink;
   final VoidCallback? onFilterTap;
+  final VoidCallback? onPostJobTap;
 
   const AppTopBar({
     super.key,
@@ -25,6 +26,7 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.onSearchTap,
     this.layerLink,
     this.onFilterTap,
+    this.onPostJobTap,
   });
 
   @override
@@ -142,7 +144,23 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
             else
               Expanded(child: searchField),
             const SizedBox(width: 8),
-            if (searchType != SearchType.notifications) ...[
+            if (searchType == SearchType.jobs) ...[
+               const SizedBox(width: 8),
+               Container(
+                 height: 44,
+                 width: 44,
+                 decoration: const BoxDecoration(
+                   color: Color(0xFF5A75FF), // Blue button color
+                   shape: BoxShape.circle,
+                 ),
+                 child: IconButton(
+                   icon: const Icon(Icons.add, color: Colors.white),
+                   onPressed: onPostJobTap,
+                 ),
+               ),
+            ],
+            // Notifications Icon
+            if (searchType != SearchType.notifications && searchType != SearchType.jobs) ...[
               // Connection Status Indicator
               StreamBuilder<bool>(
                 stream: SocketService().connectionStatus,
@@ -220,8 +238,10 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 },
               ),
             ],
+            // Chat Icon
             if (searchType != SearchType.chat &&
-                searchType != SearchType.notifications)
+                searchType != SearchType.notifications &&
+                searchType != SearchType.jobs)
               StreamBuilder<int>(
                 stream: ChatService().unreadCountStream,
                 initialData: ChatService().totalUnreadCount,

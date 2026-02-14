@@ -4,11 +4,15 @@ import '../../models/job_model.dart';
 class JobPostsDashboard extends StatelessWidget {
   final List<Job> postedJobs;
   final Function(Job) onViewApplicants;
+  final Function(Job)? onEdit;
+  final Function(Job)? onDelete;
 
   const JobPostsDashboard({
     super.key,
     required this.postedJobs,
     required this.onViewApplicants,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -198,11 +202,37 @@ class JobPostsDashboard extends StatelessWidget {
                   ),
                 ],
               ),
-              IconButton(
+              PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.grey),
-                onPressed: () {},
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    onEdit?.call(job);
+                  } else if (value == 'delete') {
+                    onDelete?.call(job);
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 8),
+                        Text('Edit Job'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Text('Delete Job', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

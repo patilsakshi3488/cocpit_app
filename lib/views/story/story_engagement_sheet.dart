@@ -8,12 +8,14 @@ class StoryEngagementSheet extends StatefulWidget {
   final Story story;
   final int initialTabIndex;
   final Map<String, dynamic>? initialData;
+  final Function(int count)? onCommentCountChanged; // ✅ Bubbling up
 
   const StoryEngagementSheet({
     super.key,
     required this.story,
     this.initialTabIndex = 0,
     this.initialData,
+    this.onCommentCountChanged,
   });
 
   @override
@@ -79,11 +81,22 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
       );
     }
 
-    // Counts
-    final viewCount = _details?['viewCount'] ?? widget.story.viewCount;
-    final likeCount = _details?['likeCount'] ?? widget.story.likeCount;
-    final commentCount =
-        widget.story.commentCount; // Or from details if available
+    // Counts (Website Priority: Details > Payload)
+    final int viewCount = _details?['viewerCount'] ?? widget.story.viewCount;
+    // For likes, follow the derived logic: viewers with reaction_type 'true'
+    final List viewers = _details?['viewers'] as List? ?? [];
+    final List likes = viewers.where((v) {
+      final r = v['reaction_type'];
+      return r != null && r.toString().toLowerCase() == 'true';
+    }).toList();
+
+    final int likeCount = _details != null
+        ? likes.length
+        : widget.story.likeCount;
+
+    // Comments are passed to child sheet, but for the label:
+    final int commentCount =
+        (_details?['comments'] as List?)?.length ?? widget.story.commentCount;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
@@ -137,10 +150,7 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
                       ),
 
                 // 2. Likes Tab
-                _UserList(
-                  users: _details?['likes'] ?? _details?['reporters'] ?? [],
-                  emptyMsg: "No likes yet",
-                ),
+                _UserList(users: likes, emptyMsg: "No likes yet"),
 
                 // 3. Comments Tab
                 StoryCommentsSheet(
@@ -148,6 +158,8 @@ class _StoryEngagementSheetState extends State<StoryEngagementSheet>
                   initialCount: commentCount,
                   isStoryAuthor: widget.story.isAuthor,
                   embedInSheet: true,
+                  onCommentCountChanged:
+                      widget.onCommentCountChanged, // ✅ Pass it down
                 ),
               ],
             ),

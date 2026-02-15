@@ -21,24 +21,37 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkAuth() async {
-    final token = await AppSecureStorage.getAccessToken();
+    try {
+      final token = await AppSecureStorage.getAccessToken();
 
-    if (token == null) {
+      if (token == null) {
+        _goToLogin();
+        return;
+      }
+
+      // 1️⃣ Try getting current user
+      final me = await authService.getMe();
+      if (me != null) {
+        _goToHome();
+        return;
+      }
+
+      // 2️⃣ If failing, try refreshing
+      final refreshed = await authService.refreshAccessToken();
+      if (refreshed != null) {
+        // Retry getMe after refresh
+        final meRetry = await authService.getMe();
+        if (meRetry != null) {
+          _goToHome();
+          return;
+        }
+      }
+
+      // ❌ If all fails
       _goToLogin();
-      return;
-    }
-
-    final me = await authService.getMe();
-
-    if (me != null) {
-      _goToHome();
-      return;
-    }
-
-    final refreshed = await authService.refreshAccessToken();
-    if (refreshed != null) {
-      _goToHome();
-    } else {
+    } catch (e) {
+      debugPrint("AuthGate Error: $e");
+      // 🛡️ Safety net: Always go to login if something crashes
       _goToLogin();
     }
   }
@@ -59,9 +72,7 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 

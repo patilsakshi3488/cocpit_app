@@ -92,6 +92,7 @@ class AuthService {
     final response = await ApiClient.post(
       ApiConfig.refresh,
       body: {"refreshToken": refreshToken},
+      retryOnAuthError: false, // 🛑 PREVENT INFINITE LOOP
     );
 
     if (response.statusCode == 200) {

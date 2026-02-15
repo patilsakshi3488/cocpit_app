@@ -1,5 +1,6 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:cocpit_app/views/story/editor/story_editor_screen.dart';
+import 'package:cocpit_app/views/story/preview/story_preview_screen.dart'; // âœ… ADDED
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -51,7 +52,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
       final file = File(picked.path);
 
       if (mounted) {
-        _launchEditor(file: file, isVideo: video);
+        // âœ… SIMPLE PATH: Bypass Editor for direct gallery picks
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StoryPreviewScreen(
+              storyFile: file,
+              isVideo: video,
+              isSimple: true, // âœ… New flag to avoid baking
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Error picking media: $e");
@@ -137,7 +148,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TabBar(
@@ -145,7 +156,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
               indicator: BoxDecoration(
                 color: const Color(0xFF2D3447),
                 borderRadius: BorderRadius.circular(8),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
               ),
               labelColor: Colors.blueAccent,
               unselectedLabelColor: Colors.white60,
@@ -211,7 +222,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white12),
             ),
@@ -257,11 +268,11 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
                     border: isSelected
                         ? Border.all(color: Colors.white, width: 3)
                         : null,
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
                         color: Colors.black26,
                         blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        offset: Offset(0, 2),
                       ),
                     ],
                   ),
@@ -304,7 +315,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white12),
             ),
@@ -369,8 +380,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? Colors.blueAccent.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
+              ? Colors.blueAccent.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? Colors.blueAccent : Colors.white24,
@@ -394,10 +405,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.blueAccent.withOpacity(0.1),
+          color: Colors.blueAccent.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.blueAccent.withOpacity(0.5),
+            color: Colors.blueAccent.withValues(alpha: 0.5),
             style: BorderStyle.none,
           ), // Can't do DashedBorder easily without package, simulating with effect or simple border
         ),
@@ -436,10 +447,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
         height: 160,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
+          color: color.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             width: 1,
             style: BorderStyle.solid,
           ),
@@ -450,7 +461,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),
@@ -475,3 +486,4 @@ class _CreateStoryScreenState extends State<CreateStoryScreen>
     );
   }
 }
+

@@ -1,9 +1,10 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:screenshot/screenshot.dart';
-import 'package:cocpit_app/services/feed_service.dart';
 import 'package:cocpit_app/services/story_service.dart';
+import 'package:cocpit_app/services/cloudinary_service.dart'; // âœ… ADDED
+import 'package:cocpit_app/utils/story_upload_mapper.dart';
 import 'editor/draggable_resizable_widget.dart';
 
 class ShareToStoryScreen extends StatefulWidget {
@@ -56,7 +57,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
   double _scale = 1.0;
   bool _isSharing = false;
 
-  List<Widget> _textOverlays = [];
+  final List<Widget> _textOverlays = [];
 
   @override
   void dispose() {
@@ -119,48 +120,49 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
   }
 
   Future<void> _createStory() async {
+    if (_isSharing) return;
     setState(() => _isSharing = true);
 
     try {
-      // 1. Capture Full Screenshot (Flattened: Post Card + Background + Text)
-      // This ensures the website sees exactly what the user designed.
-      final Uint8List? imageBytes = await _screenshotController.capture();
-      if (imageBytes == null) throw Exception("Failed to capture image");
-
-      // 2. Save to Temp File
-      final tempDir = Directory.systemTemp;
-      final file = await File(
-        '${tempDir.path}/story_share_${DateTime.now().millisecondsSinceEpoch}.png',
-      ).create();
-      await file.writeAsBytes(imageBytes);
-
-      // 3. Upload Media
-      final uploadedMedia = await FeedApi.uploadMedia([file]);
-      if (uploadedMedia.isEmpty) throw Exception("Failed to upload media");
-      final mediaUrl = uploadedMedia.first['url'];
-
-      // 4. Get Post ID
       final postId =
-          widget.post["_id"]?.toString() ??
           widget.post["post_id"]?.toString() ??
-          widget.post["id"]?.toString() ??
-          "";
+          widget.post["_id"]?.toString() ??
+          widget.post["id"]?.toString();
 
-      // 5. Create Metadata (Logic Only, Visuals are Baked)
-      final metadata = {
-        "version": "1.0",
-        "shared_post_id": postId,
-        // We can still send background info if we want, but it's baked now.
-        // We don't send layers because they are baked.
-      };
+      if (postId == null) throw Exception("shared_post_id missing");
 
-      // 6. Create Story
-      await StoryService.createStory(
-        title: null,
-        description: _descriptionController.text.trim(),
-        mediaUrl: mediaUrl,
-        storyMetadata: metadata,
+      // âœ… 1. BAKE (Capture Screenshot of Shared Post Composition)
+      // This ensures Web compatibility even for text-only posts or complex overlays.
+      final Uint8List? bakedBytes = await _screenshotController.capture(
+        delay: const Duration(milliseconds: 100),
       );
+      if (bakedBytes == null) throw Exception("Failed to capture story image");
+
+      // âœ… 2. SAVE & UPLOAD
+      final tempFile = File(
+        '${Directory.systemTemp.path}/shared_baked_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await tempFile.writeAsBytes(bakedBytes);
+
+      final uploadResult = await CloudinaryService.uploadFile(tempFile);
+      final mediaUrl = uploadResult['url'];
+      final publicId = uploadResult['public_id'];
+
+      // âœ… 3. BUILD PAYLOAD
+      final payload = StoryUploadMapper.buildPayload(
+        cloudinaryUrl: mediaUrl,
+        mediaType: "image",
+        publicId: publicId,
+        sharedPostId: postId,
+        editorMetadata: {
+          "backgroundStyle": _isGradient ? "gradient" : "solid",
+          "scale": _scale,
+          // Mobile still uses the rich post object if available
+        },
+        description: _descriptionController.text.trim(),
+      );
+
+      await StoryService.createStory(payload);
 
       if (mounted) {
         Navigator.pop(context);
@@ -174,12 +176,9 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
     } catch (e) {
       debugPrint("Share to story failed: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to share: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to share story")));
       }
     } finally {
       if (mounted) setState(() => _isSharing = false);
@@ -431,10 +430,11 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
     final media = widget.post['media'] ?? widget.post['media_urls'] ?? [];
     String? imageUrl;
     if (media is List && media.isNotEmpty) {
-      if (media.first is String)
+      if (media.first is String) {
         imageUrl = media.first;
-      else if (media.first is Map)
+      } else if (media.first is Map) {
         imageUrl = media.first['url'];
+      }
     }
 
     return Container(
@@ -445,7 +445,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -519,7 +519,7 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -539,10 +539,10 @@ class _ShareToStoryScreenState extends State<ShareToStoryScreen> {
           const SizedBox(height: 12),
 
           // Footer
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Tap to view post",
                 style: TextStyle(color: Colors.white54, fontSize: 12),
               ),

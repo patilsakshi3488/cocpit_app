@@ -163,7 +163,9 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
             context,
           ).showSnackBar(const SnackBar(content: Text("Post deleted")));
         }
-      } catch (_) {}
+      } catch (_) {
+        // Ignore delete errors
+      }
     }
   }
 
@@ -230,11 +232,13 @@ class _UserPostsFeedScreenState extends State<UserPostsFeedScreen> {
 
                           if (result == true) {
                             _fetchPosts();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Post updated successfully"),
-                              ),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Post updated successfully"),
+                                ),
+                              );
+                            }
                           }
                         }
                       : null,

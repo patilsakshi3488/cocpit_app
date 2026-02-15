@@ -16,6 +16,7 @@ class EventService {
     String? startDate,
     String? endDate,
     int limit = 50,
+
   }) async {
     String query = "";
     List<String> params = [];

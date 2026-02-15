@@ -13,7 +13,11 @@ class UserSearchService {
     );
 
     if (response.statusCode == 200) {
-      final List data = json.decode(response.body);
+      final dynamic decoded = json.decode(response.body);
+      final List data = (decoded is Map && decoded.containsKey('data'))
+          ? decoded['data']
+          : (decoded is List ? decoded : []);
+
       return data.map((e) => SearchUser.fromJson(e)).toList();
     } else {
       throw Exception("Failed to search users");

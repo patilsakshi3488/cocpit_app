@@ -1,4 +1,4 @@
-class PublicUser {
+﻿class PublicUser {
   final String id;
   final String fullName;
   final String? headline;
@@ -82,8 +82,7 @@ class PublicUser {
       }
 
       // Fallback: Check common flat keys if not found in 'resume' object
-      if (resumeUrl == null) {
-        resumeUrl = userData['resume_url'] ?? 
+      resumeUrl ??= userData['resume_url'] ?? 
                     json['resume_url'] ?? // Check root json
                     userData['resume_file'] ??
                     json['resume_file'] ?? // Check root json
@@ -91,7 +90,6 @@ class PublicUser {
                     json['cv'] ?? // Check root json
                     userData['cv_url'] ??
                     userData['document_url'];
-      }
 
       return PublicUser(
         id: id,
@@ -110,9 +108,6 @@ class PublicUser {
         mobileNumber: userData['mobile_number'],
       );
     } catch (e, stack) {
-      print("🔥 Error parsing PublicUser: $e");
-      print("🔥 Stack: $stack");
-      print("🔥 Data: $userData");
       // Return a safe fallback instead of crashing
       return PublicUser(
         id: userData['id']?.toString() ?? '',

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class ProfilePostSummaryWidget extends StatelessWidget {
   final Map<String, dynamic> post;
@@ -50,18 +50,10 @@ class ProfilePostSummaryWidget extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isPoll ? const Color(0xFF2B2D31) : theme.cardColor,
-          gradient: isPoll
-              ? const LinearGradient(
-                  colors: [
-                    Color(0xFF6B72FF),
-                    Color(0xFFD670FF),
-                  ], // Violet gradient
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          borderRadius: BorderRadius.circular(12),
+          color: isPoll
+              ? theme.primaryColor.withValues(alpha: 0.1)
+              : theme.cardColor.withValues(alpha: 0.5),
+          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
           image: bgImage != null
               ? DecorationImage(
                   image: NetworkImage(bgImage),
@@ -72,13 +64,6 @@ class ProfilePostSummaryWidget extends StatelessWidget {
                   ),
                 )
               : null,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Stack(
           children: [
@@ -160,7 +145,13 @@ class ProfilePostSummaryWidget extends StatelessWidget {
                 top: 4,
                 right: 4,
                 child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_horiz, color: Colors.white),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    color: (bgImage != null || isPoll)
+                        ? Colors.white
+                        : theme.iconTheme.color?.withValues(alpha: 0.6),
+                    size: 18,
+                  ),
                   onSelected: (value) {
                     if (value == 'edit') onEdit(postId);
                     if (value == 'privacy') onTogglePrivacy(postId, !isPrivate);
@@ -228,3 +219,4 @@ class ProfilePostSummaryWidget extends StatelessWidget {
     );
   }
 }
+

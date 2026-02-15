@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'profile_models.dart';
 import '../../services/profile_service.dart';
 
@@ -1074,7 +1074,7 @@ class _SkillsModalState extends State<SkillsModal> {
                   decoration: InputDecoration(
                     hintText: "Add a new skill...",
                     filled: true,
-                    fillColor: scheme.surfaceContainer.withOpacity(0.5),
+                    fillColor: scheme.surfaceContainer.withValues(alpha: 0.5),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1151,3 +1151,4 @@ class _SkillsModalState extends State<SkillsModal> {
     );
   }
 }
+

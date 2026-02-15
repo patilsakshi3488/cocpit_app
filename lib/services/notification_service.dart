@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:cocpit_app/services/story_service.dart';
 import 'package:cocpit_app/views/story/story_viewer_screen.dart';
-import 'package:flutter/foundation.dart';
 import 'socket_service.dart';
 import 'social_service.dart';
 import 'chat_service.dart';
@@ -55,10 +54,8 @@ class NotificationService {
   /// 🔄 Initialize: Fetch from API
   Future<void> loadNotifications() async {
     try {
-      final List<Map<String, dynamic>>? data = await _socialService
+      final List<Map<String, dynamic>> data = await _socialService
           .getNotifications();
-
-      if (data == null) return;
 
       // FILTER: Chat notifications should NOT stay inside notification list
       _notifications = data.where((n) {
@@ -171,8 +168,9 @@ class NotificationService {
         return true;
       }
       _processedMessageIds.add(msgId);
-      if (_processedMessageIds.length > 50)
+      if (_processedMessageIds.length > 50) {
         _processedMessageIds.remove(_processedMessageIds.first);
+      }
     }
     return false;
   }

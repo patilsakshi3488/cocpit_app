@@ -5,21 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:math' as math;
 import 'package:video_player/video_player.dart';
-import 'package:cocpit_app/services/feed_service.dart';
 import 'package:cocpit_app/utils/safe_network_image.dart';
 import 'package:cocpit_app/views/feed/post_detail_screen.dart';
-import 'package:cocpit_app/views/profile/public_profile_screen.dart';
 
 class StoryRenderer extends StatefulWidget {
   final Story story;
   final VideoPlayerController? videoController;
   final File? previewFile; // NEW: For local preview before upload
+  final bool isPreview; // ✅ NEW: Skip strict assertions during preview
 
   const StoryRenderer({
     super.key,
     required this.story,
     this.videoController,
     this.previewFile,
+    this.isPreview = false, // ✅ Default to false
   });
 
   @override
@@ -29,191 +29,116 @@ class StoryRenderer extends StatefulWidget {
 class _StoryRendererState extends State<StoryRenderer> {
   @override
   Widget build(BuildContext context) {
-    // ===============================================
-    // SHARED POST RENDERING (Instagram Style)
-    // ===============================================
-    if (widget.story.sharedPost != null) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          return Container(
-            color: Colors.black,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 1. Background
-                _buildBackground(
-                  widget.story.storyMetadata?['background'] ?? '',
-                ),
-
-                // 2. Post Card (Centered & Clickable)
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PostDetailScreen(
-                            post: {"id": widget.story.sharedPost!.postId},
-                          ),
-                        ),
-                      );
-                    },
-                    child: _buildSharedPostCard(widget.story.sharedPost!),
-                  ),
-                ),
-
-                // 3. (REMOVED: Author overlay handled by StoryViewer header instead)
-              ],
-            ),
-          );
-        },
-      );
-    }
-
-    // ===============================================
-    // NORMAL STORY RENDERING (Restored)
-    // ===============================================
-    final bool isImage = widget.story.mediaType == 'image';
-    final bool renderLayers =
-        widget.story.mediaType == 'video' || widget.story.mediaType == 'poll';
-
-    final sharedPostId = widget.story.storyMetadata?['shared_post_id'];
+    final bool isSharedPost =
+        widget.story.sharedPost != null ||
+        widget.story.storyMetadata?['shared_post_id'] != null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Container(
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (widget.story.storyMetadata?['background'] != null &&
-                  isImage == false)
-                _buildBackground(widget.story.storyMetadata!['background']),
+        // 1️⃣ SHARED POST (Highest Priority)
+        if (isSharedPost) {
+          return _buildSharedPost(constraints);
+        }
 
-              Positioned.fill(child: _buildSimpleMedia()),
-
-              if (renderLayers)
-                ...widget.story.layers.map(
-                  (layer) => _buildLayer(layer, constraints),
-                ),
-
-              if (sharedPostId != null)
-                _buildSharedPostInteraction(sharedPostId),
-            ],
-          ),
-        );
+        // 2️⃣ REGULAR STORY (Website Unified Stack logic)
+        return _buildUnifiedStory(constraints);
       },
     );
   }
 
-  Widget _buildSharedPostCard(SharedPost post) {
-    final imgUrl = (post.media.isNotEmpty)
-        ? (post.media.first is Map ? post.media.first['url'] : post.media.first)
-        : null;
+  Widget _buildUnifiedStory(BoxConstraints constraints) {
+    final layers = widget.story.layers;
+    final meta = widget.story.storyMetadata ?? {};
+    final String? background = meta['background'];
+    final bool hasVideoLayer = layers.any(
+      (l) => l.type == 'video' && (l.id == 'main-video' || l.id == 'layer'),
+    );
+    final bool hasImageLayer = layers.any(
+      (l) => l.type == 'image' && (l.id == 'main-image' || l.id == 'layer'),
+    );
 
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundImage: safeNetworkImage(post.author.avatar),
-                radius: 10,
-                backgroundColor: Colors.grey[200],
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  post.author.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+          // 1. Background (Color/Gradient or Blurred Underlay)
+          if (background != null)
+            _buildBackground(background)
+          else if (widget.story.mediaUrl.isNotEmpty && !widget.isPreview)
+            Opacity(
+              opacity: 0.5,
+              child: Container(
+                decoration: const BoxDecoration(color: Colors.black),
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black26,
+                    BlendMode.darken,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (imgUrl != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: CachedNetworkImage(
-                  imageUrl: imgUrl,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(color: Colors.grey),
+                  child: CachedNetworkImage(
+                    imageUrl: widget.story.mediaUrl,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
-          const Text(
-            "Tap to view full post",
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
+
+          // 2. Base Media (Exclusionary Rule)
+          // Only show base media if no layer of the same type exists
+          if (widget.story.mediaType == 'video' && !hasVideoLayer)
+            _buildBaseVideo()
+          else if (widget.story.mediaType == 'image' && !hasImageLayer)
+            _buildBaseImage(),
+
+          // 3. Live Layers (Text, Stickers, Images, Videos)
+          ...layers.map((layer) => _buildLayer(layer, constraints)),
         ],
       ),
     );
   }
 
-  Widget _buildSharedPostInteraction(String postId) {
-    return Positioned(
-      top: 100,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: GestureDetector(
-          onTap: () {
-            // Navigate to post (Implementation depends on routing)
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 4),
-              ],
+  Widget _buildBaseVideo() {
+    // Handle processing/failed states
+    final status = widget.story.storyMetadata?['media_status'];
+    if (status == 'processing') {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.white),
+            const SizedBox(height: 12),
+            Text(
+              "Processing Video...",
+              style: GoogleFonts.inter(color: Colors.white70),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text(
-                  "View Post",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: Colors.black, size: 18),
-              ],
-            ),
-          ),
+          ],
         ),
-      ),
-    );
+      );
+    }
+
+    if (widget.videoController != null &&
+        widget.videoController!.value.isInitialized) {
+      return Center(
+        child: AspectRatio(
+          aspectRatio: widget.videoController!.value.aspectRatio,
+          child: VideoPlayer(widget.videoController!),
+        ),
+      );
+    }
+    return const Center(child: CircularProgressIndicator(color: Colors.white));
   }
 
-  Future<Map<String, dynamic>?> _fetchPost(String id) async {
-    try {
-      return await FeedApi.fetchSinglePost(id);
-    } catch (e) {
-      return null;
+  Widget _buildBaseImage() {
+    if (widget.previewFile != null) {
+      return Image.file(widget.previewFile!, fit: BoxFit.contain);
     }
+    if (widget.story.mediaUrl.isEmpty) return const SizedBox.shrink();
+
+    return CachedNetworkImage(
+      imageUrl: widget.story.mediaUrl,
+      fit: BoxFit.contain,
+      errorWidget: (_, __, ___) => const Icon(Icons.error, color: Colors.white),
+    );
   }
 
   Widget _buildBackground(String bg) {
@@ -232,6 +157,129 @@ class _StoryRendererState extends State<StoryRenderer> {
       );
     }
     return Container(color: Colors.black);
+  }
+
+  Widget _buildSharedPost(BoxConstraints constraints) {
+    if (widget.story.sharedPost != null) {
+      final shared = widget.story.sharedPost!;
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PostDetailScreen(post: {"id": shared.postId}),
+                ),
+              );
+            },
+            child: Container(
+              width: 300,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 12),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundImage: safeNetworkImage(shared.author.avatar),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          shared.author.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (shared.media.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CachedNetworkImage(
+                        imageUrl: shared.media.first is Map
+                            ? shared.media.first['url']
+                            : shared.media.first,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Tap to view full post",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    // Fallback if sharedPost model didn't parse but metadata has ID
+    return _buildDefaultStory(constraints);
+  }
+
+  Widget _buildDefaultStory(BoxConstraints constraints) {
+    // 🟢 1. PREVIEW FILE TAKES PRIORITY (Local state)
+    if (widget.previewFile != null) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: Image.file(
+            widget.previewFile!,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) =>
+                const Icon(Icons.error, color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    // 🟢 2. FALLBACK TO NETWORK (Published state)
+    if (widget.story.mediaUrl.isNotEmpty) {
+      return Container(
+        color: Colors.black,
+        child: Center(
+          child: widget.story.mediaType == 'video'
+              ? _buildSimpleMedia() // Video player logic remains in _buildSimpleMedia
+              : CachedNetworkImage(
+                  imageUrl: widget.story.mediaUrl,
+                  fit: BoxFit.contain,
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.error, color: Colors.white),
+                ),
+        ),
+      );
+    }
+
+    // 🟡 3. LAST RESORT (Safety net for Preview mode)
+    return Container(
+      color: Colors.black,
+      child: const Center(
+        child: Text(
+          "Preparing story preview...",
+          style: TextStyle(color: Colors.white70, fontSize: 16),
+        ),
+      ),
+    );
   }
 
   Widget _buildSimpleMedia() {
@@ -278,7 +326,7 @@ class _StoryRendererState extends State<StoryRenderer> {
         alignment: Alignment.center,
         transform: Matrix4.identity()
           ..rotateZ(layer.rotation * math.pi / 180)
-          ..scale(layer.scale),
+          ..scale(layer.scale, layer.scale, 1.0),
         child: _buildLayerContent(layer, constraints),
       ),
     );

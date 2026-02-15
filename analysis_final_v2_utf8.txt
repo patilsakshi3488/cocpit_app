@@ -1,0 +1,31 @@
+﻿Analyzing cocpit_app...                                         
+
+warning - The stack trace variable 'stack' isn't used and can be removed - lib\models\public_user.dart:110:17 - unused_catch_stack
+warning - The declaration '_handleNewMessage' isn't referenced - lib\services\chat_service.dart:172:8 - unused_element
+   info - Empty catch block - lib\services\local_job_service.dart:21:19 - empty_catches
+warning - The value of the local variable 'isDark' isn't used - lib\services\theme_service.dart:141:16 - unused_local_variable
+warning - The value of the local variable 'isPublished' isn't used - lib\views\events\event_dashboard_screen.dart:218:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\events\event_register_sheet.dart:76:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\events\events_screen.dart:569:11 - unused_local_variable
+   info - Statements in an if should be enclosed in a block - lib\views\feed\career_moment_viewer.dart:97:7 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\views\feed\chat_screen.dart:658:44 - use_build_context_synchronously
+   info - Empty catch block - lib\views\feed\chat_screen.dart:1197:33 - empty_catches
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\jobs\job_details_screen.dart:443:11 - unused_local_variable
+   info - Use interpolation to compose strings and values - lib\views\jobs\jobs_screen.dart:47:20 - prefer_interpolation_to_compose_strings
+   info - The variable name 'Skills' isn't a lowerCamelCase identifier - lib\views\jobs\jobs_screen.dart:919:15 - non_constant_identifier_names
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\jobs\jobs_screen.dart:1429:11 - unused_local_variable
+warning - The value of the local variable 'isValid' isn't used - lib\views\jobs\jobs_screen.dart:1642:40 - unused_local_variable
+warning - The declaration '_buildPollCreator' isn't referenced - lib\views\post\create_post_screen.dart:1140:10 - unused_element
+warning - The value of the local variable 'textColor' isn't used - lib\views\profile\analytics\analytics_time_range.dart:17:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\profile\profile_header.dart:53:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\profile\profile_living_resume.dart:22:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\profile\profile_living_resume.dart:95:11 - unused_local_variable
+warning - The value of the local variable 'colorScheme' isn't used - lib\views\profile\profile_stats.dart:14:11 - unused_local_variable
+warning - The value of the field '_basePosition' isn't used - lib\views\story\editor\draggable_resizable_widget.dart:42:10 - unused_field
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\views\story\editor\draggable_resizable_widget.dart:105:15 - deprecated_member_use
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\views\story\editor\story_crop_screen.dart:53:27 - deprecated_member_use
+warning - The value of the field '_activeTool' isn't used - lib\views\story\editor\story_editor_screen.dart:48:25 - unused_field
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\views\story\editor\story_editor_screen.dart:184:43 - deprecated_member_use
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\views\story\story_renderer.dart:329:13 - deprecated_member_use
+warning - The value of the local variable 'theme' isn't used - lib\widgets\poll_widget.dart:174:11 - unused_local_variable
+

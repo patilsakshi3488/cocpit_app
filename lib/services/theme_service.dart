@@ -57,7 +57,7 @@ class ThemeService extends ChangeNotifier {
       primaryColor: primaryColor,
       cardColor: const Color(0xFFF8F9FB),
       dividerColor: const Color(0xFFE5E7EB),
-      
+
       colorScheme: const ColorScheme.light(
         surface: Color(0xFFF8F9FB),
         onSurface: onSurface,
@@ -71,11 +71,26 @@ class ThemeService extends ChangeNotifier {
       ),
 
       textTheme: const TextTheme(
-        displayLarge: TextStyle(color: onBackground, fontWeight: FontWeight.w900),
-        displayMedium: TextStyle(color: onBackground, fontWeight: FontWeight.w900),
-        displaySmall: TextStyle(color: onBackground, fontWeight: FontWeight.w900),
-        headlineLarge: TextStyle(color: onBackground, fontWeight: FontWeight.bold),
-        headlineMedium: TextStyle(color: onBackground, fontWeight: FontWeight.bold),
+        displayLarge: TextStyle(
+          color: onBackground,
+          fontWeight: FontWeight.w900,
+        ),
+        displayMedium: TextStyle(
+          color: onBackground,
+          fontWeight: FontWeight.w900,
+        ),
+        displaySmall: TextStyle(
+          color: onBackground,
+          fontWeight: FontWeight.w900,
+        ),
+        headlineLarge: TextStyle(
+          color: onBackground,
+          fontWeight: FontWeight.bold,
+        ),
+        headlineMedium: TextStyle(
+          color: onBackground,
+          fontWeight: FontWeight.bold,
+        ),
         titleLarge: TextStyle(color: onBackground, fontWeight: FontWeight.bold),
         titleMedium: TextStyle(color: onSurface, fontWeight: FontWeight.w600),
         titleSmall: TextStyle(color: onSurface, fontWeight: FontWeight.w600),
@@ -105,13 +120,15 @@ class ThemeService extends ChangeNotifier {
       ),
 
       iconTheme: const IconThemeData(color: onSurface),
-      
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -123,7 +140,7 @@ class ThemeService extends ChangeNotifier {
   ThemeData _buildTheme(Brightness brightness, {bool isNavy = false}) {
     final bool isDark = brightness == Brightness.dark;
     const primaryColor = Color(0xFF6366F1);
-    
+
     // Backgrounds
     final Color scaffoldBg;
     final Color surfaceColor;
@@ -148,7 +165,7 @@ class ThemeService extends ChangeNotifier {
       primaryColor: primaryColor,
       scaffoldBackgroundColor: scaffoldBg,
       cardColor: cardColor,
-      
+
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         brightness: brightness,
@@ -166,7 +183,10 @@ class ThemeService extends ChangeNotifier {
         displayLarge: TextStyle(color: textColor, fontWeight: FontWeight.w900),
         displayMedium: TextStyle(color: textColor, fontWeight: FontWeight.w900),
         displaySmall: TextStyle(color: textColor, fontWeight: FontWeight.w900),
-        headlineMedium: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+        headlineMedium: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+        ),
         titleLarge: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         titleMedium: TextStyle(color: textColor, fontWeight: FontWeight.w600),
         titleSmall: TextStyle(color: textColor, fontWeight: FontWeight.w600),
@@ -190,24 +210,23 @@ class ThemeService extends ChangeNotifier {
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: surfaceColor,
         selectedItemColor: primaryColor,
-        unselectedItemColor: subTextColor.withOpacity(0.5),
+        unselectedItemColor: subTextColor.withValues(alpha: 0.5),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
 
-      dividerTheme: const DividerThemeData(
-        color: Colors.white10,
-        thickness: 1,
-      ),
+      dividerTheme: const DividerThemeData(color: Colors.white10, thickness: 1),
 
       iconTheme: const IconThemeData(color: textColor),
-      
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

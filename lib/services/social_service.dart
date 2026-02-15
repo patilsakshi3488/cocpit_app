@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 // import '../config/api_config.dart';
 import 'api_client.dart';
@@ -23,11 +24,18 @@ class SocialService {
   }
 
   /// 💬 Get Messages for a Conversation
-  Future<List<Map<String, dynamic>>> getMessages(String conversationId) async {
+  Future<List<Map<String, dynamic>>> getMessages(
+    String conversationId, {
+    String? before,
+    int limit = 20,
+  }) async {
     try {
-      final response = await ApiClient.get(
-        "/conversations/$conversationId/messages",
-      );
+      String path = "/conversations/$conversationId/messages?limit=$limit";
+      if (before != null) {
+        path += "&before=$before";
+      }
+
+      final response = await ApiClient.get(path);
       debugPrint("Messages Response: ${response.statusCode}");
       if (response.statusCode == 200) {
         return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -117,5 +125,33 @@ class SocialService {
       debugPrint("❌ Error marking notification read: $e");
       return false;
     }
+  }
+
+  /// 🖼️ Send a Media Message
+  Future<Map<String, dynamic>?> sendMediaMessage({
+    required String targetUserId,
+    required File file,
+    required String mediaType,
+  }) async {
+    try {
+      final response = await ApiClient.multipart(
+        "/messages",
+        fileField: "media",
+        file: file,
+        fields: {"targetUserId": targetUserId, "media_type": mediaType},
+      );
+
+      debugPrint(
+        "SendMedia Response: ${response.statusCode} | ${response.body}",
+      );
+
+      if (response.statusCode == 201) {
+        final bodyJson = jsonDecode(response.body);
+        return bodyJson['data'];
+      }
+    } catch (e) {
+      debugPrint("❌ Error sending media message: $e");
+    }
+    return null;
   }
 }

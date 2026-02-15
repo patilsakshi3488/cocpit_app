@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cocpit_app/models/story_model.dart';
 import 'package:cocpit_app/services/story_service.dart';
 import 'package:cocpit_app/views/story/story_viewer_screen.dart';
@@ -83,7 +83,7 @@ class _StoryTrayState extends State<StoryTray> {
   }
 
   void _onStoryViewed() {
-    // ✅ FIX 4: Refresh on Return
+    // âœ… FIX 4: Refresh on Return
     if (!mounted) return;
     _fetchStories(); // Re-fetch to handle deletions/expirations
   }
@@ -128,23 +128,22 @@ class _StoryTrayState extends State<StoryTray> {
     String? videoUrl;
 
     if (hasStories) {
-      final latest = group.stories.last;
+      // âœ… FIX: Backend order != display order. Use reduce to find actual latest.
+      final latest = group.stories.reduce(
+        (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+      );
 
       if (latest.mediaType == 'image') {
         thumbUrl = latest.mediaUrl;
       } else if (latest.mediaType == 'video') {
-        // Use video thumbnail widget later
         thumbUrl = null;
         videoUrl = latest.mediaUrl;
-      } else if (latest.sharedPost != null &&
-          latest.sharedPost!.media.isNotEmpty) {
-        // Shared post preview image
-        final media = latest.sharedPost!.media.first;
-        if (media is Map) {
-          thumbUrl = media['url'];
-        } else if (media is String) {
-          thumbUrl = media;
-        }
+      }
+
+      // âœ… FIX: Shared Posts = No Image (Blur/Color fallback)
+      if (latest.sharedPost != null) {
+        thumbUrl = null;
+        videoUrl = null;
       }
     }
 
@@ -190,7 +189,7 @@ class _StoryTrayState extends State<StoryTray> {
               : null,
           color: (group.isCurrentUser && !hasStories)
               ? colorScheme.primary
-              : colorScheme.surfaceVariant,
+              : colorScheme.surfaceContainerHighest,
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -236,7 +235,7 @@ class _StoryTrayState extends State<StoryTray> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: colorScheme.onPrimary.withOpacity(0.2),
+                        color: colorScheme.onPrimary.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -345,7 +344,7 @@ class _StoryTrayState extends State<StoryTray> {
                       radius: 18,
                       backgroundColor: hasUnseen
                           ? colorScheme
-                                .primary // unseen → colored border
+                                .primary // unseen â†’ colored border
                           : colorScheme.outlineVariant,
                       child: CircleAvatar(
                         radius: 16,
@@ -393,3 +392,4 @@ class _StoryTrayState extends State<StoryTray> {
     _onStoryViewed();
   }
 }
+

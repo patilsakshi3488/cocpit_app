@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -48,10 +47,11 @@ class _JobsScreenState extends State<JobsScreen> {
 
       if (currentUserJson != null) {
         final Map<String, dynamic> user = jsonDecode(currentUserJson);
-        debugPrint("user : "+user.toString());
+        debugPrint("user : $user");
 
-        final accountType = user['profile']?['accountType'] ?? user['account_type'];
-        debugPrint("account type of user : "+accountType);
+        final accountType =
+            user['profile']?['accountType'] ?? user['account_type'];
+        debugPrint("account type of user : " + accountType);
         if (accountType != null &&
             accountType.toString().toLowerCase() == 'admin') {
           setState(() {
@@ -118,7 +118,65 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-
+  Widget _postJobHeader(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          debugPrint("POST JOB HEADER TAPPED");
+          _showPostJobModal(context);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.primaryColor.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.primaryColor,
+                child: Icon(
+                  Icons.add,
+                  color: theme.colorScheme.onPrimary,
+                  size: 14,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Post a job",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                    Text(
+                      "Find the right talent for your team",
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: theme.primaryColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _tabs(ThemeData theme, JobProvider provider) {
     return Padding(
@@ -132,7 +190,14 @@ class _JobsScreenState extends State<JobsScreen> {
               children: [
                 _tabPill(theme, "View Jobs", 0),
                 _tabPill(theme, "My Jobs", 1),
-                _tabPill(theme, "Offers", 2, badge: provider.jobOffers.length > 0 ? "${provider.jobOffers.length}" : null),
+                _tabPill(
+                  theme,
+                  "Offers",
+                  2,
+                  badge: provider.jobOffers.isNotEmpty
+                      ? "${provider.jobOffers.length}"
+                      : null,
+                ),
                 _tabPill(theme, "DASHBOARD (TEST)", 3), // Tracer Bullet
               ],
             ),
@@ -298,9 +363,9 @@ class _JobsScreenState extends State<JobsScreen> {
     }
 
     if (isLoading) {
-       return const SliverFillRemaining(
-         child: Center(child: CircularProgressIndicator()),
-       );
+      return const SliverFillRemaining(
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (list.isEmpty) {
@@ -311,8 +376,12 @@ class _JobsScreenState extends State<JobsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) =>
-              _jobCard(theme, list[index], provider, isHiringView: isHiringView),
+          (context, index) => _jobCard(
+            theme,
+            list[index],
+            provider,
+            isHiringView: isHiringView,
+          ),
           childCount: list.length,
         ),
       ),
@@ -343,7 +412,10 @@ class _JobsScreenState extends State<JobsScreen> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () {
-                  Provider.of<JobProvider>(context, listen: false).fetchJobs(); // Fetch all
+                  Provider.of<JobProvider>(
+                    context,
+                    listen: false,
+                  ).fetchJobs(); // Fetch all
                 },
                 child: Text(
                   "Clear filters",
@@ -385,8 +457,8 @@ class _JobsScreenState extends State<JobsScreen> {
                 height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                   color: theme.primaryColor.withValues(alpha: 0.1),
-                   shape: BoxShape.circle,
+                  color: theme.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
                 child: Text(
                   job.initials,
@@ -457,7 +529,9 @@ class _JobsScreenState extends State<JobsScreen> {
                             decoration: BoxDecoration(
                               // color: theme.primaryColor,
                               // shape: BoxShape.circle,
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -482,12 +556,16 @@ class _JobsScreenState extends State<JobsScreen> {
                       ? theme.colorScheme.secondary
                       : theme.textTheme.bodySmall?.color,
                 ),
-                onPressed: () {
-                    provider.toggleSaveJob(job.id, isSaved).catchError((e) {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(content: Text("Error: $e")),
-                         );
-                    });
+                onPressed: () async {
+                  try {
+                    await provider.toggleSaveJob(job.id, isSaved);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+                    }
+                  }
                 },
               ),
             ],
@@ -522,7 +600,6 @@ class _JobsScreenState extends State<JobsScreen> {
       ),
     );
   }
-
   Color _getStatusColor(String? status) {
     if (status == null) return Colors.blue;
     final s = status.toLowerCase();
@@ -727,7 +804,10 @@ class _JobsScreenState extends State<JobsScreen> {
           children: [
             const Icon(Icons.circle, color: Colors.greenAccent, size: 8),
             const SizedBox(width: 10),
-            Text("Active", style: theme.textTheme.bodyMedium), // Or use job status if available
+            Text(
+              "Active",
+              style: theme.textTheme.bodyMedium,
+            ), // Or use job status if available
           ],
         ),
         // const SizedBox(height: 8),
@@ -738,7 +818,7 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _actionButtons(ThemeData theme, Job job) {
     if (job.hasApplied) {
-       return Row(
+      return Row(
         children: [
           Expanded(child: _detailsBtn(theme, job)),
           const SizedBox(width: 16),
@@ -766,7 +846,7 @@ class _JobsScreenState extends State<JobsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: BorderSide(color: theme.dividerColor),
               shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
             child: Text(
@@ -803,11 +883,7 @@ class _JobsScreenState extends State<JobsScreen> {
     );
   }
 
-  Widget _detailsBtn(
-    ThemeData theme,
-    Job job, {
-    bool fullWidth = false,
-  }) {
+  Widget _detailsBtn(ThemeData theme, Job job, {bool fullWidth = false}) {
     var btn = OutlinedButton(
       onPressed: () => _showJobDetails(context, job),
       style: OutlinedButton.styleFrom(
@@ -848,7 +924,8 @@ class _JobsScreenState extends State<JobsScreen> {
 
   Widget _quickApplyBtn(ThemeData theme, Job job) {
     return ElevatedButton(
-      onPressed: () => _showJobDetails(context, job), // Redirect to details to apply
+      onPressed: () =>
+          _showJobDetails(context, job), // Redirect to details to apply
       style: ElevatedButton.styleFrom(
         backgroundColor: theme.primaryColor,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -885,25 +962,32 @@ class _JobsScreenState extends State<JobsScreen> {
         onApply: (filters) {
           setState(() => _currentFilters = filters);
           Provider.of<JobProvider>(context, listen: false).fetchJobs(
-            easyApply: filters['easyApply']!= true ?filters['easyApply']:null,
-            activelyHiring: filters['activelyHiring']!= true ?filters['activeHiring']:null,
-            location: filters['location'] != null && filters['location'].toString().isNotEmpty
+            easyApply: filters['easyApply'] != true
+                ? filters['easyApply']
+                : null,
+            activelyHiring: filters['activelyHiring'] != true
+                ? filters['activeHiring']
+                : null,
+            location:
+                filters['location'] != null &&
+                    filters['location'].toString().isNotEmpty
                 ? filters['location']
                 : null,
             workMode: filters['workMode'],
-            experienceLevel:
-            filters['expLevel'] != 'All Levels' ? filters['expLevel'] : null,
-            jobType:
-            filters['jobType'] != 'Full-time' ? filters['jobType'] : null,
+            experienceLevel: filters['expLevel'] != 'All Levels'
+                ? filters['expLevel']
+                : null,
+            jobType: filters['jobType'] != 'Full-time'
+                ? filters['jobType']
+                : null,
             companyType: filters['companyType'],
             industry: filters['industryType'],
             minSalary:
-            (filters['salaryRange'] as RangeValues).start.round() * 1000,
+                (filters['salaryRange'] as RangeValues).start.round() * 1000,
             maxSalary:
-            (filters['salaryRange'] as RangeValues).end.round() * 1000,
+                (filters['salaryRange'] as RangeValues).end.round() * 1000,
           );
         },
-
       ),
     );
   }
@@ -917,10 +1001,10 @@ class _JobsScreenState extends State<JobsScreen> {
       builder: (context) => _SearchModal(
         theme: theme,
         onSearch: (keywords, location) {
-           Provider.of<JobProvider>(context, listen: false).fetchJobs(
-             title: keywords,
-             location: location,
-           );
+          Provider.of<JobProvider>(
+            context,
+            listen: false,
+          ).fetchJobs(title: keywords, location: location);
         },
       ),
     );
@@ -998,14 +1082,15 @@ class _JobsScreenState extends State<JobsScreen> {
             if (!context.mounted) return;
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+              SnackBar(
+                content: Text(e.toString().replaceFirst('Exception: ', '')),
+              ),
             );
           }
         },
       ),
     );
   }
-
   void _editJob(Job job) {
     _showPostJobModal(context, jobToEdit: job);
   }
@@ -1063,9 +1148,7 @@ class _JobsScreenState extends State<JobsScreen> {
   void _showJobDetails(BuildContext context, Job job) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => JobDetailsScreen(job: job),
-      ),
+      MaterialPageRoute(builder: (_) => JobDetailsScreen(job: job)),
     );
   }
 }
@@ -1074,7 +1157,11 @@ class _FilterModal extends StatefulWidget {
   final ThemeData theme;
   final Map<String, dynamic>? initialFilters;
   final Function(Map<String, dynamic>) onApply;
-  const _FilterModal({required this.theme, this.initialFilters, required this.onApply});
+  const _FilterModal({
+    required this.theme,
+    this.initialFilters,
+    required this.onApply,
+  });
 
   @override
   State<_FilterModal> createState() => _FilterModalState();
@@ -1084,12 +1171,12 @@ class _FilterModalState extends State<_FilterModal> {
   bool easyApply = true;
   bool activelyHiring = true;
   String experienceLevel = "All Levels";
-  String location ="";
-  String workMode="";
+  String location = "";
+  String workMode = "";
   String jobType = "";
   String companyType = "";
   String industryType = "";
-  List<Skill> Skills=[];
+  List<Skill> Skills = [];
   RangeValues salaryRange = const RangeValues(50, 500);
 
   late TextEditingController _locationController;
@@ -1284,46 +1371,65 @@ class _FilterModalState extends State<_FilterModal> {
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Work Mode",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["Onsite", "Remote", "Hybrid"].map((e) => _choiceChip(
-                      e,
-                      workMode == e,
-                          (s) => setState(() => workMode = e),
-                    )).toList(),
+                    children: ["Onsite", "Remote", "Hybrid"]
+                        .map(
+                          (e) => _choiceChip(
+                            e,
+                            workMode == e,
+                            (s) => setState(() => workMode = e),
+                          ),
+                        )
+                        .toList(),
                   ),
 
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Company Type",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["MNC", "Startup", "Government", "NGO"].map((e) => _choiceChip(
-                      e,
-                      companyType == e,
-                          (s) => setState(() => companyType = e),
-                    )).toList(),
+                    children: ["MNC", "Startup", "Government", "NGO"]
+                        .map(
+                          (e) => _choiceChip(
+                            e,
+                            companyType == e,
+                            (s) => setState(() => companyType = e),
+                          ),
+                        )
+                        .toList(),
                   ),
 
                   Divider(color: widget.theme.dividerColor, height: 40),
                   Text(
                     "Industry",
-                    style: widget.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
-                    children: ["Technology", "Finance", "Healthcare", "Education"].map((e) => _choiceChip(
-                      e,
-                      industryType == e,
-                          (s) => setState(() => industryType = e),
-                    )).toList(),
+                    children:
+                        ["Technology", "Finance", "Healthcare", "Education"]
+                            .map(
+                              (e) => _choiceChip(
+                                e,
+                                industryType == e,
+                                (s) => setState(() => industryType = e),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ],
               ),
@@ -1332,7 +1438,6 @@ class _FilterModalState extends State<_FilterModal> {
           Padding(
             padding: const EdgeInsets.all(24),
             child: ElevatedButton(
-
               onPressed: () {
                 widget.onApply({
                   'easyApply': easyApply,

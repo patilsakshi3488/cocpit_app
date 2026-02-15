@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/feed_service.dart';
 
 // ==========================================
@@ -110,14 +110,11 @@ class _PollWidgetState extends State<PollWidget> {
   }
 
   Future<void> _onVotePressed(String selectedId) async {
-    print(
-      "DEBUG: _onVotePressed id=$selectedId. isActive=${_data.isActive}, isLoading=$_isLoading",
-    );
+    // print("DEBUG: Vote pressed");
     if (_isLoading || !_data.isActive) return;
 
     final previous = _data;
     final previousVote = _data.userVote;
-    print("DEBUG: previousVote=$previousVote");
 
     setState(() {
       _isLoading = true;
@@ -127,17 +124,13 @@ class _PollWidgetState extends State<PollWidget> {
           final newCount = previousVote == selectedId
               ? opt.voteCount - 1
               : opt.voteCount + 1;
-          print(
-            "DEBUG: Updating Option ${opt.id}: ${opt.voteCount} -> $newCount",
-          );
+          // print("DEBUG: Updating Option");
           return opt.copyWith(voteCount: newCount);
         }
 
         if (opt.id == previousVote) {
           final newCount = opt.voteCount - 1;
-          print(
-            "DEBUG: Decrementing Prev Option ${opt.id}: ${opt.voteCount} -> $newCount",
-          );
+          // print("DEBUG: Decrementing");
           return opt.copyWith(voteCount: newCount);
         }
 
@@ -148,26 +141,20 @@ class _PollWidgetState extends State<PollWidget> {
         options: updatedOptions,
         userVote: previousVote == selectedId ? null : selectedId,
       );
-      print(
-        "DEBUG: Optimistic State: userVote=${_data.userVote}, totalVotes=${_data.totalVotes}",
-      );
+      // print("DEBUG: Optimistic State");
     });
 
     try {
       if (previousVote == selectedId) {
-        print("DEBUG: calling DELETE API");
         await FeedApi.removePollVote(widget.postId);
       } else {
-        print("DEBUG: calling POST API");
         await FeedApi.votePoll(widget.postId, selectedId);
       }
 
-      print("DEBUG: fetching fresh POll");
       final postData = await FeedApi.fetchSinglePost(widget.postId);
 
       if (mounted && postData != null) {
         if (postData["poll"] != null) {
-          print("DEBUG: New Poll Data: ${postData["poll"]}");
           setState(() {
             _data = PollModel.fromJson(postData["poll"]);
           });
@@ -175,7 +162,6 @@ class _PollWidgetState extends State<PollWidget> {
         }
       }
     } catch (e) {
-      print("DEBUG: Error $e");
       if (mounted) setState(() => _data = previous);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -186,31 +172,13 @@ class _PollWidgetState extends State<PollWidget> {
   Widget build(BuildContext context) {
     // Current Theme Data
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // Determine background color: subtly distinct from the main surface
-    // If we are on a "surface", we might want a slightly different shade.
-    // Using surfaceContainer if available or cardColor.
-    final backgroundColor = theme.cardColor;
+    // final colorScheme = theme.colorScheme;
 
     return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          if (filterShadow(theme))
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-        ],
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.transparent, // Let PostCard handle background
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,18 +221,14 @@ class _PollWidgetState extends State<PollWidget> {
     // If voted, valid results are shown.
     // If selected, use primary color for highlight.
     // Progress Bar color: Light primary or subtle surface variant
-    final progressColor = isSelected
-        ? colorScheme.primary.withValues(alpha: 0.15)
-        : colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ); // Fallback for visibility
+    // final progressColor removed
 
     // Border Color: Primary if selected, otherwise subtle outline
     final borderColor = isSelected ? colorScheme.primary : theme.dividerColor;
 
     return InkWell(
       onTap: () => _onVotePressed(opt.id),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       child: Stack(
         children: [
           // 1. Container Frame (Background & Border)
@@ -272,11 +236,12 @@ class _PollWidgetState extends State<PollWidget> {
             height: 48,
             width: double.infinity,
             decoration: BoxDecoration(
-              // Default background is transparent so progress bar shows up clearly
-              // or match the "unfilled" portion
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+              color: theme.cardColor.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: borderColor,
+                width: isSelected ? 1.5 : 1,
+              ),
             ),
           ),
 
@@ -294,20 +259,9 @@ class _PollWidgetState extends State<PollWidget> {
                       width: constraints.maxWidth * value,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.primary.withValues(
-                                alpha: 0.2,
-                              ) // Highlighted fill
-                            : theme.dividerColor.withValues(
-                                alpha: 0.3,
-                              ), // Neutral fill
-                        borderRadius: BorderRadius.horizontal(
-                          left: const Radius.circular(
-                            10,
-                          ), // slightly less than container to fit inside border
-                          right: value >= 0.98
-                              ? const Radius.circular(10)
-                              : Radius.zero,
-                        ),
+                            ? colorScheme.primary.withValues(alpha: 0.15)
+                            : theme.dividerColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     );
                   },

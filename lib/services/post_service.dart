@@ -17,13 +17,13 @@ class PostService {
     List<String> mediaUrls = [];
 
     if (imageFile != null) {
-      mediaUrls.add(await CloudinaryService.uploadFile(imageFile));
+      final res = await CloudinaryService.uploadFile(imageFile);
+      mediaUrls.add(res['url']);
     }
 
     if (videoFile != null) {
-      mediaUrls.add(
-        await CloudinaryService.uploadFile(videoFile, isVideo: true),
-      );
+      final res = await CloudinaryService.uploadFile(videoFile, isVideo: true);
+      mediaUrls.add(res['url']);
     }
 
     final res = await http.post(

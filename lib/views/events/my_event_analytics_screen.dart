@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../models/event_model.dart';
 import '../../services/event_service.dart';
 
@@ -98,7 +98,7 @@ class _MyEventAnalyticsScreenState extends State<MyEventAnalyticsScreen> {
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundColor: theme.primaryColor.withOpacity(0.1),
+                          backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                           child: Text(
                             (user['name'] ?? 'U')[0].toUpperCase(),
                             style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold),
@@ -151,3 +151,4 @@ class _MyEventAnalyticsScreenState extends State<MyEventAnalyticsScreen> {
     ),
   );
 }
+

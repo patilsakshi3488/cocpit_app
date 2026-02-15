@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class NotificationToast extends StatelessWidget {
   final String title;
@@ -39,13 +39,13 @@ class NotificationToast extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                   border: Border.all(
-                    color: theme.colorScheme.outline.withOpacity(0.1),
+                    color: theme.colorScheme.outline.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
@@ -56,7 +56,7 @@ class NotificationToast extends StatelessWidget {
                       CircleAvatar(
                         backgroundImage: NetworkImage(avatarUrl!),
                         radius: 20,
-                        backgroundColor: theme.primaryColor.withOpacity(0.1),
+                        backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
                       ),
                       const SizedBox(width: 12),
                     ] else ...[
@@ -91,7 +91,7 @@ class NotificationToast extends StatelessWidget {
                             body,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.textTheme.bodyMedium?.color
-                                  ?.withOpacity(0.8),
+                                  ?.withValues(alpha: 0.8),
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -122,3 +122,4 @@ class NotificationToast extends StatelessWidget {
     );
   }
 }
+

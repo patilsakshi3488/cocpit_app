@@ -102,7 +102,7 @@ class _DraggableResizableWidgetState extends State<DraggableResizableWidget> {
         child: Transform(
           transform: Matrix4.identity()
             ..rotateZ(_rotation)
-            ..scale(_scale),
+            ..scale(_scale, _scale, 1.0),
           alignment: Alignment.center,
           child: widget.child,
         ),

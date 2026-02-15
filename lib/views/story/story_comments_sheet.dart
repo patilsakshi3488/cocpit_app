@@ -32,12 +32,10 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
   String? _currentUserId;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  late int _totalCount;
 
   @override
   void initState() {
     super.initState();
-    _totalCount = widget.initialCount;
     _initialize();
   }
 
@@ -63,8 +61,8 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
         setState(() {
           _comments = comments;
           _isLoading = false;
-          _totalCount = comments.length;
         });
+        widget.onCommentCountChanged?.call(comments.length);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -83,14 +81,15 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
       if (mounted) {
         setState(() {
           _comments.insert(0, newComment);
-          _totalCount++;
         });
-        widget.onCommentCountChanged?.call(_totalCount);
+        widget.onCommentCountChanged?.call(_comments.length);
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Failed to post comment")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Failed to post comment")));
+      }
     }
   }
 
@@ -162,10 +161,9 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     final int index = _comments.indexOf(comment);
     setState(() {
       _comments.remove(comment);
-      _totalCount--;
     });
 
-    widget.onCommentCountChanged?.call(_totalCount);
+    widget.onCommentCountChanged?.call(_comments.length);
 
     try {
       await StoryService.deleteComment(comment.id);
@@ -175,13 +173,11 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
         setState(() {
           if (index != -1 && index <= _comments.length) {
             _comments.insert(index, comment);
-            _totalCount++;
           } else {
             _comments.add(comment);
-            _totalCount++;
           }
         });
-        widget.onCommentCountChanged?.call(_totalCount);
+        widget.onCommentCountChanged?.call(_comments.length);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
@@ -195,8 +191,8 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     // final colorScheme = theme.colorScheme;
 
     // Based on provided image design
-    final sheetBg = Color(0xFF1E1E2C);
-    final textColor = Colors.white;
+    const sheetBg = Color(0xFF1E1E2C);
+    const textColor = Colors.white;
 
     if (widget.embedInSheet) {
       return Column(
@@ -206,7 +202,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _comments.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       "No comments yet.",
                       style: TextStyle(
@@ -275,9 +271,9 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
     }
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: sheetBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -316,7 +312,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
                 Row(
                   children: [
                     Text(
-                      "$_totalCount",
+                      "${_comments.length}",
                       style: const TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(width: 4),
@@ -338,7 +334,7 @@ class _StoryCommentsSheetState extends State<StoryCommentsSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _comments.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       "No comments yet.",
                       style: TextStyle(

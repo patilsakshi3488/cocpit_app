@@ -77,8 +77,8 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                     height: 64,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                       color: theme.primaryColor.withValues(alpha: 0.1),
-                       shape: BoxShape.circle,
+                      color: theme.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
                     ),
                     child: Text(
                       job.initials,
@@ -106,10 +106,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        job.companyName,
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                      Text(job.companyName, style: theme.textTheme.bodyLarge),
                       const SizedBox(width: 16),
                       Icon(
                         Icons.location_on_outlined,
@@ -117,10 +114,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        job.location,
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                      Text(job.location, style: theme.textTheme.bodyLarge),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -133,10 +127,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                         size: 16,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        job.postedTimeAgo,
-                        style: theme.textTheme.bodySmall,
-                      ),
+                      Text(job.postedTimeAgo, style: theme.textTheme.bodySmall),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -244,11 +235,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _section(
-              theme,
-              "About the Job",
-              job.description,
-            ),
+            _section(theme, "About the Job", job.description),
             if (job.hasApplied) ...[
               const SizedBox(height: 24),
               // Skills would be here if available in model, for now just Recruiter Insights
@@ -256,13 +243,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
             ],
             if (job.aboutCompany.isNotEmpty) ...[
               const SizedBox(height: 24),
-              _section(
-                theme,
-                "About ${job.companyName}",
-                job.aboutCompany,
-              ),
+              _section(theme, "About ${job.companyName}", job.aboutCompany),
             ],
-             const SizedBox(height: 16),
+            const SizedBox(height: 16),
             _companyInfoRow(theme, "Industry", job.industry),
             _companyInfoRow(theme, "Type", job.companyType),
             _companyInfoRow(theme, "Experience", job.experienceLevel),
@@ -282,7 +265,12 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
     );
   }
 
-  Widget _tag(ThemeData theme, String text, {bool isGreen = false, bool isBlue = false}) {
+  Widget _tag(
+    ThemeData theme,
+    String text, {
+    bool isGreen = false,
+    bool isBlue = false,
+  }) {
     Color bg = theme.dividerColor.withValues(alpha: 0.1);
     Color txt = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
@@ -302,11 +290,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: txt,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        style: TextStyle(color: txt, fontSize: 13, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -663,7 +647,6 @@ class _ApplyModalState extends State<_ApplyModal> {
   String? _emailError;
   String? _phoneError;
   String? _resumeError;
-
   @override
   void initState() {
     super.initState();
@@ -713,12 +696,10 @@ class _ApplyModalState extends State<_ApplyModal> {
   }
 
   Future<void> _pickResume() async {
-    fp.FilePickerResult? result =
-    await fp.FilePicker.platform.pickFiles(
+    fp.FilePickerResult? result = await fp.FilePicker.platform.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx','jpeg','png','jpg'],
+      allowedExtensions: ['pdf', 'doc', 'docx', 'jpeg', 'png', 'jpg'],
     );
-
 
     if (result != null) {
       setState(() {
@@ -730,13 +711,20 @@ class _ApplyModalState extends State<_ApplyModal> {
     }
   }
 
+
   bool _validateForm() {
     setState(() {
-      _fullNameError = _fullNameController.text.trim().isEmpty ? "Name is required" : null;
-      _emailError = !_emailController.text.contains("@") ? "Enter a valid email" : null;
+      _fullNameError = _fullNameController.text.trim().isEmpty
+          ? "Name is required"
+          : null;
+      _emailError = !_emailController.text.contains("@")
+          ? "Enter a valid email"
+          : null;
       
-      if (_phoneController.text.isNotEmpty && _phoneController.text.length < 10) {
-         _phoneError = "Enter a valid phone number";
+      if (_phoneController.text.isNotEmpty && _phoneController.text.length < 10
+         ) {
+         _phoneError = "Enter a valid phone number"
+         ;
       } else {
         _phoneError = null;
       }
@@ -755,7 +743,10 @@ class _ApplyModalState extends State<_ApplyModal> {
       }
     });
 
-    return _fullNameError == null && _emailError == null && _phoneError == null && _resumeError == null;
+    return _fullNameError == null &&
+        _emailError == null &&
+        _phoneError == null &&
+        _resumeError == null;
   }
 
   Future<void> _submitApplication() async {
@@ -787,7 +778,7 @@ class _ApplyModalState extends State<_ApplyModal> {
       if (mounted) {
         Navigator.pop(context); // Close modal
         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Application submitted successfully!")),
+          const SnackBar(content: Text("Application submitted successfully!")),
         );
       }
     } catch (e) {
@@ -809,9 +800,9 @@ class _ApplyModalState extends State<_ApplyModal> {
              }
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(errorMessage)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
         
         // If it was the "already applied" case, we might want to close the modal too
         if (e.toString().contains("Already applied") && mounted) {
@@ -864,7 +855,12 @@ class _ApplyModalState extends State<_ApplyModal> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _inputLabel(theme, "Full Name"),
-                  _field(theme, _fullNameController, "John Doe", _fullNameError), 
+                  _field(
+                    theme,
+                    _fullNameController,
+                    "John Doe",
+                    _fullNameError,
+                  ), 
                   const SizedBox(height: 16),
 
                   Row(
@@ -874,7 +870,12 @@ class _ApplyModalState extends State<_ApplyModal> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _inputLabel(theme, "Email"),
-                             _field(theme, _emailController, "john@example.com", _emailError),
+                             _field(
+                    theme,
+                    _emailController,
+                    "john@example.com",
+                    _emailError,
+                  ),
                           ],
                         ),
                       ),
@@ -884,7 +885,12 @@ class _ApplyModalState extends State<_ApplyModal> {
                            crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _inputLabel(theme, "Mobile Number (Optional)"),
-                             _field(theme, _phoneController, "+1 1234567890", _phoneError),
+                             _field(
+                    theme,
+                    _phoneController,
+                    "+1 1234567890",
+                    _phoneError,
+                  ),
                           ],
                         ),
                       ),
@@ -1062,7 +1068,13 @@ class _ApplyModalState extends State<_ApplyModal> {
                   const SizedBox(height: 24),
 
                   _inputLabel(theme, "Cover Note (Optional)"),
-                  _field(theme, _coverNoteController, "Tell us why you're a good fit...",null, 4),
+                  _field(
+                    theme,
+                    _coverNoteController,
+                    "Tell us why you're a good fit...",
+                    null,
+                    4,
+                  ),
 
                   const SizedBox(height: 40),
 
@@ -1078,15 +1090,17 @@ class _ApplyModalState extends State<_ApplyModal> {
                         ),
                       ),
                       child: _isSubmitting
-                        ?  CircularProgressIndicator(color:theme.colorScheme.onPrimary,)
-                        : Text(
-                          "Submit Application",
-                          style: TextStyle(
-                            color: theme.colorScheme.onPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                          ? CircularProgressIndicator(
+                              color: theme.colorScheme.onPrimary,
+                            )
+                          : Text(
+                              "Submit Application",
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -1111,7 +1125,13 @@ class _ApplyModalState extends State<_ApplyModal> {
     );
   }
 
-  Widget _field(ThemeData theme, TextEditingController controller, String hint, [String? errorText,int maxLines = 1]) {
+  Widget _field(
+    ThemeData theme,
+    TextEditingController controller,
+    String hint, [
+    String? errorText,
+    int maxLines = 1,
+  ]) {
     return TextField(
       controller: controller,
       maxLines: maxLines,

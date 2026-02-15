@@ -197,19 +197,25 @@ class SocketService {
     });
 
     // 4. Typing Indicators
-    _socket!.on('isTyping', (data) {
-      debugPrint('⌨️ [Socket] isTyping Received: $data');
+    void handleTyping(data) {
+      debugPrint('⌨️ [Socket] typing Received: $data');
       if (data != null && data is Map) {
         _typingController.add(Map<String, dynamic>.from(data));
       }
-    });
+    }
 
-    _socket!.on('stoppedTyping', (data) {
-      debugPrint('🛑 [Socket] stoppedTyping Received: $data');
+    _socket!.on('isTyping', handleTyping);
+    _socket!.on('typing', handleTyping);
+
+    void handleStopTyping(data) {
+      debugPrint('🛑 [Socket] stopTyping Received: $data');
       if (data != null && data is Map) {
         _stopTypingController.add(Map<String, dynamic>.from(data));
       }
-    });
+    }
+
+    _socket!.on('stoppedTyping', handleStopTyping);
+    _socket!.on('stopTyping', handleStopTyping);
 
     // 6. Initial Online Users (Hypothetical - catching common patterns)
     _socket!.on('onlineUsers', (data) {
@@ -247,12 +253,22 @@ class SocketService {
     if (_socket != null) {
       debugPrint('🔌 [Socket] Disconnecting...');
       _socket!.disconnect();
-      // Do NOT close/nullify the socket immediately if you want to keep listeners?
-      // Actually, for a clean slate, let's keep the object but clear the token.
-      // But _socket.close() destroys it.
-      // Better to just disconnect.
       _currentToken = null;
       _connectionStatusController.add(false);
+    }
+  }
+
+  void pause() {
+    if (_socket != null && _socket!.connected) {
+      debugPrint('⏸️ [Socket] Pausing (disconnecting)...');
+      _socket!.disconnect();
+    }
+  }
+
+  void resume() {
+    if (_socket != null && !_socket!.connected) {
+      debugPrint('▶️ [Socket] Resuming (connecting)...');
+      _socket!.connect();
     }
   }
 

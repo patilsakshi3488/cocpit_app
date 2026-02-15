@@ -6,8 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/applicant_model.dart';
 import '../../services/job_provider.dart';
-import '../../services/secure_storage.dart';
-import '../profile/profile_screen.dart';
 import '../profile/public_profile_screen.dart';
 
 class JobApplicantsView extends StatefulWidget {
@@ -499,3 +497,4 @@ class _JobApplicantsViewState extends State<JobApplicantsView> {
      return Colors.orange;
   }
 }
+

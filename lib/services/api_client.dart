@@ -9,14 +9,10 @@ import 'secure_storage.dart';
 
 class ApiClient {
   // ===================== GET =====================
-  static Future<http.Response> get(
-    String path, {
-    bool retryOnAuthError = true,
-  }) async {
+  static Future<http.Response> get(String path) async {
     return _authorizedRequest(
       (headers) =>
           http.get(Uri.parse("${ApiConfig.baseUrl}$path"), headers: headers),
-      retryOnAuthError: retryOnAuthError,
     );
   }
 
@@ -24,7 +20,6 @@ class ApiClient {
   static Future<http.Response> post(
     String path, {
     Map<String, dynamic>? body,
-    bool retryOnAuthError = true,
   }) async {
     return _authorizedRequest(
       (headers) => http.post(
@@ -32,7 +27,6 @@ class ApiClient {
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ),
-      retryOnAuthError: retryOnAuthError,
     );
   }
 
@@ -40,7 +34,6 @@ class ApiClient {
   static Future<http.Response> put(
     String path, {
     Map<String, dynamic>? body,
-    bool retryOnAuthError = true,
   }) async {
     return _authorizedRequest(
       (headers) => http.put(
@@ -48,7 +41,6 @@ class ApiClient {
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ),
-      retryOnAuthError: retryOnAuthError,
     );
   }
 
@@ -56,7 +48,6 @@ class ApiClient {
   static Future<http.Response> patch(
     String path, {
     Map<String, dynamic>? body,
-    bool retryOnAuthError = true,
   }) async {
     return _authorizedRequest(
       (headers) => http.patch(
@@ -64,19 +55,14 @@ class ApiClient {
         headers: headers,
         body: body != null ? jsonEncode(body) : null,
       ),
-      retryOnAuthError: retryOnAuthError,
     );
   }
 
   // ===================== DELETE =====================
-  static Future<http.Response> delete(
-    String path, {
-    bool retryOnAuthError = true,
-  }) async {
+  static Future<http.Response> delete(String path) async {
     return _authorizedRequest(
       (headers) =>
           http.delete(Uri.parse("${ApiConfig.baseUrl}$path"), headers: headers),
-      retryOnAuthError: retryOnAuthError,
     );
   }
 
@@ -88,7 +74,6 @@ class ApiClient {
     List<File>? files,
     Map<String, String>? fields,
     String method = "POST",
-    bool retryOnAuthError = true,
   }) async {
     final token = await AppSecureStorage.getAccessToken();
     final request = http.MultipartRequest(
@@ -101,6 +86,20 @@ class ApiClient {
     }
 
     if (fields != null) request.fields.addAll(fields);
+
+    // Handle single file
+    // if (file != null) {
+    //   request.files.add(
+    //     await http.MultipartFile.fromPath(fileField, file.path),
+    //   );
+    // }
+    //
+    // // Handle multiple files
+    // if (files != null) {
+    //   for (var f in files) {
+    //     request.files.add(await http.MultipartFile.fromPath(fileField, f.path));
+    //   }
+    // }
 
     if (file != null) {
       request.files.add(
@@ -129,28 +128,13 @@ class ApiClient {
     }
 
     final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
-
-    // Manual 401 handling for multipart since it doesn't use _authorizedRequest directly
-    // but typically we might want to unify this. For now leaving as is or adapting:
-    if (retryOnAuthError && response.statusCode == 401) {
-      final newToken = await AuthService().refreshAccessToken();
-      if (newToken != null) {
-        // Recursive retry for multipart is complex because streams are consumed.
-        // Ideally we'd need to recreate the request.
-        // For this specific 'infinite loop' fix, the critical part is JSON requests.
-        // We'll leave multipart retry logic 'as-is' (non-recursive/manual) or FIXME.
-        // Given the task, let's focus on the JSON methods which recursive.
-      }
-    }
-    return response;
+    return http.Response.fromStream(streamed);
   }
 
   // ===================== CORE AUTH HANDLER =====================
   static Future<http.Response> _authorizedRequest(
-    Future<http.Response> Function(Map<String, String> headers) request, {
-    bool retryOnAuthError = true,
-  }) async {
+    Future<http.Response> Function(Map<String, String> headers) request,
+  ) async {
     String? token = await AppSecureStorage.getAccessToken();
 
     Map<String, String> headers() => {
@@ -158,26 +142,25 @@ class ApiClient {
       if (token != null) "Authorization": "Bearer $token",
     };
 
+    print("Making request to: ${ApiConfig.baseUrl}"); // Debug URL
     try {
-      // â±ï¸ Add 10s timeout (Chat needs faster feedback)
-      http.Response response = await request(
-        headers(),
-      ).timeout(const Duration(seconds: 10));
+      http.Response response = await request(headers());
+      print("Response status: ${response.statusCode}");
+      print("Response body: ${response.body}");
 
-
-      // ðŸ” Retry with fresh token
-      if (retryOnAuthError && response.statusCode == 401) {
+      // 🔁 Retry with fresh token
+      if (response.statusCode == 401) {
+        print("401 detected, refreshing token...");
         final newToken = await AuthService().refreshAccessToken();
         if (newToken != null) {
           token = newToken;
-          response = await request(
-            headers(),
-          ).timeout(const Duration(seconds: 10));
+          response = await request(headers());
         }
       }
 
       return response;
     } catch (e) {
+      print("ApiClient Error: $e");
       rethrow;
     }
   }

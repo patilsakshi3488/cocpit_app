@@ -25,7 +25,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: const AppTopBar(searchType: SearchType.notifications),
+      appBar: AppTopBar(searchType: SearchType.notifications),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

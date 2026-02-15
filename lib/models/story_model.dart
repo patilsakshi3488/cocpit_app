@@ -1,4 +1,4 @@
-import 'dart:convert'; // NEW
+import 'dart:convert';// NEW
 
 class StoryGroup {
   final StoryAuthor author;
@@ -69,7 +69,8 @@ class Story {
     }
   }
 
-  final SharedPost? sharedPost; // NEW: For parsed shared post data
+  final SharedPost? sharedPost;
+  // NEW: For parsed shared post data
 
   Story({
     required this.storyId,

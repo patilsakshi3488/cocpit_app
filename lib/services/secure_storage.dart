@@ -74,6 +74,55 @@ class AppSecureStorage {
     }
   }
 
+  // 📝 SUBMITTED APPLICATIONS (PERSISTENCE)
+  static Future<void> saveSubmittedApplication(String applicationId) async {
+    final userId = await getCurrentUserId() ?? 'guest';
+    final List<String> currentList = await getSubmittedApplications();
+    if (!currentList.contains(applicationId)) {
+      currentList.add(applicationId);
+      await _storage.write(
+        key: 'submitted_apps_$userId',
+        value: jsonEncode(currentList),
+      );
+    }
+  }
+
+  static Future<List<String>> getSubmittedApplications() async {
+    final userId = await getCurrentUserId() ?? 'guest';
+    final String? jsonString = await _storage.read(key: 'submitted_apps_$userId');
+    if (jsonString == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      return decoded.map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> saveSubmittedJobId(String jobId) async {
+    final userId = await getCurrentUserId() ?? 'guest';
+    final List<String> currentList = await getSubmittedJobIds();
+    if (!currentList.contains(jobId)) {
+      currentList.add(jobId);
+      await _storage.write(
+        key: 'submitted_jobs_$userId',
+        value: jsonEncode(currentList),
+      );
+    }
+  }
+
+  static Future<List<String>> getSubmittedJobIds() async {
+    final userId = await getCurrentUserId() ?? 'guest';
+    final String? jsonString = await _storage.read(key: 'submitted_jobs_$userId');
+    if (jsonString == null) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      return decoded.map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// 🕵️ Helper to extract name from stored user JSON
   static Future<String?> getUserName() async {
     try {

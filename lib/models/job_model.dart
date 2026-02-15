@@ -17,11 +17,23 @@ class Job {
   final bool activelyHiring;
   final DateTime createdAt;
   final String? recruiterName;
+  final int applicantCount;
 
   // UI State fields (mutable as they can change)
   bool isSaved;
   bool hasApplied;
   String? applicationStatus;
+  String? applicationId;
+  
+  // Task Assignment fields
+  bool taskAssigned;
+  String? taskType;
+  String? taskInstruction;
+
+  // Applicant Submission fields
+  String? submissionUrl;
+  String? submissionType;
+  DateTime? submissionDate;
 
   Job({
     required this.id,
@@ -42,21 +54,29 @@ class Job {
     required this.activelyHiring,
     required this.createdAt,
     this.recruiterName,
+    this.applicantCount = 0,
     this.isSaved = false,
     this.hasApplied = false,
     this.applicationStatus,
+    this.taskAssigned = false,
+    this.taskType,
+    this.taskInstruction,
+    this.submissionUrl,
+    this.submissionType,
+    this.submissionDate,
+    this.applicationId,
   });
 
   factory Job.fromJson(Map<String, dynamic> json) {
     return Job(
-      id: json['job_id']?.toString() ?? '',
+      id: json['job_id']?.toString() ?? json['_id']?.toString() ?? json['id']?.toString() ?? '',
       recruiterId: json['recruiter_id']?.toString() ?? '',
       title: json['title'] ?? '',
       companyName: json['company_name'] ?? '',
       location: json['location'] ?? '',
       description: json['description'] ?? '',
-      salaryMin: _parseInt(json['salary_min']),
-      salaryMax: _parseInt(json['salary_max']),
+      salaryMin: _parseInt(json['salary_min'] ?? json['minSalary']),
+      salaryMax: _parseInt(json['salary_max'] ?? json['maxSalary']),
       jobType: json['job_type'] ?? '',
       workMode: json['work_mode'] ?? '',
       companyType: json['company_type'] ?? '',
@@ -67,13 +87,30 @@ class Job {
       activelyHiring: json['actively_hiring'] == true,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       recruiterName: json['recruiter_name'],
+      applicantCount: _parseInt(json['applicant_count'] ?? json['applicants'] ?? json['applicants_count']),
       isSaved: json['isSaved'] == true,
       hasApplied: json['hasApplied'] == true,
-      applicationStatus: json['applicationStatus'],
+      applicationStatus: json['applicationStatus'] ?? json['application_status'],
+      applicationId: json['application_id']?.toString() ?? json['applicationId']?.toString() ?? (json['application'] is Map ? json['application']['_id']?.toString() : null),
+      taskAssigned: json['task_assigned'] == true || json['taskAssigned'] == true || json['screeningRequired'] == true || json['screening_required'] == true,
+      taskType: json['task_type'] ?? json['taskType'] ?? json['screeningType'] ?? json['screening_type'],
+      taskInstruction: json['task_instruction'] ?? 
+                      json['taskInstruction'] ?? 
+                      json['instruction'] ?? 
+                      json['submission_instruction'] ?? 
+                      json['submissionInstruction'] ?? 
+                      json['question'] ??
+                      json['screeningQuestion'] ??
+                      json['screening_question'] ??
+                      (json['task'] is Map ? (json['task']['instruction'] ?? json['task']['description'] ?? json['task']['question']) : null),
+      submissionUrl: json['submission_url'] ?? json['submissionUrl'],
+      submissionType: json['submission_type'] ?? json['submissionType'],
+      submissionDate: DateTime.tryParse(json['submission_date']?.toString() ?? json['submissionDate']?.toString() ?? ''),
     );
   }
 
   static int _parseInt(dynamic value) {
+    if (value == null) return 0;
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 0;
     if (value is double) return value.toInt();

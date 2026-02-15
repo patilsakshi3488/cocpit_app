@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import '../config/api_config.dart';
 import 'api_client.dart';
 import '../models/job_model.dart';
@@ -43,6 +42,17 @@ class JobService {
       return data.map((json) => Job.fromJson(json)).toList();
     } else {
       throw Exception("Failed to load jobs");
+    }
+  }
+
+  Future<Job> getJobById(String id) async {
+    final response = await ApiClient.get("${ApiConfig.jobs}/$id");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return Job.fromJson(data);
+    } else {
+      throw Exception("Failed to load job details");
     }
   }
 
@@ -141,6 +151,40 @@ class JobService {
     }
   }
 
+  Future<void> submitTask({
+    required String applicationId,
+    File? file,
+    String? url,
+  }) async {
+    if (file == null && url == null) {
+      throw Exception("Submission requires a file or URL");
+    }
+
+    if (file != null) {
+      // Use Multipart
+      final response = await ApiClient.multipart(
+        "${ApiConfig.jobs}/applications/$applicationId/submit-task",
+        fileField: "file",
+        file: file,
+        fields: {},
+      );
+      if (response.statusCode != 200) {
+        throw Exception("Failed to submit task: ${response.body}");
+      }
+    } else {
+      // Use JSON with responseUrl
+      final response = await ApiClient.post(
+        "${ApiConfig.jobs}/applications/$applicationId/submit-task",
+        body: {
+          "responseUrl": url,
+        },
+      );
+      if (response.statusCode != 200) {
+        throw Exception("Failed to submit task: ${response.body}");
+      }
+    }
+  }
+
 
   Future<bool> applyJob({
     required String jobId,
@@ -148,24 +192,47 @@ class JobService {
     required String email,
     required String phone,
     String? coverNote,
-    required File resumeFile,
+    File? resumeFile,
+    String? resumeUrl,
   }) async {
-    final response = await ApiClient.multipart(
-      "${ApiConfig.jobs}/$jobId/apply",
-      fileField: "resume",
-      file: resumeFile,
-      fields: {
-        "full_name": fullName,
-        "email": email,
-        "phone": phone,
-        if (coverNote != null) "cover_note": coverNote,
-      },
-    );
-    if (response.statusCode != 201) {
-      throw Exception("Failed to apply for job: ${response.body}");
+    if (resumeFile == null && resumeUrl == null) {
+      throw Exception("Resume is required (file or url)");
     }
-    return response.statusCode == 201 ;
 
+    if (resumeFile != null) {
+      // Use Multipart
+      final response = await ApiClient.multipart(
+        "${ApiConfig.jobs}/$jobId/apply",
+        fileField: "resume",
+        file: resumeFile,
+        fields: {
+          "full_name": fullName,
+          "email": email,
+          "phone": phone,
+          if (coverNote != null) "cover_note": coverNote,
+        },
+      );
+      if (response.statusCode != 201) {
+        throw Exception("Failed to apply for job: ${response.body}");
+      }
+      return response.statusCode == 201;
+    } else {
+      // Use JSON with resume_url
+      final response = await ApiClient.post(
+        "${ApiConfig.jobs}/$jobId/apply",
+        body: {
+          "full_name": fullName,
+          "email": email,
+          "phone": phone,
+          "resume_url": resumeUrl,
+          if (coverNote != null) "cover_note": coverNote,
+        },
+      );
+      if (response.statusCode != 201) {
+        throw Exception("Failed to apply for job: ${response.body}");
+      }
+      return response.statusCode == 201;
+    }
   }
 
   Future<void> saveJob(String jobId) async {
@@ -193,5 +260,39 @@ class JobService {
     if (validParams.isEmpty) return "";
 
     return "?${validParams.entries.map((e) => "${e.key}=${Uri.encodeComponent(e.value)}").join("&")}";
+  }
+
+  Future<void> updateApplicationStatus(String applicationId, String status, {Map<String, dynamic>? screening}) async {
+    final body = {
+      "status": status,
+      if (screening != null) "screening": screening,
+    };
+
+    final response = await ApiClient.put(
+      "${ApiConfig.jobs}/applications/$applicationId/status",
+      body: body,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to update status: ${response.body}");
+    }
+  }
+  Future<void> updateJob(String jobId, Map<String, dynamic> jobData) async {
+    final response = await ApiClient.put(
+      "${ApiConfig.jobs}/$jobId",
+      body: jobData,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to update job: ${response.body}");
+    }
+  }
+
+  Future<void> deleteJob(String jobId) async {
+    final response = await ApiClient.delete("${ApiConfig.jobs}/$jobId");
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to delete job: ${response.body}");
+    }
   }
 }

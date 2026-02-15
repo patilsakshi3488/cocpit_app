@@ -4,6 +4,7 @@ import '../models/job_model.dart';
 import '../models/applicant_model.dart';
 import 'job_service.dart';
 
+
 class JobProvider extends ChangeNotifier {
   final JobService _jobService = JobService();
 
@@ -104,9 +105,13 @@ class JobProvider extends ChangeNotifier {
 
     try {
       _myApplications = await _jobService.getMyApplications(status: status);
+
+      // Simulation removed to fetch real data from backend
     } catch (e) {
       debugPrint("Error fetching applications: $e");
     } finally {
+      
+      
       _isLoadingMyApps = false;
       notifyListeners();
     }
@@ -163,6 +168,31 @@ class JobProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> fetchJobDetails(String jobId) async {
+    try {
+      final updatedJob = await _jobService.getJobById(jobId);
+      
+      // Update local lists with the new job details
+      void updateList(List<Job> list) {
+        final index = list.indexWhere((j) => j.id == jobId);
+        if (index != -1) {
+          list[index] = updatedJob;
+        }
+      }
+
+      updateList(_allJobs);
+      updateList(_jobOffers);
+      updateList(_myApplications);
+      updateList(_mySavedJobs);
+      updateList(_myPostedJobs);
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching job details: $e");
+      // Don't rethrow necessarily, just log
+    }
+  }
+
   // Actions
 
   Future<void> createJob(Map<String, dynamic> jobData) async {
@@ -181,7 +211,8 @@ class JobProvider extends ChangeNotifier {
     required String email,
     required String phone,
     String? coverNote,
-    required File resumeFile,
+    File? resumeFile,
+    String? resumeUrl,
   }) async {
     try {
       await _jobService.applyJob(
@@ -191,12 +222,34 @@ class JobProvider extends ChangeNotifier {
         phone: phone,
         coverNote: coverNote,
         resumeFile: resumeFile,
+        resumeUrl: resumeUrl,
       );
 
       // Update local state to reflect application
       _updateLocalJobStatus(jobId, hasApplied: true);
       fetchMyApplications();
 
+      fetchMyApplications();
+
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> submitTask({
+    required String applicationId,
+    File? file,
+    String? url,
+  }) async {
+    try {
+      await _jobService.submitTask(
+        applicationId: applicationId,
+        file: file,
+        url: url,
+      );
+      // Refresh applications to update status locally if needed
+      // Or just notify listeners if we want to update UI immediately
+      fetchMyApplications();
     } catch (e) {
       rethrow;
     }
@@ -229,7 +282,13 @@ class JobProvider extends ChangeNotifier {
     }
   }
 
+  void markJobAsApplied(String jobId) {
+    _updateLocalJobStatus(jobId, hasApplied: true);
+    notifyListeners();
+  }
+
   void _updateLocalJobStatus(String jobId, {bool? isSaved, bool? hasApplied}) {
+    // ... existing implementation ...
     void updateList(List<Job> list) {
       for (var job in list) {
         if (job.id == jobId) {
@@ -247,5 +306,16 @@ class JobProvider extends ChangeNotifier {
     updateList(_myApplications);
     updateList(_mySavedJobs);
     updateList(_myPostedJobs);
+  }
+
+  Future<void> updateApplicationStatus(String applicationId, String status, {Map<String, dynamic>? screening}) async {
+    try {
+      await _jobService.updateApplicationStatus(applicationId, status, screening: screening);
+      // We might want to refresh applicants list if we have the jobId context
+      // But we don't have jobId here easily unless we pass it or store it.
+      // For now, caller should refresh.
+    } catch (e) {
+      rethrow;
+    }
   }
 }

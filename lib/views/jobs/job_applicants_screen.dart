@@ -352,12 +352,26 @@ class _JobApplicantsViewState extends State<JobApplicantsView> {
                       child: const Text("Review Task", style: TextStyle(color: Colors.white)),
                     ),
                   )
-              else if (applicant.status == 'Task Assignment' || (applicant.submissionInstruction != null && applicant.submissionInstruction!.isNotEmpty))
+                  else if (applicant.status == 'Task Assignment' || (applicant.submissionInstruction != null && applicant.submissionInstruction!.isNotEmpty))
                    Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {}, 
+                      onPressed: () {
+                         // DEBUG: Show raw JSON to troubleshoot
+                        showDialog(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text("Debug Info"),
+                            content: SingleChildScrollView(
+                              child: Text(
+                                "Raw JSON:\n${jsonEncode(applicant.debugJson)}\n\nParsed URL: ${applicant.submissionUrl}",
+                                style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                              ),
+                            ),
+                          ),
+                        );
+                      }, 
                       icon: const Icon(Icons.access_time, size: 16, color: Colors.orange),
-                      label: const Text("Waiting for Task", style: TextStyle(color: Colors.orange)),
+                      label: const Text("Waiting for task (Debug)", style: TextStyle(color: Colors.orange)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange.withOpacity(0.1),
                         shadowColor: Colors.transparent,

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
-
 import '../config/api_config.dart';
 import 'api_client.dart';
 import '../models/job_model.dart';

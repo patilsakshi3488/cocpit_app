@@ -54,7 +54,7 @@ dependencies:
   cached_network_image: ^3.4.1
   google_fonts: ^8.0.0
   audioplayers: ^6.5.1
-  video_player: ^2.10.1
+#  video_player: ^2.10.1
   
   # 🎤 Audio Recording
   record: ^6.0.0
